@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PageTune options</title>
+    <style>
+      :root { font-family: system-ui, sans-serif; color: #0f172a; }
+      body { max-width: 40rem; margin: 1.5rem auto; padding: 0 1rem; }
+      h1 { font-size: 1.25rem; }
+      label { display: block; font-size: 0.85rem; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+      input[type="text"] { width: 100%; padding: 0.5rem; font: inherit; box-sizing: border-box; }
+      .hint { font-size: 0.8rem; color: #64748b; margin: 0.25rem 0 0; }
+      .row { margin: 0.5rem 0; }
+      button { font: inherit; padding: 0.45rem 0.8rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #4f46e5; color: #fff; cursor: pointer; }
+      .ok { color: #15803d; font-size: 0.85rem; margin: 0.5rem 0 0; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <h1>PageTune</h1>
+    <p class="hint">The key is kept in browser sync storage on this device.</p>
+    <label for="key">OpenAI API key (optional, for AI summary + chat)</label>
+    <input type="password" id="key" autocomplete="off" />
+    <p class="hint">Create a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI</a> or use another provider in a later version.</p>
+    <label for="model">Model</label>
+    <input type="text" id="model" placeholder="gpt-4o-mini" />
+    <div class="row">
+      <label>
+        <input type="checkbox" id="aiEnabled" checked />
+        Enable AI (when key is set)
+      </label>
+    </div>
+    <p class="ok" id="status"></p>
+    <button type="button" id="save">Save</button>
+    <script src="options.js"></script>
+  </body>
+</html>

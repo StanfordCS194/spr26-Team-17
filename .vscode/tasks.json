@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PageTune: open Chrome with extension (test page)",
+      "type": "shell",
+      "command": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "args": [
+        "--load-extension=${workspaceFolder}/extension",
+        "--user-data-dir=${workspaceFolder}/.chrome-pagetune-profile",
+        "https://en.wikipedia.org/wiki/Association_football"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "detail": "Launches a dedicated Chrome profile with your unpacked extension and a sample page."
+    }
+  ]
+}
