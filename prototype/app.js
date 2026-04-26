@@ -2336,31 +2336,95 @@ function addMessage(role, text, meta = "") {
   message.innerHTML = `${escapeHTML(text)}${meta ? `<small>${escapeHTML(meta)}</small>` : ""}`;
   elements.chatMessages.append(message);
   elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+  return message;
 }
 
-function handleUserMessage(text) {
-  addMessage("user", text);
-  const intent = parseIntent(text);
-  applyIntent(intent);
-  const matches = getFilteredProducts();
-  if (intent.actions.includes("compare")) {
-    state.compareIds = matches.slice(0, 2).map((product) => product.id);
+async function requestAssistantIntent(text) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      message: text,
+      filters: state.filters,
+      sort: state.sort,
+      view: state.view
+    })
+  });
+
+  if (!response.ok) {
+    let message = "Assistant request failed.";
+
+    try {
+      const payload = await response.json();
+      if (payload?.error) message = payload.error;
+    } catch {
+      // Ignore JSON parse errors and use the default message.
+    }
+
+    throw new Error(message);
   }
-  render();
-  addMessage("bot", buildReply(text, intent, matches));
+
+  return response.json();
 }
 
-elements.chatForm.addEventListener("submit", (event) => {
+function setChatPending(isPending) {
+  elements.chatInput.disabled = isPending;
+  elements.chatForm.querySelector('button[type="submit"]').disabled = isPending;
+}
+
+async function handleUserMessage(text) {
+  addMessage("user", text);
+  setChatPending(true);
+  const pendingMessage = addMessage("bot", "Thinking...");
+
+  try {
+    const payload = await requestAssistantIntent(text);
+    const intent = {
+      updates: payload.intent?.updates || {},
+      addedFeatures: payload.intent?.addedFeatures || [],
+      actions: payload.intent?.actions || [],
+      notes: payload.intent?.notes || []
+    };
+
+    applyIntent(intent);
+    const matches = getFilteredProducts();
+    if (intent.actions.includes("compare")) {
+      state.compareIds = matches.slice(0, 2).map((product) => product.id);
+    }
+
+    render();
+    pendingMessage.remove();
+    addMessage("bot", payload.reply || buildReply(text, intent, matches), payload.source === "fallback" ? "Local fallback" : "AI assistant");
+  } catch (error) {
+    const intent = parseIntent(text);
+    applyIntent(intent);
+    const matches = getFilteredProducts();
+    if (intent.actions.includes("compare")) {
+      state.compareIds = matches.slice(0, 2).map((product) => product.id);
+    }
+
+    render();
+    pendingMessage.remove();
+    addMessage("bot", buildReply(text, intent, matches), "Local fallback");
+    console.error("Chat request failed, using local fallback:", error);
+  } finally {
+    setChatPending(false);
+  }
+}
+
+elements.chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = elements.chatInput.value.trim();
   if (!text) return;
   elements.chatInput.value = "";
-  handleUserMessage(text);
+  await handleUserMessage(text);
 });
 
 document.querySelectorAll("[data-prompt]").forEach((button) => {
-  button.addEventListener("click", () => {
-    handleUserMessage(button.dataset.prompt);
+  button.addEventListener("click", async () => {
+    await handleUserMessage(button.dataset.prompt);
   });
 });
 

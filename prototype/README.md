@@ -6,6 +6,18 @@ A self-contained prototype for a chat-driven sportswear storefront. The shopper 
 
 Open `index.html` in a browser. No build step or local server is required.
 
+## AI Chat Setup
+
+The storefront now supports a server-side OpenAI chat endpoint at `api/chat.js`.
+
+For local or deployed use:
+
+1. Set `OPENAI_API_KEY` in your environment.
+2. If you deploy on Vercel, add `OPENAI_API_KEY` in the project environment variables.
+3. Serve the `prototype` folder through a local server or Vercel so the browser can call `/api/chat`.
+
+If the API key is missing or the request fails, the chatbox falls back to the original local intent parser.
+
 ## Deploy on Vercel
 
 Import the GitHub repository into Vercel and use these project settings:
