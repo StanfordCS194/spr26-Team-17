@@ -1,5 +1,12 @@
 # spr26-Team-17 (sliders branch)
 
+NO ONE TOUCH THIS IM TRYING TO GET A BETTER CHAT THATS NOT JUST A FILTER AND IM TRYING TO ADD SLIDERS TO SEE IF IT LOOKS GOOD
+ALSO THIS IS A WEB EXTENSION THAT CAN BE PLUGGED INTO CHROME AND SAFEI, IM TESTING ON THEM RN SO IT'S TAKING A WHILE, BUT IM HOPING TRYING THIS TO MOVE FROM JUST A WEBSITE WILL HELP US SEE SOMETHING HELPFUL 
+
+
+
+
+
 Browser extension **PageTune** in `extension/`: a collapsible side panel with **sliders** for text and image size, **heuristic page analysis** (no network), optional **OpenAI** summary and a **separate chat** for page-specific help (not a product filter like the `main` prototype).
 
 ## Run in Chrome (dev)
