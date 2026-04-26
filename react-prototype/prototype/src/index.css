@@ -1,0 +1,48 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    background-image:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)),
+      linear-gradient(to right, rgba(107, 120, 255, 0.04), rgba(107, 120, 255, 0));
+  }
+
+  ::selection {
+    background: rgba(89, 104, 255, 0.18);
+  }
+
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .section-shell {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-8;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-smoke;
+  }
+
+  .surface-card {
+    @apply rounded-panel border border-line bg-white shadow-panel;
+  }
+
+  .soft-grid {
+    background-image:
+      linear-gradient(rgba(89, 104, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(89, 104, 255, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
