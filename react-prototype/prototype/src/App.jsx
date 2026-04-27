@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
+import ChatBot from "./components/ChatBot";
 import Navbar from "./components/Navbar";
 import ProductPage from "./components/ProductPage";
 import HomePage from "./pages/HomePage";
@@ -72,6 +73,7 @@ export default function App() {
         </Routes>
       </AnimatePresence>
       <Footer />
+      <ChatBot />
     </div>
   );
 }
