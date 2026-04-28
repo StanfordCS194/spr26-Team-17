@@ -17,6 +17,17 @@ npm install
 npm run dev
 ```
 
+## Gemini setup
+
+Create a local `.env` in `react-prototype/prototype` with:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+The React app sends assistant requests to `/api/gemini-chat`. In local Vite dev, that route is handled by the Vite server middleware. In deployment, the same path is served by `api/gemini-chat.js`.
+
 ## Build
 
 ```bash

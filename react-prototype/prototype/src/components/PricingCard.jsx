@@ -1,10 +1,10 @@
 import { motion } from "framer-motion";
 
-export default function PricingCard({ tier, theme, featured = false }) {
+export default function PricingCard({ tier, theme, featured = false, highlightedLabel = "" }) {
   return (
     <motion.article
       whileHover={{ y: -8 }}
-      className={`surface-card h-full p-6 ${featured ? "border-black/15" : ""}`}
+      className={`surface-card h-full p-6 ${featured ? "border-black/15" : ""} ${highlightedLabel ? "ring-2 ring-accent/30" : ""}`}
       style={{
         background: featured
           ? `linear-gradient(180deg, white, ${theme.panelTint})`
@@ -18,14 +18,21 @@ export default function PricingCard({ tier, theme, featured = false }) {
           </div>
           <div className="mt-3 text-4xl font-semibold text-ink">{tier.price}</div>
         </div>
-        {featured ? (
-          <div
-            className="rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ background: theme.chipBg, color: theme.chipText }}
-          >
-            Popular
-          </div>
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {featured ? (
+            <div
+              className="rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ background: theme.chipBg, color: theme.chipText }}
+            >
+              Popular
+            </div>
+          ) : null}
+          {highlightedLabel ? (
+            <div className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">
+              {highlightedLabel}
+            </div>
+          ) : null}
+        </div>
       </div>
       <p className="mt-5 text-sm leading-6 text-smoke">{tier.note}</p>
       <button
