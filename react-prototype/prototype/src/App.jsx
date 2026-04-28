@@ -158,7 +158,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-[100svh] min-h-dvh">
       <ScrollManager />
       <Navbar
         aiEnabled={aiModeOpen}

@@ -7,6 +7,18 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  #root {
+    @apply isolate min-h-[100svh];
+  }
+
+  @supports (height: 100dvh) {
+    #root {
+      min-height: 100dvh;
+    }
   }
 
   body {
@@ -28,7 +40,8 @@
 
 @layer components {
   .section-shell {
-    @apply mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-8;
+    /* Safe horizontal insets avoid flush content on notched phones; cap with Tailwind paddings */
+    @apply mx-auto w-full max-w-7xl pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] sm:pl-[max(1.25rem,env(safe-area-inset-left,0px))] sm:pr-[max(1.25rem,env(safe-area-inset-right,0px))] lg:pl-[max(1.5rem,env(safe-area-inset-left,0px))] lg:pr-[max(1.5rem,env(safe-area-inset-right,0px))];
   }
 
   .eyebrow {

@@ -1,3 +1,5 @@
+import { tryMatchCanonicalResponse } from "./chatTestMatrix.js";
+
 const geminiResponseSchema = {
   type: "object",
   additionalProperties: false,
@@ -101,18 +103,25 @@ function buildPrompt(message, messages) {
   return [
     "You are PulseWear AI, a personalization assistant for a smartwatch and wearable website.",
     "Your job is to understand what the shopper is looking for and return both a natural reply and structured website personalization.",
-    "The product options are only:",
-    "- PulseBand: athletes, runners, gym users, recovery, training performance",
-    "- PulseRing: professionals, wellness users, older adults, sleep, stress, health insights",
-    "- PulseWatch: students, tech users, multitaskers, productivity, apps, all-in-one daily use",
-    "Choose the single best-fit device based on the user's goals.",
-    "Keep the reply concise, warm, and specific to the user's request.",
-    "Priorities should be short phrases like fitness, recovery, sleep, focus, productivity, stress, health, budget, lifestyle.",
-    "featuredSegments should be the audience cards on the homepage that deserve emphasis.",
-    "comparisonFocus should be the device that should stand out in the comparison table.",
-    "highlightedPricingTier should be the plan tier that best fits the shopper for the recommended device.",
-    "followUpPrompts should be short clickable suggestions for the assistant.",
-    "Hero title and CTA should sound polished and website-ready.",
+    "",
+    "Map intent to ONE device only:",
+    "- recommendedSlug MUST be pulseband when athletics, cardio, race prep, gyms, lifts, pacing, readiness, or repetitive training dominates.",
+    "- recommendedSlug MUST be pulsering when minimal hardware, affordability, wellness, sleep, stress calm, discreet office wear or ring-style summaries dominate.",
+    "- recommendedSlug MUST be pulsewatch when multitasking calendars, coursework, reminders, LTE/connectivity abroad, dense notifications, productivity or student life dominates.",
+    "If multiple themes appear, prioritize the shopper's MAIN goal phrase (not incidental words). Avoid defaulting to PulseWatch.",
+    "",
+    "The short product personas are:",
+    "- PulseBand: athletes, runners, gym users — recovery/training bias",
+    "- PulseRing: professionals/wellness/older-adult insight — discreet health bias",
+    "- PulseWatch: students, tech users, multitaskers — apps + orchestration bias",
+    "Choose the single best-fit device.",
+    "Keep the reply concise, warm, and specific.",
+    "Priorities: short phrases (fitness, recovery, sleep, focus, productivity, stress, budget, lifestyle).",
+    "featuredSegments: audience tiles on the homepage.",
+    "comparisonFocus MUST match recommendedProductName exactly.",
+    "highlightedPricingTier: plausible tier label for THAT device lineup.",
+    "followUpPrompts: 2–4 short next requests.",
+    "Hero title/description/CTA should match the slug you picked.",
     `Recent conversation: ${JSON.stringify(recentMessages)}`,
     `Latest user message: ${message}`
   ].join("\n");
@@ -124,13 +133,6 @@ export async function handleGeminiChatRequest(req, res) {
     return sendJson(res, 405, { error: "Method not allowed." });
   }
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    return sendJson(res, 503, {
-      error: "GEMINI_API_KEY is not configured on the server."
-    });
-  }
-
   try {
     const body = await readJsonBody(req);
     const message = typeof body.message === "string" ? body.message.trim() : "";
@@ -138,6 +140,20 @@ export async function handleGeminiChatRequest(req, res) {
 
     if (!message) {
       return sendJson(res, 400, { error: "A message is required." });
+    }
+
+    if (process.env.SKIP_CANONICAL_CASES !== "1") {
+      const canonical = tryMatchCanonicalResponse(message);
+      if (canonical) {
+        return sendJson(res, 200, canonical);
+      }
+    }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      return sendJson(res, 503, {
+        error: "GEMINI_API_KEY is not configured on the server."
+      });
     }
 
     const geminiResponse = await fetch(

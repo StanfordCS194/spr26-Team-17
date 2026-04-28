@@ -6,7 +6,7 @@ const socialLinks = ["Instagram", "LinkedIn", "X", "YouTube"];
 
 export default function Footer() {
   return (
-    <footer className="border-t border-line bg-white/80 py-16">
+    <footer className="border-t border-line bg-white/80 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pt-16">
       <div className="section-shell grid gap-12 lg:grid-cols-[1.2fr,1fr,1fr,1fr]">
         <div className="max-w-sm">
           <div className="text-lg font-semibold">PulseWear</div>

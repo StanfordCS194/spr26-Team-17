@@ -108,7 +108,7 @@ export default function Navbar({
   const mobileLinks = useMemo(() => navItems, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/5 bg-canvas/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-black/5 bg-canvas/80 pt-[env(safe-area-inset-top,0px)] backdrop-blur-xl">
       <div className="section-shell flex h-18 items-center justify-between gap-4">
         <Link
           to="/"
@@ -117,8 +117,10 @@ export default function Navbar({
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-black text-sm font-black text-white shadow-[0_12px_24px_-18px_rgba(0,0,0,0.6)]">
             PW
           </div>
-          <div>
-            <div className="text-lg font-semibold">PulseWear</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-lg font-semibold sm:overflow-visible sm:whitespace-normal">
+              PulseWear
+            </div>
             <div className="text-xs text-smoke">smart wearables</div>
           </div>
         </Link>
@@ -177,7 +179,7 @@ export default function Navbar({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="border-t border-line bg-canvas/95 lg:hidden"
+            className="max-h-[min(70vh,calc(100dvh-8rem))] overflow-y-auto overscroll-contain border-t border-line bg-canvas/95 lg:hidden"
           >
             <div className="section-shell py-4">
               <div className="surface-card flex flex-col gap-2 p-4">

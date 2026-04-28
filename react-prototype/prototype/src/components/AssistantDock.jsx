@@ -15,7 +15,11 @@ export default function AssistantDock({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 18 }}
           transition={{ duration: 0.24 }}
-          className="fixed bottom-5 right-5 z-[60] w-[calc(100vw-2.5rem)] max-w-sm"
+          className="fixed z-[60] w-[calc(100vw-2rem)] max-w-sm sm:w-[calc(100vw-2.5rem)]"
+          style={{
+            bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
+            right: "max(1.25rem, env(safe-area-inset-right, 0px))"
+          }}
         >
           <div className="overflow-hidden rounded-[28px] border border-[#d8def0] bg-[linear-gradient(135deg,rgba(255,255,255,0.97),rgba(238,242,255,0.98))] p-4 shadow-[0_30px_90px_-40px_rgba(58,73,221,0.32)]">
             <div className="flex items-start justify-between gap-3">
