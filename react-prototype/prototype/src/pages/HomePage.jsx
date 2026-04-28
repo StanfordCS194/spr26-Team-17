@@ -7,14 +7,31 @@ import Reveal from "../components/Reveal";
 import SegmentCard from "../components/SegmentCard";
 import { audienceSegments, comparisonRows, productCatalog } from "../data/siteData";
 
-export default function HomePage({ personalization }) {
-  const orderedProducts = personalization?.recommendedSlug
-    ? [...productCatalog].sort((a, b) => {
-        if (a.slug === personalization.recommendedSlug) return -1;
-        if (b.slug === personalization.recommendedSlug) return 1;
-        return 0;
-      })
-    : productCatalog;
+function orderedCatalog(products, personalization) {
+  const top = personalization?.topFits?.map((f) => f.slug).filter(Boolean) ?? [];
+  const slug =
+    personalization?.recommendedSlug ||
+    (personalization?.comparisonFocus &&
+      products.find((p) => p.name === personalization.comparisonFocus)?.slug);
+  const order = top.length ? top : slug ? [slug] : [];
+
+  if (!order.length) return products;
+
+  const seen = new Set();
+  const ranked = [];
+  for (const s of order) {
+    const p = products.find((x) => x.slug === s);
+    if (p && !seen.has(s)) {
+      seen.add(s);
+      ranked.push(p);
+    }
+  }
+  const rest = products.filter((p) => !seen.has(p.slug));
+  return [...ranked, ...rest];
+}
+
+export default function HomePage({ personalization, productSpotlightSlug }) {
+  const orderedProducts = orderedCatalog(productCatalog, personalization);
 
   const featuredProduct = orderedProducts[0];
   const featuredSegments = personalization?.featuredSegments || [];
@@ -40,13 +57,29 @@ export default function HomePage({ personalization }) {
                 </div>
                 <div className="rounded-[26px] border border-black/5 bg-white/90 px-5 py-4 shadow-panel">
                   <div className="text-xs font-semibold uppercase tracking-[0.16em] text-smoke">
-                    Recommended now
+                    Recommended lineup
                   </div>
-                  <div className="mt-2 text-xl font-semibold text-ink">
-                    {personalization.recommendedProductName}
-                  </div>
-                  <div className="mt-1 text-sm text-smoke">
-                    {personalization.focusAudience} • {personalization.priorities.join(", ")}
+                  <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm font-semibold text-ink">
+                    {(personalization.topFits?.length
+                      ? personalization.topFits
+                      : [
+                          {
+                            rank: 1,
+                            productName: personalization.recommendedProductName,
+                            whyItFits: "Primary recommendation from your goals."
+                          }
+                        ]
+                    ).map((fit) => (
+                      <li key={`${fit.rank}-${fit.productName}`} className="marker:font-semibold">
+                        <span className="text-ink">{fit.productName}</span>
+                        {fit.whyItFits ? (
+                          <span className="mt-0.5 block text-xs font-normal leading-snug text-smoke">{fit.whyItFits}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-3 text-xs text-smoke">
+                    {personalization.focusAudience} • {(personalization.priorities ?? []).join(", ")}
                   </div>
                 </div>
               </div>
@@ -68,17 +101,22 @@ export default function HomePage({ personalization }) {
           </Reveal>
 
           <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {orderedProducts.map((product, index) => (
-              <ProductCard
-                key={product.slug}
-                product={product}
-                featuredReason={
-                  personalization && index === 0
-                    ? `Chosen for ${personalization.focusAudience.toLowerCase()} needs with emphasis on ${personalization.priorities.join(", ")}.`
-                    : ""
-                }
-              />
-            ))}
+            {orderedProducts.map((product, index) => {
+              const fit = personalization?.topFits?.find((f) => f.slug === product.slug);
+              const featuredReason = fit
+                ? `${fit.productName}: ${fit.whyItFits}`
+                : personalization && index === 0
+                  ? `Chosen for ${personalization.focusAudience.toLowerCase()} needs with emphasis on ${(personalization.priorities ?? []).join(", ")}.`
+                  : "";
+              return (
+                <ProductCard
+                  key={product.slug}
+                  product={product}
+                  featuredReason={featuredReason}
+                  pulseSpotlight={productSpotlightSlug === product.slug}
+                />
+              );
+            })}
           </div>
         </div>
       </section>
@@ -123,7 +161,13 @@ export default function HomePage({ personalization }) {
           <div className="mt-10">
             <ComparisonTable
               rows={comparisonRows}
-              focusedDevice={personalization?.comparisonFocus}
+              focusedDevices={
+                personalization?.topFits?.length
+                  ? personalization.topFits.map((f) => f.productName)
+                  : personalization?.comparisonFocus
+                    ? [personalization.comparisonFocus]
+                    : undefined
+              }
             />
           </div>
         </div>

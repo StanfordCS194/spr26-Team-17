@@ -1,4 +1,5 @@
 import { tryMatchCanonicalResponse } from "./chatTestMatrix.js";
+import { enrichChatPayload } from "../src/lib/sessionFits.js";
 
 const geminiResponseSchema = {
   type: "object",
@@ -98,32 +99,39 @@ function extractTextFromResponse(payload) {
 }
 
 function buildPrompt(message, messages) {
-  const recentMessages = Array.isArray(messages) ? messages.slice(-6) : [];
+  const recentMessages = Array.isArray(messages) ? messages.slice(-24) : [];
 
   return [
-    "You are PulseWear AI, a personalization assistant for a smartwatch and wearable website.",
-    "Your job is to understand what the shopper is looking for and return both a natural reply and structured website personalization.",
+    "You are PulseWear AI — write like a sharp, empathetic store associate on the floor, not like internal analytics software.",
+    "Read the ENTIRE conversation — every user message is cumulative context. Goals added in later bubbles still matter.",
+    "Your natural-language reply MUST reflect the combined story across the thread, not only the latest sentence.",
+    "Voice: warm, confident, consultative — like you're talking beside someone, not writing a handbook.",
+    "Never paste or quasi-quote earlier user messages verbatim. Paraphrase in fresh wording so it sounds respectful, not robotic.",
+    "The storefront flow may prepend a lifestyle tableau sentence before your JSON reply is stitched in; do NOT echo or restate that preamble in your `reply`'s opening—answer forward with fresh substance (trade-offs, device nuance, next beat).",
+    "Prefer short passages: the `reply` field should normally stay under roughly 140 words.",
+    "Each turn, change how you open and structure the `reply`—avoid repeating the same introductory hook, rhythm, or rhetorical pattern from your previous answer in this thread.",
     "",
-    "Map intent to ONE device only:",
-    "- recommendedSlug MUST be pulseband when athletics, cardio, race prep, gyms, lifts, pacing, readiness, or repetitive training dominates.",
-    "- recommendedSlug MUST be pulsering when minimal hardware, affordability, wellness, sleep, stress calm, discreet office wear or ring-style summaries dominate.",
-    "- recommendedSlug MUST be pulsewatch when multitasking calendars, coursework, reminders, LTE/connectivity abroad, dense notifications, productivity or student life dominates.",
-    "If multiple themes appear, prioritize the shopper's MAIN goal phrase (not incidental words). Avoid defaulting to PulseWatch.",
+    "When the user asks a factual or reassurance question (fit, sizing, wrists or fingers for ring vs band vs watch, body size, allergy, waterproofing, battery or charging compatibility, refunds, pairing with phones, etc.):",
+    "- Answer that question FIRST in crisp language. Prefer about 3–8 sentences unless genuinely complex.",
+    "- State only what fits the shopper's concrete concern. If PulseWear canon does not specify a detail (exact ring sizes mm, SKU lists, grams), say you do not have that spec here and invite them to the product page/support instead of guessing.",
+    "- Avoid leading with stacked descriptions of PulseBand/PulseRing/PulseWatch unless the user is shopping or comparing personas; do NOT restate generic sales blurbs already implied by personalization.",
+    "Device mapping — pick the SINGLE best overall primary slug (server logic also ranks runners-up separately):",
+    "- pulseband: athletics, cardio, race prep, lifting, pacing, readiness, recovery from hard training",
+    "- pulsering: discreet hardware, affordability, wellness, sleep, stress calm, ring-style summaries",
+    "- pulsewatch: coursework, calendars, LTE/travel, dense notifications, multitasking, productivity",
+    "When goals conflict across the thread, call out trade-offs briefly; never default to PulseWatch when training or wellness clearly dominates.",
     "",
-    "The short product personas are:",
-    "- PulseBand: athletes, runners, gym users — recovery/training bias",
-    "- PulseRing: professionals/wellness/older-adult insight — discreet health bias",
-    "- PulseWatch: students, tech users, multitaskers — apps + orchestration bias",
-    "Choose the single best-fit device.",
-    "Keep the reply concise, warm, and specific.",
+    "Return JSON per schema.",
+    "personalization.recommendedSlug / recommendedProductName / comparisonFocus must match your ONE top pick consistently.",
+    "Keep the reply concise, warm, and specific to accumulated needs.",
     "Priorities: short phrases (fitness, recovery, sleep, focus, productivity, stress, budget, lifestyle).",
     "featuredSegments: audience tiles on the homepage.",
-    "comparisonFocus MUST match recommendedProductName exactly.",
-    "highlightedPricingTier: plausible tier label for THAT device lineup.",
+    "highlightedPricingTier: plausible tier label for that primary device lineup.",
     "followUpPrompts: 2–4 short next requests.",
-    "Hero title/description/CTA should match the slug you picked.",
-    `Recent conversation: ${JSON.stringify(recentMessages)}`,
-    `Latest user message: ${message}`
+    "Hero title/description/CTA should match the slug you chose as primary.",
+    "",
+    `Full conversation (role + content, oldest first): ${JSON.stringify(recentMessages)}`,
+    `Latest user message (also included above): ${message}`
   ].join("\n");
 }
 
@@ -145,7 +153,7 @@ export async function handleGeminiChatRequest(req, res) {
     if (process.env.SKIP_CANONICAL_CASES !== "1") {
       const canonical = tryMatchCanonicalResponse(message);
       if (canonical) {
-        return sendJson(res, 200, canonical);
+        return sendJson(res, 200, enrichChatPayload(canonical, messages));
       }
     }
 
@@ -197,7 +205,7 @@ export async function handleGeminiChatRequest(req, res) {
     }
 
     const parsed = JSON.parse(text);
-    return sendJson(res, 200, parsed);
+    return sendJson(res, 200, enrichChatPayload(parsed, messages));
   } catch (error) {
     return sendJson(res, 500, {
       error: error instanceof Error ? error.message : "Unexpected server error."

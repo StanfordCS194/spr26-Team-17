@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const starterPrompts = [
   "I am a student and want one device for focus, sleep, and workouts.",
@@ -7,16 +7,51 @@ const starterPrompts = [
   "Show me the most affordable option for wellness and daily health insight."
 ];
 
+function ThinkingDots() {
+  return (
+    <span className="flex items-center gap-1 px-0.5" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          className="inline-block h-2 w-2 rounded-full bg-accent/65"
+          animate={{ opacity: [0.25, 1, 0.25], y: [0, -5, 0] }}
+          transition={{
+            repeat: Infinity,
+            duration: 0.95,
+            delay: i * 0.22,
+            ease: "easeInOut"
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 export default function AssistantOverlay({
   open,
+  assistResetNonce = 0,
   messages,
   isLoading,
   personalization,
   onClose,
   onResetSession,
-  onSendMessage
+  onSendMessage,
+  onNavigateToCatalogProduct
 }) {
   const [draft, setDraft] = useState("");
+  const conversationEndRef = useRef(null);
+
+  useEffect(() => {
+    setDraft("");
+  }, [assistResetNonce]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    conversationEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
+    });
+  }, [open, messages.length, isLoading]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -29,12 +64,23 @@ export default function AssistantOverlay({
     };
   }, [open]);
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  function submitDraft() {
     const message = draft.trim();
     if (!message || isLoading) return;
     setDraft("");
     onSendMessage(message);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    submitDraft();
+  }
+
+  function handleComposerKeyDown(event) {
+    if (event.key !== "Enter") return;
+    if (event.shiftKey || event.nativeEvent?.isComposing) return;
+    event.preventDefault();
+    submitDraft();
   }
 
   function handlePromptClick(prompt) {
@@ -103,8 +149,8 @@ export default function AssistantOverlay({
                   </div>
                 </div>
                 {isLoading ? (
-                  <div className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 sm:px-3 sm:py-1 sm:text-xs">
-                    Thinking
+                  <div className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 sm:px-3 sm:py-1 sm:text-[11px]">
+                    Thinking…
                   </div>
                 ) : null}
               </div>
@@ -125,14 +171,65 @@ export default function AssistantOverlay({
                     <div className={`text-[9px] font-semibold uppercase tracking-[0.13em] sm:text-[10px] sm:tracking-[0.15em] ${message.role === "user" ? "text-white/75" : "text-smoke"}`}>
                       {message.role === "user" ? "You" : "PulseWear AI"}
                     </div>
-                    <p className="mt-1 break-words text-[13px] leading-snug antialiased sm:mt-1.5 sm:text-sm sm:leading-relaxed">
+                    <p
+                      className={`mt-1 break-words antialiased sm:mt-1.5 sm:leading-relaxed ${
+                        message.role === "assistant"
+                          ? "whitespace-pre-line text-[13px] leading-[1.55] sm:text-sm"
+                          : "text-[13px] leading-snug sm:text-sm"
+                      }`}
+                    >
                       {message.content}
                     </p>
                   </motion.div>
                 ))}
+                {isLoading ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    role="status"
+                    aria-live="polite"
+                    aria-relevant="additions"
+                    aria-label="Assistant is drafting a reply"
+                    className="max-w-[min(36rem,calc(100%-0.75rem))] rounded-xl border border-[#dbe1f2] bg-[#f8faff] px-3 py-2.5 shadow-sm sm:max-w-2xl sm:rounded-[22px] sm:px-4 sm:py-3"
+                  >
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-smoke sm:text-[10px] sm:tracking-[0.15em]">
+                      PulseWear AI
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <ThinkingDots />
+                      <span className="text-[13px] font-medium leading-relaxed text-ink">Drafting something for you…</span>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-snug text-smoke">
+                      Reply is generating—stay on this page; reloading isn&apos;t needed.
+                    </p>
+                  </motion.div>
+                ) : null}
+                <div ref={conversationEndRef} className="h-0 w-full shrink-0" aria-hidden="true" />
               </div>
 
               <div className="relative z-[2] shrink-0 border-t border-black/[0.08] bg-white px-3 py-3 sm:px-5 sm:py-4">
+                {(personalization?.topFits?.length > 0 && onNavigateToCatalogProduct ? (
+                  <div className="mb-4 rounded-[22px] border border-accent/35 bg-[linear-gradient(135deg,rgba(89,104,255,0.06),rgba(255,255,255,0.94))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:mb-5 sm:p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#39446f]">
+                      Open product on homepage
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {personalization.topFits.map((fit) => (
+                        <button
+                          key={fit.slug}
+                          type="button"
+                          onClick={() => onNavigateToCatalogProduct(fit.slug)}
+                          className="rounded-full border border-accent/35 bg-white px-3.5 py-2 text-left text-[12px] font-semibold text-ink shadow-sm transition hover:border-accent hover:bg-accent/5 sm:text-[13px]"
+                        >
+                          <span className="mr-2 text-accent">#{fit.rank}</span>
+                          <span>{fit.productName}</span>
+                          <span className="ml-1 text-smoke">→</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null)}
                 <div className="mb-2 flex flex-wrap gap-1.5 sm:mb-3 sm:gap-2">
                   {starterPrompts.map((prompt) => (
                     <button
@@ -148,13 +245,19 @@ export default function AssistantOverlay({
 
                 <form
                   onSubmit={handleSubmit}
+                  aria-busy={isLoading ? "true" : "false"}
                   className="flex flex-col gap-2 sm:flex-row sm:gap-3"
                 >
                   <textarea
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={handleComposerKeyDown}
                     rows={2}
-                    placeholder="Describe what you need…"
+                    placeholder={
+                      isLoading && !draft.trim()
+                        ? "Waiting on PulseWear AI… (safe to keep this tab open)"
+                        : "Describe what you need…"
+                    }
                     className="min-h-[68px] flex-1 rounded-2xl border border-[#d8deef] bg-[#fcfdff] px-3.5 py-2.5 text-[13px] leading-snug text-ink outline-none placeholder:text-smoke/70 focus:border-accent/40 focus:bg-white sm:min-h-[80px] sm:px-4 sm:py-3 sm:text-sm"
                   />
                   <button
@@ -183,14 +286,68 @@ export default function AssistantOverlay({
 
               <div className="rounded-2xl border border-[#d9deee] bg-white p-4 text-ink shadow-[0_16px_44px_-32px_rgba(24,33,56,0.18)] sm:rounded-[28px] sm:p-5">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-smoke sm:text-xs">
+                  Session recap
+                </div>
+                <div className="mt-2 max-h-[min(132px,24vh)] space-y-1.5 overflow-y-auto text-xs leading-snug text-smoke sm:max-h-[min(168px,28vh)] sm:text-sm">
+                  {(personalization.sessionNeedsSummary ?? "").trim() ? (
+                    personalization.sessionNeedsSummary.split(/\n/).filter(Boolean).map((line, idx) => (
+                      <div
+                        key={`${idx}-${line.slice(0, 60)}`}
+                        className="rounded-xl border border-black/[0.06] bg-white/95 px-2.5 py-1.5 text-ink"
+                      >
+                        <span className="mr-1.5 font-medium text-accent">•</span>
+                        {line}
+                      </div>
+                    ))
+                  ) : (
+                    <p>Say a bit more so we can recap your priorities here.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#d9deee] bg-white p-4 text-ink shadow-[0_16px_44px_-32px_rgba(24,33,56,0.18)] sm:rounded-[28px] sm:p-5">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-smoke sm:text-xs">
                   Website changes
                 </div>
-                <ul className="mt-3 space-y-2 text-xs leading-snug text-smoke sm:text-sm sm:leading-6">
-                  <li><span className="font-semibold text-ink">Recommended device:</span> {personalization.recommendedProductName}</li>
+                <ul className="mt-3 space-y-3 text-xs leading-snug text-smoke sm:text-sm sm:leading-6">
+                  <li>
+                    <span className="font-semibold text-ink">Recommended lineup (covers your whole thread)</span>
+                    <ol className="mt-1 list-decimal space-y-2 pl-4">
+                      {(personalization.topFits?.length
+                        ? personalization.topFits
+                        : [
+                            {
+                              rank: 1,
+                              slug: personalization.recommendedSlug || "pulsewatch",
+                              productName: personalization.recommendedProductName,
+                              whyItFits: ""
+                            }
+                          ]
+                      ).map((fit) => (
+                        <li key={`${fit.rank}-${fit.productName}`}>
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <span className="text-ink">
+                              {fit.rank}. {fit.productName}
+                            </span>
+                            {fit.slug && onNavigateToCatalogProduct ? (
+                              <button
+                                type="button"
+                                onClick={() => onNavigateToCatalogProduct(fit.slug)}
+                                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent underline decoration-accent/35 underline-offset-2 transition hover:decoration-accent"
+                              >
+                                View card
+                              </button>
+                            ) : null}
+                          </div>
+                          {fit.whyItFits ? <span className="block text-smoke">{fit.whyItFits}</span> : null}
+                        </li>
+                      ))}
+                    </ol>
+                  </li>
                   <li><span className="font-semibold text-ink">Primary audience:</span> {personalization.focusAudience}</li>
-                  <li><span className="font-semibold text-ink">Priority themes:</span> {personalization.priorities.join(", ")}</li>
+                  <li><span className="font-semibold text-ink">Priority themes:</span> {(personalization.priorities ?? []).join(", ")}</li>
                   <li><span className="font-semibold text-ink">CTA direction:</span> {personalization.ctaLabel}</li>
-                  <li><span className="font-semibold text-ink">Featured segments:</span> {personalization.featuredSegments.join(", ")}</li>
+                  <li><span className="font-semibold text-ink">Featured segments:</span> {(personalization.featuredSegments ?? []).join(", ")}</li>
                 </ul>
               </div>
 
@@ -199,7 +356,7 @@ export default function AssistantOverlay({
                   Try next
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {personalization.followUpPrompts.map((prompt) => (
+                  {(personalization.followUpPrompts ?? []).map((prompt) => (
                     <button
                       key={prompt}
                       type="button"

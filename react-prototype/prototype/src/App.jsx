@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AssistantDock from "./components/AssistantDock";
 import AssistantOverlay from "./components/AssistantOverlay";
 import Footer from "./components/Footer";
@@ -19,6 +19,24 @@ const defaultMessages = [
   }
 ];
 
+/**
+ * Anchor scroll tuned for `#product-*` cards: center the card in the window below the
+ * sticky navbar so the product dominates the view (plain `scrollIntoView({ block: 'start' })`
+ * scrolled “too far” for short cards—the next section’s heading hijacks the viewport).
+ */
+function scrollProductIntoComfortableView(element) {
+  const header = document.querySelector("header");
+  const headerH = header ? header.getBoundingClientRect().height : 0;
+  const rect = element.getBoundingClientRect();
+  const y = rect.top + window.scrollY;
+  const h = rect.height;
+  const vh = window.innerHeight;
+  // Vertical center line of viewport (matches “main thing” feel on most screens).
+  const desiredCenter = (headerH + vh) / 2;
+  const top = Math.max(0, y + h / 2 - desiredCenter);
+  window.scrollTo({ top, behavior: "smooth" });
+}
+
 function ScrollManager() {
   const location = useLocation();
 
@@ -28,7 +46,12 @@ function ScrollManager() {
       requestAnimationFrame(() => {
         const element = document.getElementById(id);
         if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
+          const isProductCard = /^product-/i.test(id);
+          if (isProductCard) {
+            scrollProductIntoComfortableView(element);
+          } else {
+            element.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         }
       });
       return;
@@ -55,7 +78,27 @@ function PageFrame({ children }) {
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [aiModeOpen, setAiModeOpen] = useState(false);
+  const [assistResetNonce, setAssistResetNonce] = useState(0);
+  const [productSpotlightSlug, setProductSpotlightSlug] = useState(null);
+
+  useEffect(() => {
+    if (!productSpotlightSlug) return undefined;
+    const done = window.setTimeout(() => setProductSpotlightSlug(null), 2800);
+    return () => window.clearTimeout(done);
+  }, [productSpotlightSlug]);
+
+  function handleNavigateToCatalogProduct(slug) {
+    if (!slug || typeof slug !== "string") return;
+    setAiModeOpen(false);
+    navigate({ pathname: "/", hash: `product-${slug}` });
+    setProductSpotlightSlug(null);
+    window.requestAnimationFrame(() => {
+      setProductSpotlightSlug(slug);
+    });
+  }
+
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") return defaultMessages;
 
@@ -96,9 +139,10 @@ export default function App() {
   }, [messages, personalization]);
 
   function resetAssistantSession() {
+    setAssistResetNonce((n) => n + 1);
+    setIsAssistantLoading(false);
     setMessages(defaultMessages);
     setPersonalization(getDefaultPersonalization());
-    setAiModeOpen(false);
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -142,7 +186,7 @@ export default function App() {
         { role: "assistant", content: payload.reply }
       ]);
     } catch (error) {
-      const fallback = buildAssistantResponse(input);
+      const fallback = buildAssistantResponse(input, nextMessages);
       setPersonalization(fallback.personalization);
       setMessages((current) => [
         ...current,
@@ -170,7 +214,7 @@ export default function App() {
             path="/"
             element={
               <PageFrame>
-                <HomePage personalization={personalization} />
+                <HomePage personalization={personalization} productSpotlightSlug={productSpotlightSlug} />
               </PageFrame>
             }
           />
@@ -197,12 +241,14 @@ export default function App() {
       />
       <AssistantOverlay
         open={aiModeOpen}
+        assistResetNonce={assistResetNonce}
         messages={messages}
         isLoading={isAssistantLoading}
         personalization={personalization}
         onClose={() => setAiModeOpen(false)}
         onResetSession={resetAssistantSession}
         onSendMessage={handleAssistantMessage}
+        onNavigateToCatalogProduct={handleNavigateToCatalogProduct}
       />
     </div>
   );

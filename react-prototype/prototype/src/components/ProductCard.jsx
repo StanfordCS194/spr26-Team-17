@@ -2,12 +2,30 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import DeviceMockup from "./DeviceMockup";
 
-export default function ProductCard({ product, featuredReason }) {
+export default function ProductCard({ product, featuredReason, pulseSpotlight }) {
   return (
     <motion.article
-      whileHover={{ y: -8 }}
-      transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      className={`surface-card flex h-full flex-col overflow-hidden ${featuredReason ? "ring-2 ring-accent/30" : ""}`}
+      id={`product-${product.slug}`}
+      whileHover={{ y: pulseSpotlight ? 0 : -8 }}
+      transition={
+        pulseSpotlight
+          ? {
+              boxShadow: { duration: 2.45, times: [0, 0.4, 1], ease: "easeOut" }
+            }
+          : { type: "spring", stiffness: 260, damping: 22 }
+      }
+      animate={
+        pulseSpotlight
+          ? {
+              boxShadow: [
+                "0 0 0 3px rgba(89,104,255,0.55)",
+                "0 0 0 2px rgba(89,104,255,0.28)",
+                "0 0 0 0 rgba(89,104,255,0)"
+              ]
+            }
+          : {}
+      }
+      className={`surface-card flex h-full flex-col overflow-hidden ${featuredReason && !pulseSpotlight ? "ring-2 ring-accent/30" : ""}`}
     >
       <div
         className="p-6"

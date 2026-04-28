@@ -1,146 +1,28 @@
 import { productCatalog } from "../data/siteData";
+import { enrichChatPayload, getPrimarySlug, PRODUCT_SLUG_NAMES } from "../lib/sessionFits";
 
 const defaultPrompt = "Find me the best PulseWear device for my daily life.";
-
-/** Keep in sync with the first rules in `server/chatTestMatrix.js` (starter chips + parity). */
-const STARTER_PARITY_RULES = [
-  {
-    m: (t) =>
-      /\bbest wearable\b|\bwearable\b/.test(t) &&
-      /\brecovery\b/.test(t) &&
-      /\btraining\b/.test(t) &&
-      /\bperformance\b/.test(t),
-    slug: "pulseband"
-  },
-  {
-    m: (t) =>
-      /\baffordable\b|\bbudget\b/.test(t) && /\bwellness\b/.test(t) && /\bhealth\b/.test(t),
-    slug: "pulsering"
-  },
-  {
-    m: (t) =>
-      /\bstudent\b/.test(t) &&
-      /\b(focus|sleep)\b/.test(t) &&
-      /\bworkouts?\b/.test(t),
-    slug: "pulsewatch"
-  }
-];
-
-const KW = {
-  pulseband: [
-    "recovery",
-    "training",
-    "performance",
-    "athlete",
-    "trainer",
-    "run",
-    "runner",
-    "running",
-    "race",
-    "marathon",
-    "half marathon",
-    "gym",
-    "squat",
-    "lifting",
-    "workout",
-    "workouts",
-    "sport",
-    "zones",
-    "pace",
-    "interval"
-  ],
-  pulsering: [
-    "wellness",
-    "stress",
-    "minimal",
-    "budget",
-    "cheap",
-    "affordable",
-    "price",
-    "worth",
-    "sleep better",
-    "blood pressure",
-    "quiet",
-    "finger",
-    "ring",
-    "calm",
-    "older adults",
-    "daily health insight",
-    "wellness-focused"
-  ],
-  pulsewatch: [
-    "student",
-    "exam",
-    "study",
-    "campus",
-    "homework",
-    "lte",
-    "timezone",
-    "travel schedule",
-    "notifications",
-    "apps",
-    "coding",
-    "multitask",
-    "calendar",
-    "focus timer",
-    "deep work",
-    "busy desk"
-  ]
-};
 
 function normalize(text) {
   return text.toLowerCase();
 }
 
-function countKeywordHits(text, list) {
-  return list.reduce((n, phrase) => n + (text.includes(phrase) ? 1 : 0), 0);
-}
-
-/**
- * Offline product pick when Gemini is unavailable. Mirrors `chatTestMatrix` starter rules first.
- */
-export function inferProductSlug(text) {
-  const t = normalize(text);
-
-  for (const rule of STARTER_PARITY_RULES) {
-    if (rule.m(t)) return rule.slug;
-  }
-
-  let b = countKeywordHits(t, KW.pulseband);
-  let ring = countKeywordHits(t, KW.pulsering);
-  let watch = countKeywordHits(t, KW.pulsewatch);
-
-  if (/student|exam|campus|homework/i.test(t)) watch += 2;
-  if (/\b(student|exam|study|campus)\b/.test(t) && /(recovery|performance|training|race|running|\bgym\b)/i.test(t)) {
-    b += 1;
-    watch += 1;
-  }
-
-  const scores = { pulseband: b, pulsering: ring, pulsewatch: watch };
-  let best = /** @type {keyof typeof scores} */ ("pulsewatch");
-  let hi = -1;
-  for (const [slug, v] of Object.entries(scores)) {
-    if (v > hi) {
-      hi = v;
-      best = slug;
-    }
-  }
-  if (hi <= 0) return "pulsewatch";
-
-  const tied = Object.entries(scores).filter(([, v]) => v === hi).map(([k]) => k);
-  if (tied.length === 1) return best;
-
-  // Tie-break toward the clearest thematic bucket
-  if (/recovery|performance|training|race|running|\bgym\b|workouts?/.test(t) && tied.includes("pulseband")) return "pulseband";
-  if (/wellness|stress|minimal|budget|cheap|sleep better|finger|ring\b/.test(t) && tied.includes("pulsering")) return "pulsering";
-  if (/\bstudent\b|exam|campus|focus|notifications|\b lte\b/i.test(t) && tied.includes("pulsewatch"))
-    return "pulsewatch";
-
-  return best;
+function combinedUserText(messages) {
+  return Array.isArray(messages)
+    ? messages
+        .filter((m) => m.role === "user" && m.content)
+        .map((m) => String(m.content))
+        .join("\n")
+    : "";
 }
 
 function getProductBySlug(slug) {
   return productCatalog.find((p) => p.slug === slug) || productCatalog.find((p) => p.slug === "pulsewatch") || productCatalog[0];
+}
+
+/** @deprecated use getPrimarySlug from sessionFits */
+export function inferProductSlug(text) {
+  return getPrimarySlug(text);
 }
 
 export function getDefaultPersonalization() {
@@ -162,16 +44,30 @@ export function getDefaultPersonalization() {
     ],
     heroTitle: "AI mode is ready when you want a more personal shopping path.",
     heroDescription:
-      "Tell the assistant about your goals, routines, and budget, and the site will shift toward the device that fits you best.",
+      "Tell the assistant about your goals, routines, and budget, and the site will shift toward the devices that fit you best.",
     ctaLabel: `Start with ${product.name}`,
     summary:
-      "PulseWear AI can learn what matters to you and reshape the homepage around that recommendation."
+      "PulseWear AI can learn what matters to you and reshape the homepage around that recommendation.",
+    sessionNeedsSummary: "",
+    topFits: [
+      {
+        rank: 1,
+        slug: product.slug,
+        productName: product.name,
+        whyItFits: "Balanced default when your goals are still open-ended."
+      }
+    ]
   };
 }
 
-export function buildAssistantResponse(input) {
-  const raw = String(input || "");
-  const slug = inferProductSlug(raw);
+/**
+ * Offline assistant when Gemini is unavailable. Mirrors server `enrichChatPayload` behavior.
+ * @param {string} _lastInput
+ * @param {Array<{ role: string; content?: string }>} allMessages Include the latest user turn.
+ */
+export function buildAssistantResponse(_lastInput, allMessages) {
+  const raw = combinedUserText(allMessages);
+  const slug = getPrimarySlug(raw);
   const product = getProductBySlug(slug);
 
   const t = normalize(raw);
@@ -225,16 +121,21 @@ export function buildAssistantResponse(input) {
   else if (/cheap|budget|essential|starter|affordable|most affordable/i.test(t))
     highlightedPricingTier = product.pricing[0]?.tier || highlightedPricingTier;
 
+  const otherFits = ["pulseband", "pulsering", "pulsewatch"]
+    .filter((s) => s !== slug)
+    .map((s) => PRODUCT_SLUG_NAMES[s])
+    .join(", ");
+
   const summary = [
-    `I would steer you toward ${product.name} based on what you shared.`,
-    `${product.name} is strongest for ${product.homeUsers.toLowerCase()} and aligns well with ${pri.join(", ")}.`,
-    `I have updated the website direction so the most relevant device appears first and ${product.name}'s strongest sections stand out.`
+    `Across everything you shared, I'd steer you toward ${product.name} first.`,
+    `${product.name} lines up with ${focusAudience.toLowerCase()} and priorities like ${pri.join(", ")}.`,
+    `If your story also pulls toward other themes (${otherFits}), the lineup below stacks the next-best matches so nothing you said gets lost.`
   ].join(" ");
 
-  return {
+  const draft = {
     reply: summary,
     personalization: {
-      prompt: raw,
+      prompt: raw || defaultPrompt,
       recommendedSlug: product.slug,
       recommendedProductName: product.name,
       focusAudience,
@@ -248,9 +149,11 @@ export function buildAssistantResponse(input) {
         "Give me a budget-friendly recommendation"
       ],
       heroTitle: `${product.name} looks like your best-fit starting point.`,
-      heroDescription: `${product.description} Right now the site is leaning toward ${focusAudience.toLowerCase()} workflows and emphasizing ${pri.join(", ", pri)}.`,
+      heroDescription: `${product.description} The site is leaning toward ${focusAudience.toLowerCase()} workflows and emphasizing ${pri.join(", ")}.`,
       ctaLabel: `Explore ${product.name}`,
       summary
     }
   };
+
+  return enrichChatPayload(draft, allMessages);
 }
