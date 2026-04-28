@@ -29,7 +29,75 @@ function NavLink({ item, pathname, hash, onClick }) {
   );
 }
 
-export default function Navbar() {
+function AiModeToggle({
+  enabled,
+  sessionActive = false,
+  messageCount = 0,
+  onToggle,
+  compact = false
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={enabled}
+      className={`group inline-flex items-center gap-3 rounded-full border px-3 py-2 transition ${
+        enabled
+          ? "border-accent bg-[linear-gradient(135deg,#5968ff,#7481ff)] text-white shadow-hover"
+          : sessionActive
+            ? "border-accent/20 bg-[linear-gradient(135deg,#ffffff,#eef2ff)] text-ink shadow-panel hover:-translate-y-0.5"
+            : "border-line bg-white text-ink hover:-translate-y-0.5 hover:shadow-panel"
+      } ${compact ? "justify-between" : ""}`}
+    >
+      <span className="flex items-center gap-3">
+        <span
+          className={`grid h-10 w-10 place-items-center rounded-2xl text-sm font-black ${
+            enabled
+              ? "bg-white/20 text-white"
+              : sessionActive
+                ? "bg-accent/10 text-accent"
+                : "bg-black/5 text-ink"
+          }`}
+        >
+          AI
+        </span>
+        <span className="text-left">
+          <span className="block text-sm font-semibold">
+            {enabled ? "AI Concierge" : sessionActive ? "Resume AI" : "AI Concierge"}
+          </span>
+          <span className={`block text-xs ${enabled ? "text-white/75" : "text-smoke"}`}>
+            {sessionActive ? `${messageCount} messages saved` : "Personalize your shopping path"}
+          </span>
+        </span>
+      </span>
+      <span className="flex items-center gap-3">
+        {sessionActive && !enabled ? (
+          <span className="hidden rounded-full bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent sm:inline-flex">
+            Saved
+          </span>
+        ) : null}
+        <span
+          className={`relative h-6 w-11 rounded-full transition ${
+            enabled ? "bg-white/30" : "bg-black/10"
+          }`}
+        >
+          <span
+            className={`absolute top-1 h-4 w-4 rounded-full shadow-sm transition ${
+              enabled ? "left-6 bg-white" : "left-1 bg-white"
+            }`}
+          />
+        </span>
+      </span>
+    </button>
+  );
+}
+
+export default function Navbar({
+  aiEnabled = false,
+  sessionActive = false,
+  messageCount = 0,
+  onToggleAiMode = () => {}
+}) {
   const { pathname, hash } = useLocation();
   const [open, setOpen] = useState(false);
 
@@ -67,6 +135,12 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
+          <AiModeToggle
+            enabled={aiEnabled}
+            sessionActive={sessionActive}
+            messageCount={messageCount}
+            onToggle={onToggleAiMode}
+          />
           <Link
             to="/#products"
             className="rounded-full border border-line bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:shadow-panel"
@@ -107,6 +181,13 @@ export default function Navbar() {
           >
             <div className="section-shell py-4">
               <div className="surface-card flex flex-col gap-2 p-4">
+                <AiModeToggle
+                  enabled={aiEnabled}
+                  sessionActive={sessionActive}
+                  messageCount={messageCount}
+                  onToggle={onToggleAiMode}
+                  compact
+                />
                 {mobileLinks.map((item) => (
                   <NavLink
                     key={item.id}

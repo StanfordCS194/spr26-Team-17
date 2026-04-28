@@ -2,12 +2,12 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import DeviceMockup from "./DeviceMockup";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, featuredReason }) {
   return (
     <motion.article
       whileHover={{ y: -8 }}
       transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      className="surface-card flex h-full flex-col overflow-hidden"
+      className={`surface-card flex h-full flex-col overflow-hidden ${featuredReason ? "ring-2 ring-accent/30" : ""}`}
     >
       <div
         className="p-6"
@@ -15,6 +15,11 @@ export default function ProductCard({ product }) {
       >
         <div className="flex items-center justify-between gap-4">
           <div>
+            {featuredReason ? (
+              <div className="mb-2 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+                AI pick
+              </div>
+            ) : null}
             <div className="text-sm font-semibold text-ink">{product.name}</div>
             <div className="mt-1 text-sm text-smoke">{product.homePrice}</div>
           </div>
@@ -39,6 +44,11 @@ export default function ProductCard({ product }) {
       <div className="flex flex-1 flex-col p-6">
         <h3 className="text-2xl font-semibold">{product.name}</h3>
         <p className="mt-3 text-sm leading-6 text-smoke">{product.homeDescription}</p>
+        {featuredReason ? (
+          <p className="mt-4 rounded-[20px] bg-accentSoft px-4 py-3 text-sm leading-6 text-ink">
+            {featuredReason}
+          </p>
+        ) : null}
         <div className="mt-6 flex flex-wrap gap-2">
           {product.targetSegments.slice(0, 3).map((item) => (
             <span
