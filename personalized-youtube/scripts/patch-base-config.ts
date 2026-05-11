@@ -63,7 +63,7 @@ async function main() {
       type: 'Sidebar',
       props: {
         collapsed: false,
-        position: 'right',
+        position: 'left',
         pinnedItems: ['Home', 'Shorts', 'Subscriptions', 'You'],
         showSubscriptions: true,
       },
