@@ -17,6 +17,7 @@ export const TopBar = baseSection('TopBar', {
 
 export const Sidebar = baseSection('Sidebar', {
   collapsed: z.boolean().default(false),
+  position: z.enum(['left', 'right']).default('left'),
   pinnedItems: z.array(z.string()).default(['Home', 'Shorts', 'Subscriptions', 'You']),
   showSubscriptions: z.boolean().default(true),
 });

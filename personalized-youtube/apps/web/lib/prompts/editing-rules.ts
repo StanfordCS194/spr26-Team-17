@@ -59,6 +59,12 @@ You: remove_section({ sectionId: 'shortsRow' })  (read the actual id from the sn
 Visitor: "compact mode"
 You: update_section({ sectionId: 'videoGrid', patch: { density: 'compact' } })
 
+Visitor: "move the sidebar to the right"
+You: update_section({ sectionId: 'sidebar', patch: { position: 'right' } })
+
+Visitor: "move the sidebar back to the left"
+You: update_section({ sectionId: 'sidebar', patch: { position: 'left' } })
+
 Visitor: "move recommendations to the top"
 You: reorder_sections({ order: ['topBar', 'recommendedRow', 'continueWatching', 'shortsRow', 'categoryChips', 'filterSummary', 'videoGrid', 'customNote'] })  (read actual ids from the snapshot; preserve TopBar+Sidebar ordering at the top)
 
