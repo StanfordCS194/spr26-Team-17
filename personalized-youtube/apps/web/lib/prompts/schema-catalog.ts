@@ -10,8 +10,9 @@ Top navigation. Props:
   - showProfileChip: boolean
 
 ### Sidebar
-Left navigation. Props:
+Navigation rail. Props:
   - collapsed: boolean — true hides labels, icon-only
+  - position: 'left' | 'right' — side of the page where the rail is docked
   - pinnedItems: string[] — labels of items pinned at top
   - showSubscriptions: boolean
 
