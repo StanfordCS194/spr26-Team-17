@@ -1,0 +1,3 @@
+[submodule "personalized-youtube"]
+	path = personalized-youtube
+	url = https://github.com/einjun03/personalized-youtube.git
