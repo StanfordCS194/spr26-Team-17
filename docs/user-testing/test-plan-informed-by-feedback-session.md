@@ -1,5 +1,7 @@
 # Test plan grounding — sourced from feedback session transcript
 
+**Primary moderator plan (aligned with `New Recording 8`):** teammate draft [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md) (welcome script, tasks, debrief).
+
 This document translates an **internal team / feedback conversation** into **measurable user-testing themes** aligned with **Planning To Learn From User Testing** (welcome → setup → feedback mechanism → interventions → concrete tasks).
 
 **Citation rule:** Quotations below are **verbatim strings** taken from [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) (machine transcription, **OpenAI Whisper `small`**, VAD enabled). Speakers are **not diarized**; attribute only to *“participant(s), feedback session transcript”* unless your team assigns names afterward. Timestamps **`[MM:SS.xx]`** point to segment starts in that file.
@@ -199,3 +201,5 @@ Automated transcripts may garble jargon (**“SDK”** heard as **“STK”** ar
 - Original audio (**M4A**): [`new-recording-8.m4a`](./new-recording-8.m4a)
 - Timestamped: [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt)
 - Plain stitched: [`new-recording-8-transcript-whisper-small-plain.txt`](./new-recording-8-transcript-whisper-small-plain.txt)
+
+**Moderator-facing plan (structured script / tasks):** [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md).
