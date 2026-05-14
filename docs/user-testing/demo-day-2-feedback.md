@@ -1,23 +1,25 @@
-# Test plan grounding — sourced from feedback session transcript
+# Demo Day 2 feedback (voice session → themes & quotes)
 
-**Primary moderator plan (aligned with `New Recording 8`):** teammate draft [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md) (welcome script, tasks, debrief).
+**What this is:** A synthesis of **Demo Day 2** internal discussion captured in **`New Recording 8`** — verbatim excerpts with timestamps, grouped into themes that inform **product direction** and can **inform** the formal user-testing plan.
 
-This document translates an **internal team / feedback conversation** into **measurable user-testing themes** aligned with **Planning To Learn From User Testing** (welcome → setup → feedback mechanism → interventions → concrete tasks).
+**What this is not:** The course **user testing test plan** deliverable (*Planning To Learn From User Testing*). That is documented separately in **[`user-testing-plan.md`](./user-testing-plan.md)** (team-owned; link from the [Wiki hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan)).
 
-**Citation rule:** Quotations below are **verbatim strings** taken from [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) (machine transcription, **OpenAI Whisper `small`**, VAD enabled). Speakers are **not diarized**; attribute only to *“participant(s), feedback session transcript”* unless your team assigns names afterward. Timestamps **`[MM:SS.xx]`** point to segment starts in that file.
+**Related:** Draft moderator script from the same voice memo — [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md) (working prep, **not** a substitute for completing `user-testing-plan.md`).
+
+This document translates the recording into **measurable themes** that overlap with common test-plan sections (welcome, setup, feedback, interventions, tasks) for traceability only.
+
+**Citation rule:** Quotations below are **verbatim strings** taken from [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) (machine transcription, **OpenAI Whisper `small`**, VAD enabled). Speakers are **not diarized**; attribute only to *“participant(s), Demo Day 2 transcript”* unless your team assigns names afterward. Timestamps **`[MM:SS.xx]`** point to segment starts in that file.
 
 ---
 
-## 1. What to submit / have ready (assignment checklist)
+## 1. Scope: Demo Day 2 feedback vs. course test plan
 
-Mirror of course expectations—you still need:
+| Artifact | Role |
+|----------|------|
+| **This file + audio + transcripts** | **Demo Day 2 feedback** — evidence and interpretation from the Demo Day 2 session (`New Recording 8`). |
+| **`user-testing-plan.md`** | **Assignment test plan** — complete facilitator-facing plan for **external testers**, per course outline (Wiki-indexed, printable at midpoint, etc.). |
 
-1. **Test plan linked from team Wiki** — [User Testing Plan](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) (indexed hub); source files in `docs/user-testing/` on `main`.
-2. **Printed / on-screen copy** during midpoint review beside the prototype.
-3. **Actionable outcomes** afterward (Issues, backlog, labeled findings) **cross-linked from** [the Wiki hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) or repo.
-4. **Canvas / syllabus** — confirm separately whether staff expect an additional portal upload or deadline (not spelled out on the excerpt we summarized here).
-
-Quotes here support **motivation & scope**, not substitutes for facilitator script or Issues.
+Work completed here **does not** check off the test plan deliverable by itself; use it as input when writing `user-testing-plan.md`.
 
 ---
 
@@ -126,6 +128,8 @@ Discussants reaffirm explicit chat over silent inference:
 
 ## 8. Midpoint runbook (setup → intervention → scripted flow)
 
+*Optional structure to reuse in **`user-testing-plan.md`** for external testers; not a substitute for completing that document.*
+
 ### 8.1 Tester setup & environment (rubric **setup**)
 
 Cover this in **welcome**, before testers touch UI:
@@ -167,6 +171,8 @@ Stay otherwise **silent during think-aloud** unless safety or deadlock.
 
 ## 9. Feedback capture (pick **one** channel for study integrity)
 
+*Same as above: idea fodder for the formal plan.*
+
 | Mechanism | When to choose |
 |-----------|----------------|
 | Silent observer sheet | Busy midpoint; minimizes context switching |
@@ -176,7 +182,9 @@ Minimal **observer fields:** time | verbatim utterance | screen state | `{bug, U
 
 ---
 
-## 10. After midpoint → actionable backlog (submission III)
+## 10. After testing → actionable backlog
+
+*Example labels when you normalize Demo Day / user-test findings into Issues.*
 
 Normalize notes into Issues with labels **`user-test`**, **`priority`**, **`transcript-quote-id`** (timestamp) for traceability to sections above.
 
@@ -198,8 +206,10 @@ Automated transcripts may garble jargon (**“SDK”** heard as **“STK”** ar
 
 ## Source files
 
+**Formal test plan (assignment; complete this):** [`user-testing-plan.md`](./user-testing-plan.md)
+
 - Original audio (**M4A**): [`new-recording-8.m4a`](./new-recording-8.m4a)
 - Timestamped: [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt)
 - Plain stitched: [`new-recording-8-transcript-whisper-small-plain.txt`](./new-recording-8-transcript-whisper-small-plain.txt)
 
-**Moderator-facing plan (structured script / tasks):** [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md).
+**Draft script from the same voice memo (prep only):** [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md).

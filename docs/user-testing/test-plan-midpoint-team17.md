@@ -1,11 +1,15 @@
-# User-flow test plan — Midpoint review (CS194W)
+# Midpoint user-flow script — draft (from voice memo)
+
+**What this is:** A **working draft** moderator outline derived from the team voice discussion around **Demo Day 2** / `New Recording 8`. Use it as raw material while authoring **[`user-testing-plan.md`](./user-testing-plan.md)**.
+
+**What this is not:** The submitted **CS194W user testing plan** on its own — complete `user-testing-plan.md` for external testers.
 
 **Product focus:** Personalizable YouTube showcase (chat-driven layout, theme, and feed behavior; mock catalog by default).  
 **Source materials:** Course doc *Planning To Learn From User Testing* + team voice memo. **In this repo:** [`new-recording-8.m4a`](./new-recording-8.m4a) and Whisper transcripts [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) / [`…-plain`](./new-recording-8-transcript-whisper-small-plain.txt).
 
-**Companion (quote-level synthesis from the same discussion):** [test-plan-informed-by-feedback-session.md](./test-plan-informed-by-feedback-session.md)
+**Companion (quote-level synthesis from Demo Day 2):** [demo-day-2-feedback.md](./demo-day-2-feedback.md)
 
-**Wiki / PM:** **Published index:** [User Testing Plan](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) on the GitHub Wiki. Capture feedback in **one** medium (see Section 4).
+**Wiki / PM:** Hub page — [User Testing Plan](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) on the GitHub Wiki. Capture feedback in **one** medium (see Section 4).
 
 ---
 
