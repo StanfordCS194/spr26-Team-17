@@ -5,7 +5,7 @@
 
 **Companion (quote-level synthesis from the same discussion):** [test-plan-informed-by-feedback-session.md](./test-plan-informed-by-feedback-session.md)
 
-**Wiki / PM:** Link this document from your team Wiki when you publish the final version; capture feedback in **one** medium (see Section 4).
+**Wiki / PM:** **Published index:** [User Testing Plan](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) on the GitHub Wiki. Capture feedback in **one** medium (see Section 4).
 
 ---
 

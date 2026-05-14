@@ -12,9 +12,9 @@ This document translates an **internal team / feedback conversation** into **mea
 
 Mirror of course expectations—you still need:
 
-1. **Test plan linked from team Wiki** (this file or a shortened wiki page linking here).
+1. **Test plan linked from team Wiki** — [User Testing Plan](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) (indexed hub); source files in `docs/user-testing/` on `main`.
 2. **Printed / on-screen copy** during midpoint review beside the prototype.
-3. **Actionable outcomes** afterward (Issues, backlog, labeled findings) **cross-linked from Wiki**.
+3. **Actionable outcomes** afterward (Issues, backlog, labeled findings) **cross-linked from** [the Wiki hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) or repo.
 4. **Canvas / syllabus** — confirm separately whether staff expect an additional portal upload or deadline (not spelled out on the excerpt we summarized here).
 
 Quotes here support **motivation & scope**, not substitutes for facilitator script or Issues.
