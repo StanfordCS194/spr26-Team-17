@@ -100,7 +100,9 @@ Ask the same four every time:
 
 ## 8. Deliverables checklist (assignment)
 
-- [ ] Test plan linked from **team Wiki**
+*Satisfied by completing **[`user-testing-plan.md`](./user-testing-plan.md)** and indexing it from the [Wiki hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan) — not by this draft alone.*
+
+- [ ] Test plan linked from **team Wiki** ([hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan)) — **`user-testing-plan.md`**
 - [ ] **Printed or on a screen** at midpoint review
 - [ ] **Actionable results:** groomed issues / table of findings with owners
 
