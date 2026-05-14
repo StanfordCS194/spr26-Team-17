@@ -166,5 +166,6 @@ Automated transcripts may garble jargon (**“SDK”** heard as **“STK”** ar
 
 ## Source files
 
+- Original audio (**M4A**): [`new-recording-8.m4a`](./new-recording-8.m4a)
 - Timestamped: [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt)
 - Plain stitched: [`new-recording-8-transcript-whisper-small-plain.txt`](./new-recording-8-transcript-whisper-small-plain.txt)
