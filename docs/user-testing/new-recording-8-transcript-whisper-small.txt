@@ -1,0 +1,433 @@
+Local transcription: faster-whisper (model=small, English, vad_filter=ON).
+Comparable quality to desktop Whisper; differs from chunked Google Speech API.
+
+[00:00.08] You can be like, oh, customize the page so it's like, themed in like a sci-fi or like being like, I guess, whatever you guys want.
+[00:15.08] I like the colors and what do you think?
+[00:17.08] Yeah, it's possible too.
+[00:18.08] Rather than having it with a grid layout, I can scroll through all the videos.
+[00:21.08] Probably.
+[00:22.08] Probably.
+[00:23.08] And you?
+[00:24.08] I feel like that would be like how I would like to do too.
+[00:27.08] So he's more real.
+[00:28.08] Or like, I can turn my videos.
+[00:30.08] Swipe like left or right?
+[00:32.08] Make it like Tinder?
+[00:34.08] Oh my god.
+[00:35.08] So left or video?
+[00:36.08] So left or video?
+[00:37.08] No, no, but I...
+[00:38.08] Think about how good that would be.
+[00:39.08] That would be pretty funny.
+[00:40.08] Yeah.
+[00:58.08] Oh, shoot.
+[01:10.14] I mean, it still needs like...
+[01:12.14] Kind of...
+[01:13.14] It's like, that's like a big thing.
+[01:15.14] It still looks really nice.
+[01:17.14] Can you do like techy vibes or like...
+[01:20.14] Yeah, sure.
+[01:21.14] Like, just like anything that's like not...
+[01:26.14] A simple preset.
+[01:29.14] Can you give it like a pre-stored vibe?
+[01:31.14] I don't even know this vibe.
+[01:32.14] Yeah.
+[01:33.14] Like dinosaurs.
+[01:40.14] What was the word prompt?
+[01:41.14] Pre-stored.
+[01:42.14] It's like dinosaurs.
+[01:43.14] Yeah.
+[01:52.14] Oh, okay.
+[01:53.14] And now like you can see...
+[01:54.14] Do you like it?
+[01:55.14] Yeah.
+[01:56.14] It's good.
+[01:57.14] Yeah.
+[01:58.14] And then like...
+[01:59.14] Yeah.
+[02:00.14] And then you can also change the like video...
+[02:03.14] Like...
+[02:04.14] Yeah.
+[02:05.14] Like you can be like...
+[02:07.14] Oh, like in the afternoons can you show me like jazz playlists and no chores?
+[02:13.14] At dinner, like I want to see like blah, blah, blah.
+[02:16.14] Like whatever.
+[02:17.14] Could you like...
+[02:18.14] Like just like use a scale of one to five to kind of rank how things are just
+[02:23.14] So we have like...
+[02:25.14] Yeah.
+[02:26.14] Yeah.
+[02:27.14] Yeah.
+[02:28.14] Like one to six...
+[02:29.14] Yeah.
+[02:30.14] Change.
+[02:31.14] I don't know if it's going to take six...
+[02:33.14] Yeah.
+[02:34.14] Change it to like orange.
+[02:37.14] Change the background to orange.
+[02:39.14] Yeah.
+[02:40.14] And then I'm nose to orange.
+[02:42.14] Yeah.
+[02:43.14] I can't put it wrong there.
+[02:44.14] I don't know.
+[02:45.14] Like what do you want to see?
+[02:46.14] Yeah.
+[02:47.14] Yeah.
+[02:48.14] Yeah.
+[02:49.14] Yeah.
+[02:50.14] Like just the type of video.
+[02:52.14] I want to see music playlists.
+[02:53.14] Like I want to see like...
+[02:54.14] Only tech.
+[02:55.14] Only tech.
+[02:56.14] Only tech.
+[02:57.14] Tech.
+[02:58.14] Yeah.
+[02:59.14] I don't know if it knows the code.
+[03:01.14] It might have tools actually from the API code.
+[03:04.14] Oh.
+[03:05.14] It's not 106.
+[03:06.14] Oh, okay.
+[03:07.14] I guess.
+[03:08.14] It's okay.
+[03:09.14] It's not our thing.
+[03:10.14] It's the LLMs.
+[03:11.14] I feel like the time thing doesn't really make much sense either.
+[03:14.14] Yeah.
+[03:15.52] So...
+[03:16.52] But I think it works for like...
+[03:18.52] So...
+[03:19.52] Like...
+[03:20.52] Something that I thought was like...
+[03:22.52] It was like...
+[03:23.52] Huh.
+[03:24.52] I don't know what it was.
+[03:26.52] Oh.
+[03:41.52] What model do you use now?
+[03:42.52] I don't know.
+[03:43.52] Cause like...
+[03:44.52] Everything else like...
+[03:47.52] I don't think they have like...
+[03:48.52] As good APIs for like...
+[03:50.52] Tool usage.
+[03:51.52] Mm-hmm.
+[03:56.52] Do you think they can sign in with their own account?
+[03:58.52] Like do like...
+[03:59.52] Like a guest profile or something?
+[04:02.52] I mean like...
+[04:03.52] Right now on my computer
+[04:05.52] I have like the cookies configured to apply.
+[04:07.52] Oh.
+[04:08.52] So yeah.
+[04:09.52] But like...
+[04:10.52] I guess we can like...
+[04:11.52] Add that.
+[04:12.52] And like...
+[04:13.52] I guess I would like...
+[04:14.52] Something that's like...
+[04:15.52] Not...
+[04:16.52] Running on local hosts.
+[04:17.52] Yeah.
+[04:18.52] I think it'd be super cool if...
+[04:20.52] It could remember like...
+[04:21.52] Context of what you like.
+[04:22.52] For example.
+[04:23.52] Yeah.
+[04:24.52] We store it in the database.
+[04:26.52] Yeah.
+[04:27.52] So I don't know how...
+[04:28.52] Yeah.
+[04:29.52] Try reading it.
+[04:30.52] Don't be injected into the algorithm of the app that...
+[04:32.52] You know.
+[04:33.52] It has like...
+[04:34.52] It caches like the chat history.
+[04:36.52] And so it gets the full context when you're sending another request.
+[04:40.52] Also like...
+[04:41.52] We save like...
+[04:42.52] The users like...
+[04:43.52] Like credentials.
+[04:44.52] And then their like...
+[04:45.52] Preferences in a database.
+[04:48.52] So then when I like...
+[04:49.52] Reload the page or like...
+[04:50.52] I can completely quit the program and then reopen it.
+[04:52.52] And then it'll like...
+[04:53.52] Load this.
+[04:54.52] Or like in my like...
+[04:55.52] Reference like a previous version that I'm like...
+[04:57.52] Oh like I want it back to not...
+[04:59.52] Steam.
+[05:00.52] Like it'll do that.
+[05:01.52] Alright.
+[05:08.52] What do you guys think you're gonna work on that?
+[05:11.52] There's like making this more...
+[05:14.52] We thought about like applying it to another website.
+[05:17.52] I guess like...
+[05:19.52] Making sure like more features work on it.
+[05:23.52] I think also like making the transitions kind of smoother.
+[05:26.52] So it looks more like...
+[05:28.52] More modern rather than just like a flash and everything.
+[05:33.52] Yeah.
+[05:34.52] I think it's more like a...
+[05:35.52] Maybe a sequential changing.
+[05:38.52] Yeah.
+[05:39.52] So it's only YouTube for now?
+[05:41.52] Yeah.
+[05:42.52] We are trying on YouTube.
+[05:44.52] It's not YouTube.
+[05:45.52] It's a...
+[05:46.52] It's a...
+[05:47.52] Oh really?
+[05:49.52] We what?
+[05:50.52] It's not real.
+[05:51.52] It's not real.
+[05:52.52] Yeah.
+[05:53.52] I was gonna like...
+[05:54.52] Can you refresh?
+[05:55.52] I was curious.
+[05:56.52] Are you like editing the sort like...
+[05:57.52] Interesting.
+[05:58.52] Interesting.
+[05:59.52] Yeah.
+[06:00.52] Our like goal is to...
+[06:01.52] Or like the pitch is that we would work with the companies
+[06:04.52] And then like give them an STK
+[06:06.52] Like wrap their existing components in.
+[06:08.52] But then like this like...
+[06:10.52] We clearly don't have access to like YouTube source code
+[06:13.52] So we just like made them lock.
+[06:14.52] Yeah.
+[06:15.52] And then put our wrapper over it.
+[06:16.52] What's the STK written in?
+[06:18.52] What's the STK written in?
+[06:20.52] Oh like that's like our goal.
+[06:22.52] But like we don't...
+[06:24.52] Like this isn't an STK.
+[06:25.52] Okay.
+[06:26.52] I mean it can be used in like personal websites
+[06:29.52] Like for like the blog posts and like...
+[06:32.52] It's basically...
+[06:34.52] So we have different demographics
+[06:36.52] And even like you know...
+[06:38.68] Like an old person engaging with the...
+[06:42.68] Like lots of information versus a young person
+[06:45.68] Like a special large generation
+[06:47.68] There are like different kind of aspects that we want to focus
+[06:50.68] So maybe like you know...
+[06:52.68] Like we kind of ask the like a user
+[06:55.68] How you wanna see the website
+[06:57.68] And based on your preferences
+[06:59.68] And like it's not only the algorithm
+[07:01.68] It's also kind of the UX design of the website
+[07:04.68] So in this way everyone kind of
+[07:06.68] Host the service in their personal website maybe
+[07:09.68] To you know like kind of show
+[07:12.68] Like how other people want to see it
+[07:15.68] Instead of just okay you want to see it like this
+[07:20.00] Yeah.
+[07:21.00] It's very late but it's updated.
+[07:24.00] So like I asked you for like tech reviews
+[07:27.10] So that now it's like...
+[07:29.10] I think like...
+[07:31.10] Like is it demo?
+[07:33.10] Is it demo?
+[07:34.10] Yeah.
+[07:35.10] I think like some questions I wanted to ask is like...
+[07:38.10] How useful do you think it is?
+[07:41.10] I think it's pretty useful for your life.
+[07:43.10] I think it'd be cool to see it applied in other things as well.
+[07:46.10] Yeah.
+[07:47.10] Which website? Which kind of website?
+[07:49.10] I feel like Instagram is one of the most...
+[07:51.10] Instagram is a bunch of stuff that I just don't want to see.
+[07:53.10] Yeah.
+[07:55.10] Most of you add to this.
+[07:57.10] You can't really...
+[07:58.10] Yeah.
+[08:00.10] I don't think you can do that for friends.
+[08:03.10] Maybe not for grouping ads but like I feel like something that's like
+[08:06.10] Consumer and like product like intersection is like...
+[08:10.10] Like for example...
+[08:11.10] I don't want to see ads on this.
+[08:13.10] Like I want to see it like if you're like advertising like XYZ
+[08:17.10] Yeah, I want to see more of that.
+[08:18.10] Like I don't want to see this.
+[08:19.10] Yeah.
+[08:20.10] For example like Wikipedia.
+[08:22.10] You can maybe design the Wikipedia.
+[08:24.10] It's the same in facts but like you know
+[08:26.10] If you want to scroll the information in a different way
+[08:30.10] Or you know for like...
+[08:32.10] Or you know I mean it can be like a paper reading place
+[08:36.10] Like you know in archives basically it can focus on like
+[08:41.10] Present the information to you as you want to consume it
+[08:44.10] And or like any e-commerce basically if you are buying something
+[08:50.10] Kind of prepares all of the website and the narrative of the website
+[08:54.10] Based on who you are
+[08:55.10] Like if you are buying a sport shoes
+[08:57.10] And if you're a tennis player
+[08:59.10] It kind of pulls up all of that necessary information products
+[09:03.10] For a tennis player viewing the website
+[09:05.10] Not like a just normal runner
+[09:08.10] So it's more like a...
+[09:10.10] It's fine tuned to the user
+[09:13.10] But I think it depends on what is the pipeline of data is flowing
+[09:17.10] So we initially thought
+[09:19.10] Is it like we are tracking the user's information
+[09:22.10] Or and then we realize maybe we have to chat with the user
+[09:26.10] And get that information
+[09:28.10] And then change the website based on that
+[09:32.10] So is it go to like retain users' attention?
+[09:36.61] Sorry, oh what?
+[09:37.61] Is it go to retain users' attention for like the network?
+[09:41.61] Oh, I don't know actually
+[09:43.61] Like it can be a company uses it
+[09:46.61] What can be okay make this advertisement more appealing to this user
+[09:50.61] And what they want to see to make them buy this product
+[09:53.61] So it doesn't have to maybe attention
+[09:55.61] Maybe just like, you know
+[09:57.61] Make the website such as for that user
+[09:59.61] So they for sure, you know buy
+[10:02.61] So it's like an echo chamber
+[10:04.61] That's what I'm thinking
+[10:06.61] I'm not very, you know
+[10:08.61] In favor of just guiding that project to that direction
+[10:12.61] But it can be like, you know
+[10:14.61] Like with people who have neurodiverny juices
+[10:16.61] Maybe they can use growth cycling
+[10:18.61] Available to take to their art display
+[10:20.61] They can benefit from it
+[10:22.61] I've seen that they could
+[10:24.61] It would be bad for the world
+[10:26.61] It would be lavoable
+[10:28.61] These guys talk about it
+[10:29.61] They have like a mouse that adapts
+[10:31.61] They just launched this one yesterday
+[10:33.61] Oh
+[10:34.61] Like so the new UI is like a mouse
+[10:36.61] That adapts to the website
+[10:38.61] Or like it really shows you both
+[10:40.61] Like you should
+[10:41.61] Oh interesting
+[10:42.61] Very interesting
+[10:43.61] Very interesting
+[10:44.61] Like thinking machine has like
+[10:46.61] An action model
+[10:48.61] But it's out yet
+[10:49.61] Yeah, but I think it's really my choice
+[10:52.61] I think you guys could take inspiration from that
+[10:54.61] Yeah, what was the name of it?
+[10:56.61] Let me put it out
+[10:57.61] What just came out yesterday
+[10:59.61] Oh it's you know basically
+[11:01.61] Phone is gone now
+[11:02.61] So much phone
+[11:04.61] Google decided to use very simple
+[11:06.61] What kind of power for mouse adapting mouse
+[11:10.61] Like adapting mouse like based on the website
+[11:13.61] That's very interesting
+[11:14.61] Adapting mouse
+[11:15.61] Like the mouse
+[11:16.61] Can you imagine mouse order for the AI era?
+[11:18.61] Oh
+[11:19.61] Have you seen it?
+[11:20.61] No, but like
+[11:21.61] It just came out yesterday
+[11:22.61] It looks like a good feature
+[11:24.61] So it's like
+[11:27.61] Like you can type to the mouse
+[11:28.61] Oh
+[11:29.61] And it's like you know change
+[11:30.61] Really change
+[11:31.61] Like what you guys are doing like adapting UX
+[11:32.61] Like really what it's doing
+[11:33.61] Yeah maybe you know
+[11:34.61] That's a good inspiration actually
+[11:37.61] Not like the website is changing
+[11:39.61] But like the mouse is kind of changing things
+[11:41.61] Yeah
+[11:42.61] There's something called clicky as well
+[11:43.61] That's awesome
+[11:44.61] Maybe they realized the API or something
+[11:46.61] You can like change like
+[11:47.61] Oh I see
+[11:48.61] They have an API for this
+[11:49.61] It will help us a lot
+[11:51.61] Yeah
+[11:52.61] That's true
+[11:53.61] It lifts the you know
+[11:55.61] It lifts the burden from us
+[11:57.61] Yeah
+[12:00.61] And now you combine that
+[12:01.61] But it's actually one of them
+[12:03.61] Bro
+[12:04.61] So basically
+[12:06.61] So basically without any like
+[12:08.61] Conversation it does this
+[12:09.61] Like what is the
+[12:11.61] Like how does it know I'm changing
+[12:13.61] The UX design of it
+[12:15.61] Because user tells it
+[12:17.61] I think you still have to
+[12:18.61] I think you still have to
+[12:19.61] Chat type it
+[12:20.61] You chat it
+[12:21.61] Oh yeah
+[12:22.61] Oh okay
+[12:23.61] But I think that the benefit there is like
+[12:25.61] If you're able to keep user personalization
+[12:27.61] On top of that
+[12:28.61] Whenever someone reloads that page
+[12:30.61] It brings back with
+[12:31.61] Yeah I think you said
+[12:32.61] That you can talk to the state
+[12:33.61] Unless my contacts with that
+[12:34.61] For our project maybe
+[12:36.61] We can you know in the very
+[12:38.61] Long term not the final
+[12:40.61] But like you know it can be
+[12:42.61] Conversational thing too
+[12:43.61] Like you know
+[12:44.61] You should get with it too
+[12:45.61] You should build it so you can
+[12:46.61] Get approached by them
+[12:48.61] Oh
+[12:49.61] I was giving it
+[12:50.61] Oh we're getting feedback
+[12:51.61] Yeah
+[12:52.61] We're getting feedback
+[12:53.61] Because there is like a depth of UX
+[12:54.61] You know
+[12:55.61] Yeah
+[13:01.61] And
+[13:03.61] How does this relationship work
+[13:05.61] We can adapt this
+[13:06.61] Exactly
+[13:07.61] Yeah
+[13:08.61] Can you remind me of your team
+[13:13.61] Yeah
+[13:15.61] Wow
+[13:16.61] Thank you for this
+[13:17.61] This is very very very
+[13:18.61] Very useful feedback
+[13:23.61] No good timeline
+[13:26.61] What happened?
+[13:27.61] He didn't like his team last year
+[13:28.61] That last quarter
+[13:29.61] And I dropped it to us
+[13:30.61] He asked me for my name
+[13:32.61] I was like
+[13:35.61] It's a good timeline guys
+[13:38.61] Timeline?
+[13:39.61] You know
+[13:40.61] They just released it yesterday
+[13:41.61] Oh
+[13:43.61] You didn't get posted though
+[13:44.61] Like every day I start up
+[13:46.61] It's like
+[13:49.61] Can just you know
+[13:50.61] Oh you finally got it up right
+[13:51.61] You know
+[13:52.61] They just check if they haven't
+[13:53.61] Like access
