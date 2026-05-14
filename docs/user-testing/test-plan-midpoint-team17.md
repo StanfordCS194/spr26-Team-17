@@ -1,11 +1,11 @@
-# Midpoint user-flow script — draft (from voice memo)
+# Midpoint user-flow script — draft
 
-**What this is:** A **working draft** moderator outline derived from the team voice discussion around **Demo Day 2** / `New Recording 8`. Use it as raw material while authoring **[`user-testing-plan.md`](./user-testing-plan.md)**.
+**What this is:** A **working draft** moderator outline you can refine when authoring **[`user-testing-plan.md`](./user-testing-plan.md)**. Optional context: team notes from **Demo Day 2** and `New Recording 8` live in [demo-day-2-feedback.md](./demo-day-2-feedback.md).
 
 **What this is not:** The submitted **CS194W user testing plan** on its own — complete `user-testing-plan.md` for external testers.
 
 **Product focus:** Personalizable YouTube showcase (chat-driven layout, theme, and feed behavior; mock catalog by default).  
-**Source materials:** Course doc *Planning To Learn From User Testing* + team voice memo. **In this repo:** [`new-recording-8.m4a`](./new-recording-8.m4a) and Whisper transcripts [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) / [`…-plain`](./new-recording-8-transcript-whisper-small-plain.txt).
+**Source materials:** Course doc *Planning To Learn From User Testing*. **Optional artifacts in this repo:** [`new-recording-8.m4a`](./new-recording-8.m4a) and Whisper transcripts [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) / [`…-plain`](./new-recording-8-transcript-whisper-small-plain.txt).
 
 **Companion (quote-level synthesis from Demo Day 2):** [demo-day-2-feedback.md](./demo-day-2-feedback.md)
 
@@ -15,7 +15,7 @@
 
 ## 1. Learning goals (what we want to learn)
 
-From the voice discussion (where audio was clear), we care especially about:
+For this user test we care especially about:
 
 - Whether testers **understand** that the page can **change sequentially** (over the conversation) rather than as a one-shot “flash” update.
 - How **different audiences** (e.g. comfort with density, age, familiarity with YouTube-like UIs) react to **the same underlying app** when the chat steers emphasis (information density, layout, what’s surfaced first).
@@ -49,7 +49,7 @@ Map these to the assignment’s buckets:
 
 Record: age range (optional), rough “how often do you use YouTube?”, comfort with AI/chat in products.
 
-**Why:** aligns with discussion about older vs younger users and different consumption preferences.
+**Why:** Captures variation across age and comfort with density, common when comparing YouTube-like UIs.
 
 ---
 
@@ -108,14 +108,14 @@ Ask the same four every time:
 
 ---
 
-## 9. Appendix — Voice memo themes (partial transcript)
+## 9. Appendix — Supplementary design themes
 
 *Use as design rationale, not as verbatim tester script.*
 
 - Sequential / evolving page changes vs a single “flash” update.
 - Serving **different demographics** with different emphasis through the same shell.
 - **Chat** as the way to learn intent vs silent tracking.
-- Presenting dense information in the shape the viewer wants (discussion referenced examples like adapting how one scrolls or reads archives).
+- Presenting dense information in the shape the viewer wants (e.g. adapting how one scrolls or reads archives).
 - Reducing burden through **conversation** rather than guessing from behavior alone.
 
-*Prefer the Whisper transcript linked at the top for full wording; legacy auto-transcription missed many segments.*
+*For deeper expansion of these themes, see [demo-day-2-feedback.md](./demo-day-2-feedback.md).*
