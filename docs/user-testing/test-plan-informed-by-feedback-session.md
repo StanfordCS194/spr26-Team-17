@@ -13,6 +13,7 @@ Mirror of course expectations—you still need:
 1. **Test plan linked from team Wiki** (this file or a shortened wiki page linking here).
 2. **Printed / on-screen copy** during midpoint review beside the prototype.
 3. **Actionable outcomes** afterward (Issues, backlog, labeled findings) **cross-linked from Wiki**.
+4. **Canvas / syllabus** — confirm separately whether staff expect an additional portal upload or deadline (not spelled out on the excerpt we summarized here).
 
 Quotes here support **motivation & scope**, not substitutes for facilitator script or Issues.
 
@@ -121,7 +122,36 @@ Discussants reaffirm explicit chat over silent inference:
 
 ---
 
-## 8. Suggested midpoint **pre-baked flow** (5–12 minute backbone)
+## 8. Midpoint runbook (setup → intervention → scripted flow)
+
+### 8.1 Tester setup & environment (rubric **setup**)
+
+Cover this in **welcome**, before testers touch UI:
+
+| Item | Decide / state aloud |
+|------|----------------------|
+| URL & entry | Stable demo link; bookmark or QR if allowed |
+| Browser / device | One supported combo (avoid “doesn’t work on Safari” drift) |
+| Demo vs prod | Explicit: **not real YouTube**; what is mocked vs live (see Section 2 quotes) |
+| Accounts / deps | OAuth, `.env`, or seed—pre-flight so testers don’t unblock you |
+| Data reset | Fresh session vs persisted state for this run (tie to Tasks T2–T3) |
+
+Print or pin this mini-table beside the midpoint station.
+
+### 8.2 When to intervene
+
+Moderator norms—adapt to midpoint chaos:
+
+| Intervene | Example |
+|-----------|---------|
+| **Prototype limits** | “This part is mocked; ignore auth errors beyond …” |
+| **Stuck \> ~90 s same screen** | One nudge (“try saying X in chat”) then pause |
+| **Scope creep** | Defer—“note for backlog”—return to scripted flow (**8.3**) |
+| **Leading** | Don’t propose solutions until tester names friction first |
+
+Stay otherwise **silent during think-aloud** unless safety or deadlock.
+
+### 8.3 Pre-baked flow (5–12 minute backbone)
 
 | Phase | Tester action |
 |-------|----------------|
