@@ -129,6 +129,7 @@ showcase/
 2. Once you're past that, [`docs/architecture.md`](docs/architecture.md) is the deep dive on how the personalization actually works — how a chat message becomes a visible page change.
 3. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) is a reference for any term you hit and don't recognize.
 4. [`docs/decisions.md`](docs/decisions.md) is an append-only log of *why* we made certain calls — open it when "why is it like this?" comes up.
+5. [`docs/USER_TESTING_PLAN.md`](docs/USER_TESTING_PLAN.md) and [`docs/USER_TESTING_FEEDBACK.md`](docs/USER_TESTING_FEEDBACK.md) are the midpoint user-testing plan and feedback/issue log.
 
 ---
 

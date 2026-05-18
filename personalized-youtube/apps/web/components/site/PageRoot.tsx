@@ -59,7 +59,7 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
           ? ({ ...themeStyle, ['--chrome-dim' as string]: String(chromeDim) } as React.CSSProperties)
           : themeStyle
       }
-      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}`}
+      className={`min-h-screen relative overflow-x-hidden text-fg transition-[background-color,color] duration-300 ease-out motion-reduce:transition-none ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}`}
     >
       {/* AmbientBackground sections render at the page-root level so they
           stay visible across both Home and Watch views — they're full-bleed

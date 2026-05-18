@@ -88,7 +88,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
 
   return (
     <aside
-      className={`hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto ${edgeBorder} border-[color:var(--border)] bg-[color:var(--surface)] py-3 transition-all ${
+      className={`hidden lg:sticky lg:top-14 lg:flex lg:h-[calc(100vh-3.5rem)] shrink-0 flex-col gap-1 overflow-y-auto ${edgeBorder} border-[color:var(--border)] bg-[color:var(--surface)] py-3 shadow-sm transition-[width,border-color,background-color,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
         collapsed ? 'w-20 px-2 items-center' : 'w-60 px-3'
       }`}
       style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
@@ -101,7 +101,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
             type="button"
             onClick={() => handleNavClick(item)}
             aria-current={isActive ? 'page' : undefined}
-            className={`flex items-center rounded-lg transition-colors hover:bg-[color:var(--muted)] ${
+            className={`flex items-center rounded-xl transition-[background-color,transform,color] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[color:var(--muted)] ${
               isActive ? 'bg-[color:var(--muted)] font-medium' : ''
             } ${
               collapsed
@@ -134,7 +134,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
                 type="button"
                 onClick={() => handleChannelClick(c.name)}
                 aria-current={isActive ? 'true' : undefined}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-[color:var(--muted)] ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition-[background-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[color:var(--muted)] ${
                   isActive ? 'bg-[color:var(--muted)] font-medium' : ''
                 }`}
               >

@@ -52,14 +52,14 @@ export function VideoCard({
   if (hidden) return null;
 
   const thumb = (
-    <div className={`relative overflow-hidden rounded-xl bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-[color:var(--muted)] shadow-sm ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''}`}>
       <img
         ref={imgRef}
         src={video.thumbnail}
         alt={video.title}
         loading="lazy"
         onError={() => setHidden(true)}
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.035]"
         style={saturate !== 1 ? { filter: `saturate(${saturate})` } : undefined}
       />
       {cardDefaults.showDuration && (
@@ -138,7 +138,7 @@ export function VideoCard({
         target="_blank"
         rel="noopener noreferrer"
         onClick={onCardClick}
-        className={`group flex gap-4 cursor-pointer ${hoverClass} ${watchedDim}`}
+        className={`group flex gap-4 cursor-pointer rounded-2xl p-1 transition-[background-color,box-shadow,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[color:var(--muted)] ${hoverClass} ${watchedDim}`}
       >
         {thumb}
         {meta}
@@ -152,7 +152,7 @@ export function VideoCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={onCardClick}
-      className={`group flex flex-col gap-3 cursor-pointer ${hoverClass} ${watchedDim}`}
+      className={`group flex flex-col gap-3 cursor-pointer rounded-2xl p-1 transition-[background-color,box-shadow,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[color:var(--muted)] ${hoverClass} ${watchedDim}`}
     >
       {thumb}
       {meta}

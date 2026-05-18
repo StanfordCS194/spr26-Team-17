@@ -111,7 +111,7 @@ export function CategoryChips({ section, config }: { section: Section; config: P
 
   return (
     <div
-      className="sticky top-14 z-20 flex gap-3 overflow-x-auto border-b border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="sticky top-14 z-20 flex gap-2 overflow-x-auto border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
       style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
     >
       {chips.map((chip) => {
@@ -120,9 +120,9 @@ export function CategoryChips({ section, config }: { section: Section; config: P
           <button
             key={chip}
             onClick={() => onClick(chip)}
-            className={`shrink-0 rounded-md px-3 py-1 text-sm transition-colors ${
+            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition-[background-color,color,transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 ${
               isActive
-                ? 'bg-[color:var(--fg)] text-[color:var(--bg)]'
+                ? 'bg-[color:var(--fg)] text-[color:var(--bg)] shadow-sm'
                 : 'bg-[color:var(--muted)] text-[color:var(--fg)] hover:bg-[color:var(--border)]'
             }`}
           >
