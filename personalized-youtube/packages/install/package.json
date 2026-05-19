@@ -2,6 +2,7 @@
   "name": "@showcase/install",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "description": "Script-tag install runtime for Showcase personalization",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
