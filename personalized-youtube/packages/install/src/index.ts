@@ -1,6 +1,7 @@
 import { scanHostPage, type ScanResult, type ShowcaseSelectors } from './scanner';
 import { applyDomPatch } from './patch-runtime';
 import { ensureInstallSession } from './api';
+import { mountInstallChat } from './chat-ui';
 import type { Patch } from '@showcase/shared';
 
 export interface ShowcaseInstallConfig {
@@ -29,13 +30,15 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   const initialScan = scan();
   let currentScan = initialScan;
   const apiBaseUrl = config.apiBaseUrl ?? window.location.origin;
-  void ensureInstallSession(apiBaseUrl, config.siteId)
+  const visitorIdPromise = ensureInstallSession(apiBaseUrl, config.siteId);
+  void visitorIdPromise
     .then((visitorId) => log(config, 'session ready', { visitorId }))
     .catch((error) => log(config, 'session failed', error));
   const applyPatch = (patch: Patch) => {
     applyDomPatch(patch, currentScan.bindings);
     currentScan = scan();
   };
+  const chat = mountInstallChat({ config, visitorIdPromise, scan, applyPatch });
   log(config, 'initialized', { config, scan: initialScan });
   if (typeof window !== 'undefined') {
     window.ShowcasePersonalize = {
@@ -47,6 +50,7 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
     scan,
     applyPatch,
     destroy() {
+      chat.destroy();
       log(config, 'destroyed');
     },
   };
