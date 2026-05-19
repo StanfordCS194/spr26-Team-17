@@ -1,5 +1,6 @@
 import { scanHostPage, type ScanResult, type ShowcaseSelectors } from './scanner';
 import { applyDomPatch } from './patch-runtime';
+import { ensureInstallSession } from './api';
 import type { Patch } from '@showcase/shared';
 
 export interface ShowcaseInstallConfig {
@@ -27,6 +28,10 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   const scan = () => scanHostPage(config.selectors);
   const initialScan = scan();
   let currentScan = initialScan;
+  const apiBaseUrl = config.apiBaseUrl ?? window.location.origin;
+  void ensureInstallSession(apiBaseUrl, config.siteId)
+    .then((visitorId) => log(config, 'session ready', { visitorId }))
+    .catch((error) => log(config, 'session failed', error));
   const applyPatch = (patch: Patch) => {
     applyDomPatch(patch, currentScan.bindings);
     currentScan = scan();
