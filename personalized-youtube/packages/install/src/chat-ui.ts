@@ -6,9 +6,10 @@ interface ChatUiArgs {
   visitorIdPromise: Promise<string>;
   scan: () => { config: any };
   applyPatch: (patch: Patch) => void;
+  reset: () => Promise<void>;
 }
 
-export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch }: ChatUiArgs): { destroy(): void } {
+export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, reset }: ChatUiArgs): { destroy(): void } {
   const host = document.createElement('div');
   host.setAttribute('data-showcase-chat-host', '');
   const shadow = host.attachShadow({ mode: 'open' });
@@ -38,8 +39,10 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch }:
         box-shadow: 0 22px 70px rgba(0,0,0,.28); backdrop-filter: blur(14px);
       }
       .panel[hidden] { display: none; }
-      header { align-items: center; border-bottom: 1px solid rgba(128,128,128,.22); display: flex; justify-content: space-between; padding: 12px 14px; }
+      header { align-items: center; border-bottom: 1px solid rgba(128,128,128,.22); display: flex; gap: 8px; justify-content: space-between; padding: 12px 14px; }
       strong { font-size: 14px; }
+      .actions { align-items: center; display: flex; gap: 8px; }
+      .reset { background: rgba(128,128,128,.12); border: 1px solid rgba(128,128,128,.26); border-radius: 999px; color: inherit; cursor: pointer; font-size: 11px; font-weight: 800; padding: 5px 8px; }
       .close { background: transparent; border: 0; color: inherit; cursor: pointer; font-size: 20px; line-height: 1; }
       .messages { display: flex; flex: 1; flex-direction: column; gap: 8px; overflow: auto; padding: 14px; }
       .msg { border-radius: 12px; font-size: 13px; line-height: 1.4; max-width: 88%; padding: 9px 11px; white-space: pre-wrap; }
@@ -51,7 +54,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch }:
       button:disabled { cursor: not-allowed; opacity: .55; }
     </style>
     <section class="panel" aria-label="Showcase personalization chat">
-      <header><strong>Personalize</strong><button class="close" type="button" aria-label="Close">×</button></header>
+      <header><strong>Personalize</strong><div class="actions"><button class="reset" type="button">Reset</button><button class="close" type="button" aria-label="Close">×</button></div></header>
       <div class="messages" role="log" aria-live="polite"></div>
       <form>
         <input aria-label="Personalization request" placeholder="Ask to change this page" />
@@ -64,6 +67,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch }:
   const panel = shadow.querySelector<HTMLElement>('.panel')!;
   const launcher = shadow.querySelector<HTMLButtonElement>('.launcher')!;
   const close = shadow.querySelector<HTMLButtonElement>('.close')!;
+  const resetButton = shadow.querySelector<HTMLButtonElement>('.reset')!;
   const form = shadow.querySelector<HTMLFormElement>('form')!;
   const input = shadow.querySelector<HTMLInputElement>('input')!;
   const submit = shadow.querySelector<HTMLButtonElement>('button[type="submit"]')!;
@@ -136,6 +140,16 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch }:
   }
 
   close.addEventListener('click', () => setOpen(false));
+  resetButton.hidden = !config.debug;
+  resetButton.addEventListener('click', async () => {
+    resetButton.disabled = true;
+    try {
+      await reset();
+    } catch (error) {
+      appendMessage('assistant', (error as Error).message);
+      resetButton.disabled = false;
+    }
+  });
   launcher.addEventListener('click', () => setOpen(true));
   form.addEventListener('submit', (event) => {
     event.preventDefault();

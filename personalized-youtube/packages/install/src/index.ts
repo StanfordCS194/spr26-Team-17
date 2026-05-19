@@ -1,6 +1,6 @@
 import { scanHostPage, type ScanResult, type ShowcaseSelectors } from './scanner';
 import { applyDomPatch } from './patch-runtime';
-import { ensureInstallSession } from './api';
+import { ensureInstallSession, loadInstallPatches, resetInstallPreferences } from './api';
 import { mountInstallChat } from './chat-ui';
 import type { Patch } from '@showcase/shared';
 
@@ -14,6 +14,7 @@ export interface ShowcaseInstallConfig {
 export interface ShowcaseInstallInstance {
   scan(): ScanResult;
   applyPatch(patch: Patch): void;
+  reset(): Promise<void>;
   destroy(): void;
 }
 
@@ -38,17 +39,30 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
     applyDomPatch(patch, currentScan.bindings);
     currentScan = scan();
   };
-  const chat = mountInstallChat({ config, visitorIdPromise, scan, applyPatch });
+  void visitorIdPromise
+    .then((visitorId) => loadInstallPatches(apiBaseUrl, config.siteId, visitorId))
+    .then((patches) => {
+      for (const patch of patches) applyPatch(patch as Patch);
+      log(config, 'applied stored patches', { count: patches.length });
+    })
+    .catch((error) => log(config, 'stored patch load failed', error));
+  const reset = async () => {
+    const visitorId = await visitorIdPromise;
+    await resetInstallPreferences(apiBaseUrl, config.siteId, visitorId);
+    window.location.reload();
+  };
+  const chat = mountInstallChat({ config, visitorIdPromise, scan, applyPatch, reset });
   log(config, 'initialized', { config, scan: initialScan });
   if (typeof window !== 'undefined') {
     window.ShowcasePersonalize = {
       ...ShowcasePersonalize,
-      __debug: { applyPatch, scan },
+      __debug: { applyPatch, scan, reset },
     };
   }
   return {
     scan,
     applyPatch,
+    reset,
     destroy() {
       chat.destroy();
       log(config, 'destroyed');
@@ -64,6 +78,7 @@ declare global {
       __debug?: {
         applyPatch(patch: Patch): void;
         scan(): ScanResult;
+        reset(): Promise<void>;
       };
     };
   }
