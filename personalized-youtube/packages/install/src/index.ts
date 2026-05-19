@@ -1,4 +1,6 @@
 import { scanHostPage, type ScanResult, type ShowcaseSelectors } from './scanner';
+import { applyDomPatch } from './patch-runtime';
+import type { Patch } from '@showcase/shared';
 
 export interface ShowcaseInstallConfig {
   siteId: string;
@@ -9,6 +11,7 @@ export interface ShowcaseInstallConfig {
 
 export interface ShowcaseInstallInstance {
   scan(): ScanResult;
+  applyPatch(patch: Patch): void;
   destroy(): void;
 }
 
@@ -23,20 +26,37 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   }
   const scan = () => scanHostPage(config.selectors);
   const initialScan = scan();
+  let currentScan = initialScan;
+  const applyPatch = (patch: Patch) => {
+    applyDomPatch(patch, currentScan.bindings);
+    currentScan = scan();
+  };
   log(config, 'initialized', { config, scan: initialScan });
+  if (typeof window !== 'undefined') {
+    window.ShowcasePersonalize = {
+      ...ShowcasePersonalize,
+      __debug: { applyPatch, scan },
+    };
+  }
   return {
     scan,
+    applyPatch,
     destroy() {
       log(config, 'destroyed');
     },
   };
 }
 
-export const ShowcasePersonalize = { init, scanHostPage };
+export const ShowcasePersonalize = { init, scanHostPage, applyDomPatch };
 
 declare global {
   interface Window {
-    ShowcasePersonalize?: typeof ShowcasePersonalize;
+    ShowcasePersonalize?: typeof ShowcasePersonalize & {
+      __debug?: {
+        applyPatch(patch: Patch): void;
+        scan(): ScanResult;
+      };
+    };
   }
 }
 
@@ -46,4 +66,5 @@ if (typeof window !== 'undefined') {
 
 export default ShowcasePersonalize;
 export { scanHostPage };
+export { applyDomPatch };
 export type { ScanResult, ShowcaseSelectors };
