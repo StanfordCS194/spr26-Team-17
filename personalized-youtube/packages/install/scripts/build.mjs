@@ -1,4 +1,4 @@
-import { rm, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { build } from 'esbuild';
 
 await rm('dist', { recursive: true, force: true });
@@ -24,3 +24,7 @@ await build({
   target: 'es2020',
   sourcemap: true,
 });
+
+const demoDir = '../../apps/web/public/install-demo';
+await mkdir(demoDir, { recursive: true });
+await copyFile('dist/showcase-install.iife.js', `${demoDir}/showcase-install.iife.js`);
