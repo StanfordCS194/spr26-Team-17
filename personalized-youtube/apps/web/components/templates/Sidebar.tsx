@@ -72,8 +72,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
   const channels = useMemo(() => uniqueChannels(config), [config]);
 
   if (section.type !== 'Sidebar') return null;
-  const { collapsed, pinnedItems, position, showSubscriptions } = section.props;
-  const edgeBorder = position === 'right' ? 'border-l' : 'border-r';
+  const { collapsed, pinnedItems, showSubscriptions } = section.props;
 
   function handleNavClick(item: string): void {
     if (!NAV_KEYS.has(item)) return;
@@ -88,7 +87,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
 
   return (
     <aside
-      className={`hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto ${edgeBorder} border-[color:var(--border)] bg-[color:var(--surface)] py-3 transition-all ${
+      className={`hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface)] py-3 transition-all ${
         collapsed ? 'w-20 px-2 items-center' : 'w-60 px-3'
       }`}
       style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
