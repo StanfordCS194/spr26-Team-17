@@ -15,8 +15,6 @@ export function Site() {
 
   const header = config.sections.filter((s) => HEADER_TYPES.has(s.type));
   const sidebar = config.sections.filter((s) => SIDEBAR_TYPES.has(s.type));
-  const leftSidebar = sidebar.filter((s) => s.type === 'Sidebar' && s.props.position !== 'right');
-  const rightSidebar = sidebar.filter((s) => s.type === 'Sidebar' && s.props.position === 'right');
   const main = config.sections.filter(
     (s) => !HEADER_TYPES.has(s.type) && !SIDEBAR_TYPES.has(s.type) && !ROOT_OVERLAY_TYPES.has(s.type),
   );
@@ -37,7 +35,7 @@ export function Site() {
         >{renderSection(section, config)}</div>
       ))}
       <div className="flex">
-        {leftSidebar.map((section) => (
+        {sidebar.map((section) => (
           <div
             key={section.id}
             data-section-id={section.id}
@@ -54,14 +52,6 @@ export function Site() {
             ))
           )}
         </main>
-        {rightSidebar.map((section) => (
-          <div
-            key={section.id}
-            data-section-id={section.id}
-            data-section-type={section.type}
-            style={chromeStyle}
-          >{renderSection(section, config)}</div>
-        ))}
       </div>
     </>
   );

@@ -1,23 +1,18 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-let cachedAdmin: SupabaseClient | undefined;
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-/**
- * Admin client for API routes. Lazily created so `next build` can run without
- * Supabase env vars present (e.g. Vercel preview until secrets are set).
- */
-export const supabaseAdmin = (): SupabaseClient => {
-  if (cachedAdmin) return cachedAdmin;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!url) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required');
-  }
+export const supabase = createClient(url, anonKey, {
+  auth: { persistSession: false },
+});
+
+export const supabaseAdmin = () => {
   if (!serviceKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY missing — set in .env.local');
   }
-  cachedAdmin = createClient(url, serviceKey, {
+  return createClient(url, serviceKey, {
     auth: { persistSession: false },
   });
-  return cachedAdmin;
 };
