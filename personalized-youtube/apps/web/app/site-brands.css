@@ -83,6 +83,14 @@
   box-shadow: 0 2px 5px rgba(15, 17, 17, 0.15);
 }
 
+/* Keep Amazon pages clear of the floating Personalize chat panel */
+@media (min-width: 1280px) {
+  [data-brand='amazon'] .amazon-pdp,
+  [data-brand='amazon'] .amazon-pdp-body {
+    padding-right: max(1rem, min(440px, 36vw));
+  }
+}
+
 [data-brand='instagram'] .site-main-feed {
   max-width: 935px;
   margin-left: auto;

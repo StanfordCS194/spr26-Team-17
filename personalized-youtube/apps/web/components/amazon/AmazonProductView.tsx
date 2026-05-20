@@ -204,30 +204,40 @@ export function AmazonProductView({
       )}
 
       <nav className="border-b border-[#ddd] bg-white px-4 py-2 text-[12px] text-[#565959]">
-        <ol className="flex flex-wrap items-center gap-1">
-          {breadcrumbs.map((crumb, i) => (
-            <li key={`${crumb}-${i}`} className="flex items-center gap-1">
-              {i > 0 && <span>›</span>}
-              <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">
-                {crumb}
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2">
+          <ol className="flex flex-wrap items-center gap-1">
+            {breadcrumbs.map((crumb, i) => (
+              <li key={`${crumb}-${i}`} className="flex items-center gap-1">
+                {i > 0 && <span>›</span>}
+                <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">
+                  {crumb}
+                </button>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            onClick={() => setWatching(null)}
+            className="shrink-0 text-[13px] text-[#007185] hover:text-[#c7511f] hover:underline"
+          >
+            ← Back to results
+          </button>
+        </div>
       </nav>
 
-      <div className="mx-auto max-w-[1500px] px-4 py-4">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)_300px]">
-          {/* Image gallery — only distinct views, not zoom duplicates */}
-          <div className="flex gap-3">
+      <div className="amazon-pdp-body mx-auto max-w-[1400px] px-4 py-4">
+        {/* Top-aligned 3-col row — suggestions live below, not beside buy box */}
+        <div className="grid items-start gap-x-6 gap-y-5 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)_280px]">
+          {/* Image gallery */}
+          <div className="flex gap-2 self-start">
             {galleryImages.length > 1 && (
-              <ul className="flex shrink-0 flex-col gap-2">
+              <ul className="flex shrink-0 flex-col gap-1.5">
                 {galleryImages.map((src, i) => (
                   <li key={src}>
                     <button
                       type="button"
                       onClick={() => setActiveImage(i)}
-                      className={`flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-sm border bg-white p-0.5 ${
+                      className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-sm border bg-white p-0.5 ${
                         activeImage === i ? 'border-[#007185] shadow-[0_0_0_1px_#007185]' : 'border-[#ddd]'
                       }`}
                     >
@@ -237,25 +247,20 @@ export function AmazonProductView({
                 ))}
               </ul>
             )}
-            <div className="relative flex min-h-[380px] flex-1 items-center justify-center rounded-sm border border-[#ddd] bg-white p-4">
+            <div className="relative flex h-[340px] w-full items-center justify-center rounded-sm border border-[#ddd] bg-white p-3 sm:h-[380px]">
               {heroImage ? (
-                <button type="button" onClick={() => setZoomOpen(true)} className="max-h-[480px] max-w-full">
-                  <img src={heroImage} alt={title} className="max-h-[480px] max-w-full object-contain" />
+                <button type="button" onClick={() => setZoomOpen(true)} className="h-full w-full">
+                  <img src={heroImage} alt={title} className="mx-auto max-h-full max-w-full object-contain" />
                 </button>
               ) : (
                 <div className="text-sm text-[#565959]">No image</div>
               )}
-              {heroImage && (
-                <span className="absolute bottom-3 left-3 text-[12px] text-[#007185]">
-                  Roll over image to zoom in
-                </span>
-              )}
             </div>
           </div>
 
-          {/* Product info + mobile buy box */}
-          <div className="min-w-0">
-            <h1 className="text-[24px] font-normal leading-snug text-[#0f1111]">{title}</h1>
+          {/* Product info */}
+          <div className="min-w-0 self-start">
+            <h1 className="text-xl font-normal leading-snug text-[#0f1111] sm:text-2xl">{title}</h1>
 
             {brand && (
               <p className="mt-1 text-[13px]">
@@ -277,14 +282,10 @@ export function AmazonProductView({
                   )}
                 </>
               )}
-              <span className="text-[13px] text-[#565959]">|</span>
-              <button type="button" className="text-[13px] text-[#007185] hover:underline">
-                Search this page
-              </button>
             </div>
 
             {detail?.amazonChoice && (
-              <div className="mt-3 inline-flex items-center gap-1 rounded-sm bg-[#232f3e] px-2 py-1 text-[12px] text-white">
+              <div className="mt-2 inline-flex items-center gap-1 rounded-sm bg-[#232f3e] px-2 py-1 text-[12px] text-white">
                 <span className="font-bold">Amazon&apos;s</span>
                 <span className="text-[#ff9900]">Choice</span>
               </div>
@@ -300,9 +301,9 @@ export function AmazonProductView({
 
             {price && (
               <div className="flex items-end gap-0.5">
-                <span className="text-[13px] text-[#565959] mb-1">$</span>
+                <span className="mb-1 text-[13px] text-[#565959]">$</span>
                 <span className="text-[28px] leading-none text-[#0f1111]">{price.replace('$', '').split('.')[0]}</span>
-                <span className="text-[13px] text-[#0f1111] mb-0.5">{price.includes('.') ? price.split('.')[1] : '00'}</span>
+                <span className="mb-0.5 text-[13px] text-[#0f1111]">{price.includes('.') ? price.split('.')[1] : '00'}</span>
               </div>
             )}
 
@@ -310,19 +311,18 @@ export function AmazonProductView({
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
                 <PrimeMark />
                 <span className="text-[#007185]">
-                  Two-Day Delivery <span className="text-[#565959]">·</span>{' '}
-                  <button type="button" className="hover:underline">FREE Returns</button>
+                  Two-Day Delivery · <button type="button" className="hover:underline">FREE Returns</button>
                 </span>
               </div>
             )}
 
-            {/* Buy box visible on tablet/mobile — desktop uses right column */}
-            <div className="mt-4 lg:hidden">
+            {/* Buy box on narrow viewports — sits under price, above About */}
+            <div className="mt-4 xl:hidden">
               <AmazonBuyBox {...buyBoxProps} />
             </div>
 
             {bullets.length > 0 && (
-              <div className="mt-6">
+              <div className="mt-5">
                 <h2 className="mb-2 text-base font-bold text-[#0f1111]">About this item</h2>
                 <ul className="list-disc space-y-1 pl-5 text-[14px] leading-relaxed text-[#0f1111]">
                   {bullets.map((b) => (
@@ -331,32 +331,26 @@ export function AmazonProductView({
                 </ul>
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={() => setWatching(null)}
-              className="mt-6 text-[13px] text-[#007185] hover:text-[#c7511f] hover:underline"
-            >
-              ← Back to results
-            </button>
           </div>
 
-          {/* Desktop buy box + suggestions */}
-          <div className="hidden flex-col gap-4 lg:flex">
-            <AmazonBuyBox {...buyBoxProps} />
-
-            {suggestions.length > 0 && (
-              <div className="rounded-lg border border-[#d5d9d9] bg-white p-4">
-                <h2 className="mb-3 text-[15px] font-bold text-[#0f1111]">Customers who viewed this item also viewed</h2>
-                <div className="flex flex-col gap-3">
-                  {suggestions.slice(0, 6).map((v) => (
-                    <SuggestionCard key={v.id} video={v} onSelect={setWatching} />
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Buy box — sticky on desktop, clear of chat panel via .amazon-pdp-body padding */}
+          <div className="hidden self-start xl:block">
+            <div className="sticky top-24">
+              <AmazonBuyBox {...buyBoxProps} />
+            </div>
           </div>
         </div>
+
+        {suggestions.length > 0 && (
+          <div className="mt-8 rounded-lg border border-[#d5d9d9] bg-white p-4">
+            <h2 className="mb-3 text-[15px] font-bold text-[#0f1111]">Customers who viewed this item also viewed</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {suggestions.slice(0, 6).map((v) => (
+                <SuggestionCard key={v.id} video={v} onSelect={setWatching} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Reviews */}
         <section className="mt-8 rounded-lg border border-[#d5d9d9] bg-white p-6">
