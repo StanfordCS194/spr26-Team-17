@@ -65,6 +65,15 @@ export function VideoCard({
   const thumbRadius =
     brand === 'instagram' ? 'rounded-none' : brand === 'amazon' ? 'rounded-sm' : 'rounded-xl';
 
+  const { setWatching, youtubeMode } = usePageStore();
+
+  function onCardClick(e: React.MouseEvent): void {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    if (brand === 'youtube' && !youtubeMode) return;
+    e.preventDefault();
+    setWatching(video.id, video.title);
+  }
+
   // Instagram explore: tight square tiles, image only.
   if (brand === 'instagram' && hideMeta) {
     return (
@@ -72,6 +81,7 @@ export function VideoCard({
         href={watchHref}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={onCardClick}
         className="group relative block aspect-square overflow-hidden bg-[#efefef]"
       >
         <img
@@ -188,17 +198,6 @@ export function VideoCard({
       </div>
     </div>
   );
-
-  const { setWatching, youtubeMode } = usePageStore();
-
-  function onCardClick(e: React.MouseEvent): void {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-    if (brand === 'youtube' && !youtubeMode) return;
-    if (brand === 'youtube') {
-      e.preventDefault();
-      setWatching(video.id, video.title);
-    }
-  }
 
   const watchedDim = watchedMode ? 'opacity-40' : '';
 

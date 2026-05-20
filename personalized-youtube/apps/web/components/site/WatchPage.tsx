@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
+import { amazonProductHref } from '@/lib/amazon/href';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
 
@@ -93,11 +95,15 @@ function SuggestionCard({ video }: { video: Video }) {
   );
 }
 
-export function WatchPage() {
-  const { config, watchingId, watchingTitle, setWatching } = usePageStore();
+function productDescriptionText(description: string | undefined): string {
+  const text = description?.trim() ?? '';
+  if (!text || /^https?:\/\//i.test(text)) return '';
+  return text;
+}
 
-  // Pull suggestions from whatever section currently holds videos
-  // (VideoGrid in normal mode, or any RecommendedRow). Exclude currentvideo.
+function useWatchVideos() {
+  const { config, watchingId } = usePageStore();
+
   const suggestions: Video[] = useMemo(() => {
     if (!watchingId) return [];
     const grid = config.sections.find((s) => s.type === 'VideoGrid');
@@ -116,6 +122,175 @@ export function WatchPage() {
     return undefined;
   }, [config.sections, watchingId]);
 
+  return { suggestions, currentVideo };
+}
+
+function WatchSidebar({ suggestions, label }: { suggestions: Video[]; label: string }) {
+  return (
+    <aside className="min-w-0">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+        {label}
+      </h2>
+      <div className="flex flex-col gap-2">
+        {suggestions.map((v) => (
+          <SuggestionCard key={v.id} video={v} />
+        ))}
+        {suggestions.length === 0 && (
+          <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function AmazonProductView({
+  currentVideo,
+  suggestions,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
+  const title = watchingTitle || currentVideo?.title || 'Product';
+  const price = currentVideo?.duration?.startsWith('$') ? currentVideo.duration : null;
+  const rating = currentVideo?.postedAgo || '';
+  const description = productDescriptionText(currentVideo?.description);
+  const productUrl = currentVideo ? amazonProductHref(currentVideo) : '#';
+
+  return (
+    <div className="px-6 py-4">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex aspect-square max-h-[520px] w-full items-center justify-center overflow-hidden rounded-sm border border-[#ddd] bg-white">
+            {currentVideo?.thumbnail ? (
+              <img
+                src={currentVideo.thumbnail}
+                alt={title}
+                className="max-h-full max-w-full object-contain p-6"
+              />
+            ) : (
+              <div className="text-sm text-[color:var(--muted-fg)]">No image</div>
+            )}
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-normal leading-snug text-[#0f1111]">{title}</h1>
+            {rating && <p className="mt-2 text-sm text-[#007185]">{rating}</p>}
+            {price && <p className="mt-2 text-3xl font-normal text-[#b12704]">{price}</p>}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <a
+                href={productUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-[#ffd814] px-6 py-2 text-sm font-medium text-[#0f1111] hover:bg-[#f7ca00]"
+              >
+                View on Amazon
+              </a>
+              <button
+                type="button"
+                onClick={() => setWatching(null)}
+                className="rounded-full border border-[color:var(--border)] bg-[color:var(--muted)] px-4 py-2 text-sm hover:bg-[color:var(--border)]"
+              >
+                ← Back to results
+              </button>
+            </div>
+          </div>
+
+          {description && (
+            <div className="rounded-sm border border-[#ddd] bg-white p-4 text-sm leading-relaxed text-[#0f1111]">
+              <h2 className="mb-2 text-base font-medium">About this item</h2>
+              <p className="whitespace-pre-wrap">{description}</p>
+            </div>
+          )}
+        </div>
+
+        <WatchSidebar suggestions={suggestions} label="Customers also viewed" />
+      </div>
+    </div>
+  );
+}
+
+function InstagramPostView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
+  const title = watchingTitle || currentVideo?.title || 'Instagram post';
+  const embedSrc = `https://www.instagram.com/p/${encodeURIComponent(watchingId)}/embed`;
+
+  return (
+    <div className="px-4 py-4 md:px-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-md">
+          <div className="overflow-hidden rounded-lg border border-[#dbdbdb] bg-white shadow-sm">
+            <iframe
+              src={embedSrc}
+              title={title}
+              className="w-full border-0"
+              style={{ minHeight: '680px' }}
+              scrolling="no"
+              allowTransparency={true}
+            />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <Avatar
+                name={currentVideo?.channel.name ?? 'Instagram'}
+                src={currentVideo?.channel.avatar ?? ''}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {currentVideo?.channel.name ?? 'Instagram'}
+                </p>
+                {currentVideo?.postedAgo && (
+                  <p className="text-xs text-[color:var(--muted-fg)]">{currentVideo.postedAgo}</p>
+                )}
+              </div>
+            </div>
+            {title && title !== 'Instagram post' && (
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{title}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => setWatching(null)}
+              className="mt-4 rounded-full bg-[color:var(--muted)] px-4 py-2 text-sm hover:bg-[color:var(--border)]"
+            >
+              ← Back to feed
+            </button>
+          </div>
+
+          <WatchSidebar suggestions={suggestions} label="More posts" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YoutubeWatchView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
   const [commentsState, setCommentsState] = useState<CommentsState>({ status: 'idle' });
   const [infoState, setInfoState] = useState<InfoState>({ status: 'idle' });
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -383,21 +558,46 @@ export function WatchPage() {
           </section>
         </div>
 
-        {/* Right column: up next */}
-        <aside className="min-w-0">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
-            Up next
-          </h2>
-          <div className="flex flex-col gap-2">
-            {suggestions.map((v) => (
-              <SuggestionCard key={v.id} video={v} />
-            ))}
-            {suggestions.length === 0 && (
-              <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
-            )}
-          </div>
-        </aside>
+        <WatchSidebar suggestions={suggestions} label="Up next" />
       </div>
     </div>
+  );
+}
+
+export function WatchPage() {
+  const { config, watchingId, watchingTitle } = usePageStore();
+  const { suggestions, currentVideo } = useWatchVideos();
+  const brand = getSiteBrand(config.slug);
+
+  if (!watchingId) return null;
+
+  if (brand === 'amazon') {
+    return (
+      <AmazonProductView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  if (brand === 'instagram') {
+    return (
+      <InstagramPostView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingId={watchingId}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  return (
+    <YoutubeWatchView
+      currentVideo={currentVideo}
+      suggestions={suggestions}
+      watchingId={watchingId}
+      watchingTitle={watchingTitle}
+    />
   );
 }
