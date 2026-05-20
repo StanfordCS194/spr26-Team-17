@@ -31,6 +31,13 @@ export type AmazonProductDetailResult =
 function extractImages(html: string): string[] {
   const urls = new Set<string>();
 
+  const ogImage =
+    html.match(/property="og:image"[^>]*content="([^"]+)"/i)?.[1] ??
+    html.match(/content="([^"]+)"[^>]*property="og:image"/i)?.[1];
+  if (ogImage?.includes('media-amazon.com')) {
+    urls.add(upgradeAmazonImageUrl(decodeHtml(ogImage)));
+  }
+
   const landingDynamic = html.match(/id="landingImage"[^>]*data-a-dynamic-image="([^"]+)"/i);
   if (landingDynamic?.[1]) {
     try {
@@ -116,7 +123,8 @@ function extractBreadcrumbs(html: string): string[] {
 export function parseAmazonProductHtml(html: string, asin: string): AmazonProductDetail | null {
   const titleRaw =
     html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)<\/span>/i)?.[1] ??
-    html.match(/id="title"[^>]*>\s*([\s\S]*?)<\/span>/i)?.[1];
+    html.match(/id="title"[^>]*>\s*([\s\S]*?)<\/span>/i)?.[1] ??
+    html.match(/property="og:title"[^>]*content="([^"]+)"/i)?.[1];
   const title = titleRaw ? decodeHtml(titleRaw.replace(/<[^>]+>/g, '').trim()) : '';
   if (title.length < 3) return null;
 

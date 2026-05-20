@@ -74,9 +74,8 @@
   border-color: var(--border);
 }
 
-[data-brand='amazon'] .amazon-pdp,
-[data-brand='amazon'] .amazon-pdp *:not(svg):not(path) {
-  font-family: 'Amazon Ember', Arial, Helvetica, sans-serif !important;
+[data-brand='amazon'] .amazon-pdp {
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 [data-brand='amazon'] .amazon-pdp-title {
@@ -92,20 +91,26 @@
   background: #ffd814;
   border: 1px solid #fcd200;
   box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+  color: #0f1111 !important;
+  -webkit-text-fill-color: #0f1111 !important;
 }
 
 [data-brand='amazon'] .amazon-btn-cart:hover {
   background: #f7ca00;
+  color: #0f1111 !important;
 }
 
 [data-brand='amazon'] .amazon-btn-buy {
   background: #ffa41c;
   border: 1px solid #ff8f00;
   box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+  color: #0f1111 !important;
+  -webkit-text-fill-color: #0f1111 !important;
 }
 
 [data-brand='amazon'] .amazon-btn-buy:hover {
   background: #fa8900;
+  color: #0f1111 !important;
 }
 
 [data-brand='amazon'] .amazon-pdp-hero {

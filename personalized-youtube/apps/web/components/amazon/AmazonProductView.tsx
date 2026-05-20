@@ -32,14 +32,25 @@ function deliveryWindow(): { day: string; cutoff: string } {
   return { day, cutoff: `${mins} mins` };
 }
 
-function CarouselCard({ video, onSelect }: { video: Video; onSelect: (id: string, title: string) => void }) {
+function CarouselCard({
+  video,
+  onSelect,
+}: {
+  video: Video;
+  onSelect: (id: string, title: string, meta?: { thumbnail?: string; price?: string }) => void;
+}) {
   const price = video.duration?.startsWith('$') ? video.duration : null;
   const rating = parseAmazonRating(video.postedAgo);
 
   return (
     <button
       type="button"
-      onClick={() => onSelect(video.id, video.title)}
+      onClick={() =>
+        onSelect(video.id, video.title, {
+          thumbnail: video.thumbnail,
+          price: video.duration?.startsWith('$') ? video.duration : undefined,
+        })
+      }
       className="group w-[148px] shrink-0 text-left"
     >
       <div className="flex h-[148px] items-center justify-center overflow-hidden rounded-sm border border-[#e7e7e7] bg-white p-2 transition-shadow group-hover:shadow-md">
@@ -77,7 +88,7 @@ export function AmazonProductView({
   watchingTitle: string | null;
   watchingId: string;
 }) {
-  const { setWatching } = usePageStore();
+  const { setWatching, watchingThumbnail, watchingPrice } = usePageStore();
   const { addedBanner, clearAddedBanner, goToCart, cartCount } = useAmazonCart();
   const [productState, setProductState] = useState<ProductState>({ status: 'idle' });
   const [reviewsState, setReviewsState] = useState<ReviewsState>({ status: 'idle' });
@@ -86,7 +97,10 @@ export function AmazonProductView({
   const delivery = useMemo(() => deliveryWindow(), [watchingId]);
 
   const fallbackTitle = watchingTitle || currentVideo?.title || 'Product';
-  const fallbackPrice = currentVideo?.duration?.startsWith('$') ? currentVideo.duration : '';
+  const fallbackPrice =
+    (watchingPrice?.startsWith('$') ? watchingPrice : null) ||
+    (currentVideo?.duration?.startsWith('$') ? currentVideo.duration : '') ||
+    '';
   const fallbackRating = parseAmazonRating(currentVideo?.postedAgo);
   const productUrl = currentVideo ? amazonProductHref(currentVideo) : '#';
 
@@ -151,9 +165,10 @@ export function AmazonProductView({
   const reviewCount = detail?.reviewCount ?? '';
   const brand = detail?.brand ?? '';
   const galleryImages = useMemo(() => {
-    const raw = detail?.images.length ? detail.images : currentVideo?.thumbnail ? [currentVideo.thumbnail] : [];
-    return dedupeAmazonImages(raw);
-  }, [detail?.images, currentVideo?.thumbnail]);
+    if (detail?.images.length) return dedupeAmazonImages(detail.images);
+    const thumb = currentVideo?.thumbnail || watchingThumbnail || '';
+    return thumb ? dedupeAmazonImages([thumb]) : [];
+  }, [detail?.images, currentVideo?.thumbnail, watchingThumbnail]);
   const heroImage = galleryImages[activeImage] ?? galleryImages[0] ?? '';
   const bullets = detail?.bullets ?? [];
   const breadcrumbs = detail?.breadcrumbs ?? ['All'];

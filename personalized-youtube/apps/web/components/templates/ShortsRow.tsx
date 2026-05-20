@@ -29,7 +29,7 @@ function ShortCard({ id, title, thumbnail, views }: { id: string; title: string;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         if (!youtubeMode) return;
         e.preventDefault();
-        setWatching(id, title);
+        setWatching(id, title, { thumbnail });
       }}
       className="w-44 shrink-0 cursor-pointer"
     >

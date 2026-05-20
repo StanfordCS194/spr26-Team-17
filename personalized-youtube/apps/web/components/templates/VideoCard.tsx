@@ -72,7 +72,10 @@ export function VideoCard({
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     if (brand === 'youtube' && !youtubeMode) return;
     e.preventDefault();
-    setWatching(video.id, video.title);
+    setWatching(video.id, video.title, {
+      thumbnail: video.thumbnail,
+      price: video.duration?.startsWith('$') ? video.duration : undefined,
+    });
   }
 
   // Instagram explore: tight square tiles, image only.

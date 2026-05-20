@@ -49,7 +49,9 @@ export function AmazonCartView() {
                 <li key={item.asin} className="flex gap-4 p-4">
                   <button
                     type="button"
-                    onClick={() => setWatching(item.asin, item.title)}
+                    onClick={() =>
+                      setWatching(item.asin, item.title, { thumbnail: item.thumbnail, price: item.price })
+                    }
                     className="h-[140px] w-[140px] shrink-0 overflow-hidden rounded-sm border border-[#ddd] bg-white p-2"
                   >
                     <img src={item.thumbnail} alt={item.title} className="h-full w-full object-contain" />
@@ -57,7 +59,9 @@ export function AmazonCartView() {
                   <div className="min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => setWatching(item.asin, item.title)}
+                      onClick={() =>
+                      setWatching(item.asin, item.title, { thumbnail: item.thumbnail, price: item.price })
+                    }
                       className="text-left text-[15px] text-[#007185] hover:text-[#c7511f] hover:underline"
                     >
                       {item.title}

@@ -92,14 +92,14 @@ export function AmazonBuyBox({
         <button
           type="button"
           onClick={() => addToCart(cartPayload(), qty)}
-          className="amazon-btn-cart w-full rounded-full py-2.5 text-[13px] font-normal"
+          className="amazon-btn-cart w-full rounded-full py-2.5 text-[13px] font-normal text-[#0f1111]"
         >
           Add to Cart
         </button>
         <button
           type="button"
           onClick={() => buyNow(cartPayload(), qty)}
-          className="amazon-btn-buy w-full rounded-full py-2.5 text-[13px] font-normal"
+          className="amazon-btn-buy w-full rounded-full py-2.5 text-[13px] font-normal text-[#0f1111]"
         >
           Buy Now
         </button>

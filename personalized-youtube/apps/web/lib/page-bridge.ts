@@ -8,6 +8,8 @@ export interface PageBridgeContext {
   replace: (config: PageConfig) => void;
   watchingId: string | null;
   watchingTitle: string | null;
+  watchingThumbnail: string | null;
+  watchingPrice: string | null;
   youtubeMode: boolean;
   liveFeedMode: boolean;
 }

@@ -51,7 +51,13 @@ interface PageStoreValue {
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
-  setWatching: (id: string | null, title?: string | null) => void;
+  watchingThumbnail: string | null;
+  watchingPrice: string | null;
+  setWatching: (
+    id: string | null,
+    title?: string | null,
+    meta?: { thumbnail?: string; price?: string },
+  ) => void;
   // Sidebar navigation: which top-level nav item is active and (when in
   // Subscriptions mode) which channel is selected. Local-only state, doesn't
   // round-trip through the patch system since it doesn't change PageConfig.
@@ -91,6 +97,8 @@ export function PageStoreProvider({
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
   const [watchingTitle, setWatchingTitle] = useState<string | null>(null);
+  const [watchingThumbnail, setWatchingThumbnail] = useState<string | null>(null);
+  const [watchingPrice, setWatchingPrice] = useState<string | null>(null);
   const [activeNav, setActiveNavState] = useState<NavKey>('Home');
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -115,10 +123,20 @@ export function PageStoreProvider({
     setActiveNavState(key);
     setSelectedChannel(typeof channel === 'string' ? channel : null);
   }, []);
-  const setWatching = useCallback((id: string | null, title?: string | null) => {
-    setWatchingId(id);
-    setWatchingTitle(typeof title === 'string' ? title : null);
-  }, []);
+  const setWatching = useCallback(
+    (id: string | null, title?: string | null, meta?: { thumbnail?: string; price?: string }) => {
+      setWatchingId(id);
+      setWatchingTitle(typeof title === 'string' ? title : null);
+      if (!id) {
+        setWatchingThumbnail(null);
+        setWatchingPrice(null);
+        return;
+      }
+      setWatchingThumbnail(meta?.thumbnail?.trim() || null);
+      setWatchingPrice(meta?.price?.trim() || null);
+    },
+    [],
+  );
   const youtubeMode = initialYoutubeMode;
   const liveFeedMode = initialLiveFeedMode;
   const dispatch = useCallback(
@@ -170,6 +188,8 @@ export function PageStoreProvider({
     replace,
     watchingId,
     watchingTitle,
+    watchingThumbnail,
+    watchingPrice,
     youtubeMode,
     liveFeedMode,
   });
@@ -189,6 +209,8 @@ export function PageStoreProvider({
         liveFeedMode,
         watchingId,
         watchingTitle,
+        watchingThumbnail,
+        watchingPrice,
         setWatching,
         activeNav,
         selectedChannel,
