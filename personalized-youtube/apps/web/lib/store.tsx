@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { applyPatch, type PageConfig, type Patch } from '@showcase/shared';
+import { registerPageBridge, unregisterPageBridge } from '@/lib/page-bridge';
 
 export interface YtChipEntry {
   text: string;
@@ -142,6 +143,20 @@ export function PageStoreProvider({
     [pageSlug],
   );
   const replace = useCallback((next: PageConfig) => setConfig(next), []);
+
+  useEffect(() => {
+    registerPageBridge({
+      pageSlug,
+      config,
+      dispatch,
+      replace,
+      watchingId,
+      watchingTitle,
+      youtubeMode,
+    });
+    return () => unregisterPageBridge(pageSlug);
+  }, [pageSlug, config, dispatch, replace, watchingId, watchingTitle, youtubeMode]);
+
   return (
     <PageStoreContext.Provider
       value={{

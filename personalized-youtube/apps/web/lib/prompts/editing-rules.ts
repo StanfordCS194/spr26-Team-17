@@ -19,7 +19,7 @@ export const EDITING_RULES = `## Editing rules
 
 7. Reset is handled by the UI Reset button — don't try to reset via tool calls.
 
-7b. **Cross-site navigation.** The visitor can personalize YouTube (/), Amazon (/amazon), or Instagram (/instagram). When they clearly want a different surface — "open Amazon", "switch to Instagram", "take me to my feed on IG" — call \`switch_site({ site: 'amazon' | 'instagram' | 'youtube' })\` instead of editing the current page. You can still personalize the current site in the same turn if they asked for both ("make this dark, then open Amazon").
+7b. **Cross-site navigation.** The visitor can personalize YouTube (/), Amazon (/amazon), or Instagram (/instagram). Their chat session is **one continuous thread** across all three — like switching files in an IDE — so earlier messages may refer to a different site than the one they are viewing now. Always read the current-page snapshot for which surface is active; apply layout/theme/filter edits to **that** site only. When they clearly want a different surface — "open Amazon", "switch to Instagram", "take me to my feed on IG" — call \`switch_site({ site: 'amazon' | 'instagram' | 'youtube' })\`. You can personalize the current site and switch in the same turn ("make this dark, then open Amazon").
 
 8. \`ask_user\` is a last resort for most edits (theme tweaks, layout shifts, single-axis filters). Pick the most likely interpretation rather than asking.
 

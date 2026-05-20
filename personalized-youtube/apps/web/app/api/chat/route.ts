@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { anthropic, MODEL_OPUS, appendLog, estimateCost } from '@/lib/anthropic';
 import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
-import { TOOL_DEFINITIONS, siteById, type Patch } from '@showcase/shared';
+import { TOOL_DEFINITIONS, siteById, siteBySlug, type Patch } from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
 
@@ -77,6 +77,8 @@ export async function POST(req: NextRequest) {
 
   const visitorState = buildVisitorState(
     {
+      activeSite: siteBySlug(pageSlug)?.label ?? pageSlug,
+      activeSlug: pageSlug,
       sections: sectionSummaries,
       theme: config.theme,
       filter: config.filter,

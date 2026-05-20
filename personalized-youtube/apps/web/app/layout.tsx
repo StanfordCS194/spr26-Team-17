@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { fontVariables } from './fonts';
+import { ShowcaseChatLayer } from '@/components/chat/ShowcaseChatLayer';
 import './globals.css';
 import './site-brands.css';
 
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={fontVariables}
     >
-      <body className="bg-bg text-fg antialiased">{children}</body>
+      <body className="bg-bg text-fg antialiased">
+        {children}
+        <ShowcaseChatLayer />
+      </body>
     </html>
   );
 }

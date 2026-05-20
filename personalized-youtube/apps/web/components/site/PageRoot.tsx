@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { usePageStore } from '@/lib/store';
 import { Site } from './Site';
-import { ChatPanel } from '@/components/chat/ChatPanel';
 import { getSiteBrand } from '@/lib/site-brand';
 import { BrandBottomNav } from '@/components/brand/SiteChrome';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
@@ -184,7 +183,6 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
       )}
       <Site />
       <BrandBottomNav config={config} />
-      <ChatPanel pageSlug={pageSlug} />
     </div>
   );
 }
