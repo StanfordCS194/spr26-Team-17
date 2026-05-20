@@ -62,19 +62,28 @@ export function AmazonImageGalleryControlled({
   activeIndex,
   onSelect,
   onZoom,
+  loading = false,
 }: {
   images: string[];
   title: string;
   activeIndex: number;
   onSelect: (index: number) => void;
   onZoom?: () => void;
+  loading?: boolean;
 }) {
   const hero = images[activeIndex] ?? images[0] ?? '';
 
   if (!hero) {
     return (
-      <div className="flex h-[320px] items-center justify-center bg-white text-sm text-[#565959] sm:h-[420px]">
-        No image
+      <div className="flex h-[320px] flex-col items-center justify-center gap-2 bg-white text-sm text-[#565959] sm:h-[420px]">
+        {loading ? (
+          <>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#ddd] border-t-[#ff9900]" />
+            Loading product image…
+          </>
+        ) : (
+          'Image unavailable'
+        )}
       </div>
     );
   }

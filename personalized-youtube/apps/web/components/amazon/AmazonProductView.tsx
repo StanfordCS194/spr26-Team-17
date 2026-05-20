@@ -7,7 +7,8 @@ import { AmazonImageGalleryControlled } from '@/components/amazon/AmazonImageGal
 import { AmazonPrice } from '@/components/amazon/AmazonPrice';
 import { AmazonStars, formatReviewCount, parseAmazonRating } from '@/components/amazon/AmazonStars';
 import type { AmazonProductDetail } from '@/lib/amazon/product-detail';
-import { dedupeAmazonImages } from '@/lib/amazon/image-utils';
+import { dedupeAmazonImages, isUsableProductImage } from '@/lib/amazon/image-utils';
+import { useAmazonProductThumb } from '@/lib/amazon/use-product-thumb';
 import { amazonProductHref } from '@/lib/amazon/href';
 import { useAmazonCart } from '@/lib/amazon-cart';
 import { usePageStore } from '@/lib/store';
@@ -41,21 +42,24 @@ function CarouselCard({
 }) {
   const price = video.duration?.startsWith('$') ? video.duration : null;
   const rating = parseAmazonRating(video.postedAgo);
+  const thumb = useAmazonProductThumb(video.id, video.thumbnail);
 
   return (
     <button
       type="button"
       onClick={() =>
         onSelect(video.id, video.title, {
-          thumbnail: video.thumbnail,
+          thumbnail: thumb || video.thumbnail,
           price: video.duration?.startsWith('$') ? video.duration : undefined,
         })
       }
       className="group w-[148px] shrink-0 text-left"
     >
       <div className="flex h-[148px] items-center justify-center overflow-hidden rounded-sm border border-[#e7e7e7] bg-white p-2 transition-shadow group-hover:shadow-md">
-        {video.thumbnail && (
-          <img src={video.thumbnail} alt={video.title} loading="lazy" className="max-h-full max-w-full object-contain" />
+        {isUsableProductImage(thumb) ? (
+          <img src={thumb} alt={video.title} loading="lazy" className="max-h-full max-w-full object-contain" />
+        ) : (
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#ddd] border-t-[#ff9900]" />
         )}
       </div>
       <p className="mt-2 line-clamp-2 text-[12px] leading-snug text-[#007185] group-hover:text-[#c7511f] group-hover:underline">
@@ -164,11 +168,20 @@ export function AmazonProductView({
   const rating = detail?.rating ?? fallbackRating;
   const reviewCount = detail?.reviewCount ?? '';
   const brand = detail?.brand ?? '';
+  const gridThumb = currentVideo?.thumbnail || watchingThumbnail || '';
+  const liveThumb = useAmazonProductThumb(
+    watchingId,
+    detail?.images[0] || gridThumb,
+  );
+
   const galleryImages = useMemo(() => {
-    if (detail?.images.length) return dedupeAmazonImages(detail.images);
-    const thumb = currentVideo?.thumbnail || watchingThumbnail || '';
-    return thumb ? dedupeAmazonImages([thumb]) : [];
-  }, [detail?.images, currentVideo?.thumbnail, watchingThumbnail]);
+    const sources = [
+      ...(detail?.images ?? []),
+      liveThumb,
+      gridThumb,
+    ].filter(Boolean);
+    return dedupeAmazonImages(sources);
+  }, [detail?.images, liveThumb, gridThumb]);
   const heroImage = galleryImages[activeImage] ?? galleryImages[0] ?? '';
   const bullets = detail?.bullets ?? [];
   const breadcrumbs = detail?.breadcrumbs ?? ['All'];
@@ -225,6 +238,7 @@ export function AmazonProductView({
               activeIndex={activeImage}
               onSelect={setActiveImage}
               onZoom={() => setZoomOpen(true)}
+              loading={productState.status === 'loading'}
             />
 
             <div className="min-w-0">

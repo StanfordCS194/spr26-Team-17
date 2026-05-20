@@ -5,7 +5,7 @@
       "id": "B09XS7JWHH",
       "title": "Sony WH-1000XM5 Wireless Noise Canceling Headphones",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/51QJ7eaNLrL._AC_SL500_.jpg",
       "duration": "$328.00",
       "views": 0,
       "postedAgo": "4.5 ★",
@@ -17,7 +17,7 @@
       "id": "B00008XEWG",
       "title": "Bodum Chambord French Press Coffee Maker, 34 oz",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/61V-VGqgHqL._AC_SL500_.jpg",
       "duration": "$29.99",
       "views": 0,
       "postedAgo": "4.7 ★",
@@ -26,22 +26,22 @@
       "category": "shopping"
     },
     {
-      "id": "B09B2SBHQK",
-      "title": "Anker 7-in-1 USB C Hub with 4K HDMI",
+      "id": "B0DXJQT19B",
+      "title": "Anker USB C Hub, 7-in-1 Multi-Port Adapter with 4K HDMI",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1625948515291-69613efd2c5e?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/71Z9T0VgGyL._AC_SL500_.jpg",
       "duration": "$35.99",
       "views": 0,
       "postedAgo": "4.6 ★",
       "tags": ["amazon", "electronics", "usb-c"],
-      "description": "https://www.amazon.com/dp/B09B2SBHQK",
+      "description": "https://www.amazon.com/dp/B0DXJQT19B",
       "category": "shopping"
     },
     {
       "id": "B0D1XD1ZV3",
       "title": "Apple AirPods Pro (2nd Generation)",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/61b-evXf3jL._AC_SL500_.jpg",
       "duration": "$199.00",
       "views": 0,
       "postedAgo": "4.8 ★",
@@ -53,7 +53,7 @@
       "id": "B0CFPJYX7P",
       "title": "Kindle Paperwhite (16 GB, newest model)",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/71YwNBmu+aL._AC_SL500_.jpg",
       "duration": "$134.99",
       "views": 0,
       "postedAgo": "4.7 ★",
@@ -62,15 +62,15 @@
       "category": "shopping"
     },
     {
-      "id": "B07FZ8S74R",
+      "id": "B00FLYWNYQ",
       "title": "Instant Pot Duo 7-in-1 Electric Pressure Cooker",
       "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
-      "thumbnail": "https://images.unsplash.com/photo-1585515320318-259814833e62?w=640&q=80",
+      "thumbnail": "https://m.media-amazon.com/images/I/71Z401LjFFL._AC_SL500_.jpg",
       "duration": "$89.99",
       "views": 0,
       "postedAgo": "4.7 ★",
       "tags": ["amazon", "kitchen", "home"],
-      "description": "https://www.amazon.com/dp/B07FZ8S74R",
+      "description": "https://www.amazon.com/dp/B00FLYWNYQ",
       "category": "shopping"
     }
   ]

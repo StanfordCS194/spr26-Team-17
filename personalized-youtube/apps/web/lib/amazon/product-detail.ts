@@ -3,7 +3,7 @@ import {
   readAmazonCookies,
 } from '../innertube/chrome-cookies';
 import { fetchWithSession } from '../intercept/browser-fetch';
-import { decodeHtml, upgradeAmazonImageUrl } from './client';
+import { decodeHtml, getAmazonSearchFeed, upgradeAmazonImageUrl } from './client';
 import { dedupeAmazonImages } from './image-utils';
 
 export type AmazonProductDetail = {
@@ -177,6 +177,59 @@ export function parseAmazonProductHtml(html: string, asin: string): AmazonProduc
   };
 }
 
+async function enrichProductFromSearch(
+  product: AmazonProductDetail,
+  asin: string,
+): Promise<AmazonProductDetail> {
+  const search = await getAmazonSearchFeed(asin, 1);
+  if (search.kind !== 'ok') return product;
+
+  const hit =
+    search.videos.find((v) => v.id.toUpperCase() === asin) ??
+    search.videos.find((v) => v.title.toLowerCase().includes(product.title.slice(0, 24).toLowerCase()));
+
+  if (!hit) return product;
+
+  const images = dedupeAmazonImages([
+    ...product.images,
+    ...(hit.thumbnail ? [hit.thumbnail] : []),
+  ]);
+
+  const hitRating = hit.postedAgo?.match(/([0-5.]+)/)?.[1];
+
+  return {
+    ...product,
+    title: product.title.length >= 8 ? product.title : hit.title,
+    price: product.price || (hit.duration.startsWith('$') ? hit.duration : product.price),
+    images,
+    rating: product.rating ?? (hitRating ? parseFloat(hitRating) : null),
+  };
+}
+
+function productFromSearchHit(
+  asin: string,
+  hit: { title: string; thumbnail: string; duration: string; postedAgo: string },
+): AmazonProductDetail {
+  const ratingMatch = hit.postedAgo?.match(/([0-5.]+)/);
+  return {
+    asin,
+    title: hit.title,
+    brand: '',
+    price: hit.duration.startsWith('$') ? hit.duration : '',
+    listPrice: '',
+    rating: ratingMatch?.[1] ? parseFloat(ratingMatch[1]) : null,
+    ratingText: ratingMatch?.[1] ? `${ratingMatch[1]} out of 5 stars` : '',
+    reviewCount: '',
+    images: hit.thumbnail ? dedupeAmazonImages([hit.thumbnail]) : [],
+    bullets: [],
+    breadcrumbs: ['All'],
+    inStock: true,
+    primeEligible: true,
+    boughtPastMonth: '',
+    amazonChoice: false,
+  };
+}
+
 export async function getAmazonProductDetail(asin: string): Promise<AmazonProductDetailResult> {
   const normalized = asin.trim().toUpperCase();
   if (!/^[A-Z0-9]{10}$/.test(normalized)) {
@@ -206,8 +259,25 @@ export async function getAmazonProductDetail(asin: string): Promise<AmazonProduc
       return { kind: 'unavailable', reason: `amazon product HTTP ${res.status}` };
     }
     const html = await res.text();
-    const product = parseAmazonProductHtml(html, normalized);
-    if (!product) {
+    let product = parseAmazonProductHtml(html, normalized);
+
+    if (!product || product.images.length === 0) {
+      const search = await getAmazonSearchFeed(normalized, 1);
+      if (search.kind === 'ok') {
+        const hit = search.videos.find((v) => v.id.toUpperCase() === normalized);
+        if (hit) {
+          if (product) {
+            product = await enrichProductFromSearch(product, normalized);
+          } else {
+            product = productFromSearchHit(normalized, hit);
+          }
+        }
+      }
+    } else if (product) {
+      product = { ...product, images: dedupeAmazonImages(product.images) };
+    }
+
+    if (!product || product.images.length === 0) {
       return { kind: 'unavailable', reason: 'amazon product parsed empty' };
     }
     return { kind: 'ok', product };
