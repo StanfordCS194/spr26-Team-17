@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { getRenderedPage } from '@/lib/queries/page';
 import { PageStoreProvider } from '@/lib/store';
 import { PageRoot } from '@/components/site/PageRoot';
-import { resolveFeedSource } from '@/lib/adapters/feed-source';
+import { isLiveFeedSource, resolveFeedSource } from '@/lib/adapters/feed-source';
 
 const SLUG = 'instagram-feed';
 
@@ -20,6 +20,7 @@ export default async function InstagramPage({
   const visitorId = cookieStore.get('visitor_id')?.value;
   const { config, ytContinuation, ytChips } = await getRenderedPage({ slug: SLUG, visitorId });
   const source = resolveFeedSource(SLUG);
+  const live = isLiveFeedSource(source);
   const params = (await searchParams) ?? {};
 
   return (
@@ -27,7 +28,8 @@ export default async function InstagramPage({
       initialConfig={config}
       initialYtContinuation={ytContinuation}
       initialYtChips={ytChips}
-      initialYoutubeMode={source === 'youtube'}
+      initialYoutubeMode={false}
+      initialLiveFeedMode={live}
       initialWatchingId={parseWatchingId(params['v'])}
       pageSlug={SLUG}
     >

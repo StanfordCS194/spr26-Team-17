@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { getRenderedPage } from '@/lib/queries/page';
 import { PageStoreProvider } from '@/lib/store';
 import { PageRoot } from '@/components/site/PageRoot';
-import { resolveFeedSource } from '@/lib/adapters/feed-source';
+import { isLiveFeedSource, resolveFeedSource } from '@/lib/adapters/feed-source';
 
 export default async function Home({
   searchParams,
@@ -28,6 +28,7 @@ export default async function Home({
       initialYtContinuation={ytContinuation}
       initialYtChips={ytChips}
       initialYoutubeMode={feedSource === 'youtube'}
+      initialLiveFeedMode={isLiveFeedSource(feedSource)}
       initialWatchingId={initialWatchingId}
       pageSlug="youtube-clone"
     >

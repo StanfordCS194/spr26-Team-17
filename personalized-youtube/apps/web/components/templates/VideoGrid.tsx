@@ -56,12 +56,19 @@ function applyNavFilter(
       return videos.filter(
         (v) => parseDurationSeconds(v.duration) <= 60 || v.tags.includes('shorts'),
       );
+    case 'Reels':
+      return videos.filter(
+        (v) => v.tags.includes('video') || (v.duration !== 'Post' && v.duration.endsWith('s')),
+      );
     case 'Subscriptions':
       if (!selectedChannel) return videos;
       return videos.filter((v) => v.channel.name === selectedChannel);
     case 'You':
     case 'History':
+    case 'Profile':
       return videos.filter((v) => v.watched === true);
+    case 'Lists':
+      return videos.filter((v) => v.tags.includes('list') || v.watched === true);
     default:
       return videos;
   }

@@ -98,64 +98,140 @@ export function parseInstagramTimelineJson(body: unknown): Video[] {
   return out;
 }
 
-export async function getInstagramTimelineFeed(): Promise<InstagramFeedResult> {
+function collectSearchMedia(node: unknown, out: Video[], seen: Set<string>): void {
+  if (out.length >= 48 || node == null) return;
+  if (Array.isArray(node)) {
+    for (const item of node) collectSearchMedia(item, out, seen);
+    return;
+  }
+  if (typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+
+  if ('code' in obj || 'pk' in obj || 'media_type' in obj) {
+    const video = mediaToVideo(obj);
+    if (video && !seen.has(video.id)) {
+      seen.add(video.id);
+      out.push(video);
+    }
+  }
+
+  if (obj.media && typeof obj.media === 'object') {
+    const video = mediaToVideo(obj.media as Record<string, unknown>);
+    if (video && !seen.has(video.id)) {
+      seen.add(video.id);
+      out.push(video);
+    }
+  }
+
+  for (const value of Object.values(obj)) {
+    if (out.length >= 48) break;
+    if (value && typeof value === 'object') collectSearchMedia(value, out, seen);
+  }
+}
+
+export function parseInstagramSearchJson(body: unknown): Video[] {
+  const out: Video[] = [];
+  const seen = new Set<string>();
+  collectSearchMedia(body, out, seen);
+  return out;
+}
+
+async function instagramSessionHeaders(): Promise<
+  | { kind: 'ok'; cookieHeader: string; csrf: string }
+  | { kind: 'unavailable'; reason: string }
+> {
   const cookieResult = await readInstagramCookies();
   if (cookieResult.kind !== 'ok') {
     return { kind: 'unavailable', reason: cookieResult.reason };
   }
-
   const cookies = cookieResult.cookies;
   const cookieHeader = composeCookieHeader(cookies, 'instagram.com');
   const csrf = cookieValue(cookies, 'csrftoken');
   const sessionId = cookieValue(cookies, 'sessionid');
-
   if (!cookieHeader || !sessionId) {
-    return {
-      kind: 'unavailable',
-      reason: 'instagram sessionid missing (log in at instagram.com in Chrome)',
-    };
+    return { kind: 'unavailable', reason: 'instagram sessionid missing (log in at instagram.com in Chrome)' };
   }
   if (!csrf) {
-    return {
-      kind: 'unavailable',
-      reason: 'instagram csrftoken missing',
-    };
+    return { kind: 'unavailable', reason: 'instagram csrftoken missing' };
   }
+  return { kind: 'ok', cookieHeader, csrf };
+}
 
-  let res: Response;
+async function fetchInstagramJson(
+  url: string,
+  headers: { cookieHeader: string; csrf: string },
+): Promise<{ ok: true; json: unknown } | { ok: false; reason: string }> {
   try {
-    res = await fetchWithSession(TIMELINE_URL, {
+    const res = await fetchWithSession(url, {
       method: 'GET',
-      cookieHeader,
+      cookieHeader: headers.cookieHeader,
       headers: {
         Accept: '*/*',
         Referer: 'https://www.instagram.com/',
         'X-IG-App-ID': IG_APP_ID,
-        'X-CSRFToken': csrf,
+        'X-CSRFToken': headers.csrf,
         'X-Requested-With': 'XMLHttpRequest',
         'X-ASBD-ID': '359341',
         'X-IG-WWW-Claim': '0',
       },
     });
+    if (!res.ok) {
+      const snippet = (await res.text()).slice(0, 200);
+      return { ok: false, reason: `instagram HTTP ${res.status}: ${snippet}` };
+    }
+    return { ok: true, json: await res.json() };
   } catch (err) {
-    return { kind: 'unavailable', reason: `instagram fetch failed: ${(err as Error).message}` };
+    return { ok: false, reason: `instagram fetch failed: ${(err as Error).message}` };
+  }
+}
+
+export async function getInstagramSearchFeed(query: string): Promise<InstagramFeedResult> {
+  const q = query.trim();
+  if (!q) return getInstagramTimelineFeed();
+
+  const session = await instagramSessionHeaders();
+  if (session.kind !== 'ok') return session;
+
+  const searchUrl = `https://www.instagram.com/api/v1/fbsearch/web/top_serp/?query=${encodeURIComponent(q)}`;
+  const searchRes = await fetchInstagramJson(searchUrl, session);
+  if (searchRes.ok) {
+    const videos = parseInstagramSearchJson(searchRes.json);
+    if (videos.length > 0) {
+      console.log(`[instagram] search "${q}": ${videos.length} posts`);
+      return { kind: 'ok', videos };
+    }
   }
 
-  if (!res.ok) {
-    const snippet = (await res.text()).slice(0, 200);
+  // Fallback: filter home timeline locally when search endpoint shape changes.
+  const timeline = await getInstagramTimelineFeed();
+  if (timeline.kind !== 'ok') {
     return {
       kind: 'unavailable',
-      reason: `instagram HTTP ${res.status}: ${snippet}`,
+      reason: searchRes.ok ? 'instagram search parsed empty' : searchRes.reason,
     };
   }
-
-  let json: unknown;
-  try {
-    json = await res.json();
-  } catch {
-    return { kind: 'unavailable', reason: 'instagram response not JSON' };
+  const needle = q.toLowerCase();
+  const filtered = timeline.videos.filter(
+    (v) =>
+      v.title.toLowerCase().includes(needle) ||
+      v.channel.name.toLowerCase().includes(needle) ||
+      v.description.toLowerCase().includes(needle),
+  );
+  if (filtered.length === 0) {
+    return { kind: 'unavailable', reason: `instagram search "${q}" returned no matches` };
   }
+  console.log(`[instagram] search "${q}" (timeline filter): ${filtered.length} posts`);
+  return { kind: 'ok', videos: filtered };
+}
 
+export async function getInstagramTimelineFeed(): Promise<InstagramFeedResult> {
+  const session = await instagramSessionHeaders();
+  if (session.kind !== 'ok') return session;
+
+  const fetchRes = await fetchInstagramJson(TIMELINE_URL, session);
+  if (!fetchRes.ok) return { kind: 'unavailable', reason: fetchRes.reason };
+
+  const json = fetchRes.json;
   const videos = parseInstagramTimelineJson(json);
   if (videos.length === 0) {
     const status = (json as { status?: string }).status;

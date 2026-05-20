@@ -9,6 +9,7 @@ export interface PageBridgeContext {
   watchingId: string | null;
   watchingTitle: string | null;
   youtubeMode: boolean;
+  liveFeedMode: boolean;
 }
 
 let activePage: PageBridgeContext | null = null;

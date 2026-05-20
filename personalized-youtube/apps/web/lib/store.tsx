@@ -9,7 +9,20 @@ export interface YtChipEntry {
   params: string | null;
 }
 
-export type NavKey = 'Home' | 'Shorts' | 'Subscriptions' | 'You' | 'Library' | 'History';
+export type NavKey =
+  | 'Home'
+  | 'Shorts'
+  | 'Subscriptions'
+  | 'You'
+  | 'Library'
+  | 'History'
+  | 'Deals'
+  | 'Lists'
+  | 'Account'
+  | 'Search'
+  | 'Reels'
+  | 'Shop'
+  | 'Profile';
 
 // Pre-search snapshot of the home page. We capture the whole config (not just
 // the videos) because search mutates several sections at once — grid videos,
@@ -31,10 +44,10 @@ interface PageStoreValue {
   setYtContinuation: (token: string | null) => void;
   // Real chip metadata extracted from the home browse response. Map text → params token.
   ytChips: YtChipEntry[];
-  // Whether the YouTube data adapter is active. Set once at page render time
-  // from the server (env var SHOWCASE_FEED_SOURCE). Components use this to
-  // decide whether to call /api/yt/* endpoints vs. local-only filtering.
+  // Whether the YouTube data adapter is active (legacy name; prefer liveFeedMode).
   youtubeMode: boolean;
+  // Live intercept feed for the current site (YouTube, Amazon, or Instagram).
+  liveFeedMode: boolean;
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
@@ -60,6 +73,7 @@ export function PageStoreProvider({
   initialYtContinuation = null,
   initialYtChips = [],
   initialYoutubeMode = false,
+  initialLiveFeedMode = false,
   initialWatchingId = null,
   pageSlug,
   children,
@@ -68,6 +82,7 @@ export function PageStoreProvider({
   initialYtContinuation?: string | null;
   initialYtChips?: YtChipEntry[];
   initialYoutubeMode?: boolean;
+  initialLiveFeedMode?: boolean;
   initialWatchingId?: string | null;
   pageSlug: string;
   children: ReactNode;
@@ -105,6 +120,7 @@ export function PageStoreProvider({
     setWatchingTitle(typeof title === 'string' ? title : null);
   }, []);
   const youtubeMode = initialYoutubeMode;
+  const liveFeedMode = initialLiveFeedMode;
   const dispatch = useCallback(
     (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => {
       setConfig((current) => {
@@ -155,6 +171,7 @@ export function PageStoreProvider({
     watchingId,
     watchingTitle,
     youtubeMode,
+    liveFeedMode,
   });
   useEffect(() => () => unregisterPageBridge(pageSlug), [pageSlug]);
 
@@ -169,6 +186,7 @@ export function PageStoreProvider({
         setYtContinuation,
         ytChips: initialYtChips,
         youtubeMode,
+        liveFeedMode,
         watchingId,
         watchingTitle,
         setWatching,

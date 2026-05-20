@@ -52,6 +52,7 @@ function ShortCard({ id, title, thumbnail, views }: { id: string; title: string;
 }
 
 export function ShortsRow({ section, config }: { section: Section; config: PageConfig }) {
+  const { setWatching, youtubeMode } = usePageStore();
   if (section.type !== 'ShortsRow') return null;
   const brand = getSiteBrand(config.slug);
   const { visible, headline, shorts } = section.props;
@@ -63,7 +64,12 @@ export function ShortsRow({ section, config }: { section: Section; config: PageC
         <div className="-mx-1 overflow-x-auto no-scrollbar">
           <div className="flex gap-4">
             {shorts.map((s) => (
-              <div key={s.id} className="flex w-16 shrink-0 flex-col items-center gap-1">
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setWatching(s.id, s.title)}
+                className="flex w-16 shrink-0 flex-col items-center gap-1"
+              >
                 <div className="rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px]">
                   <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-[color:var(--muted)]">
                     {s.thumbnail && (
@@ -74,7 +80,7 @@ export function ShortsRow({ section, config }: { section: Section; config: PageC
                 <span className="max-w-[4rem] truncate text-[10px] text-[color:var(--fg)]">
                   {s.channel?.name ?? s.title.slice(0, 8)}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>

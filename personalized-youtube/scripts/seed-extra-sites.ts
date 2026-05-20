@@ -124,6 +124,14 @@ function instagramConfig(videos: Video[]): PageConfig {
         },
       },
       {
+        id: 'categoryChips',
+        type: 'CategoryChips',
+        props: {
+          active: 'All',
+          chips: ['All', 'Following', 'Reels', 'Photos'],
+        },
+      },
+      {
         id: 'storiesRow',
         type: 'ShortsRow',
         props: {
