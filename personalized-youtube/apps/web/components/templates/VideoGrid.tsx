@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PageConfig, Section, Video } from '@showcase/shared';
 import { VideoCard } from './VideoCard';
 import { applyFeedFilter } from './_filter';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
 interface CuratedSource {
@@ -190,6 +191,7 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
   }, [ytContinuation, loadingMore, sectionId, sectionVideos, dispatch, setYtContinuation]);
 
   if (section.type !== 'VideoGrid') return null;
+  const brand = getSiteBrand(config.slug);
   const { columns, density, videos, layout } = section.props;
   // When the curated-feed path is active and we have results, those replace
   // the static `videos` prop. Existing nav + feed filters still apply on top.
@@ -331,9 +333,13 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
     );
   }
 
+  const gridPad =
+    brand === 'instagram' ? 'gap-1 px-1 py-0' : brand === 'amazon' ? `${d.gap} px-4 sm:px-6 ${d.padY}` : `${d.gap} px-6 ${d.padY}`;
+  const igCols = 'grid-cols-3';
+
   return (
     <>
-      <div className={`grid ${colClasses} ${d.gap} px-6 ${d.padY}`}>
+      <div className={`grid ${brand === 'instagram' ? igCols : colClasses} ${gridPad}`}>
         {filtered.map((v) => (
           <VideoCard key={v.id} video={v} config={config} />
         ))}

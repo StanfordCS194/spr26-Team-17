@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { fontVariables } from './fonts';
 import './globals.css';
+import './site-brands.css';
 
 export const metadata: Metadata = {
   title: 'Showcase — Personalizable YouTube',

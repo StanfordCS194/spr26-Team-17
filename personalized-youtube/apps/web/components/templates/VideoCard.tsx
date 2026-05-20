@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Video } from '@showcase/shared';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from './Avatar';
 
@@ -34,6 +35,7 @@ export function VideoCard({
   watchedFraction?: number;
 }) {
   const cardDefaults = config.theme.videoCardDefaults;
+  const brand = getSiteBrand(config.slug);
   const aspectClass = ASPECT_RATIO[cardDefaults.aspectRatio];
   const hoverClass = HOVER[cardDefaults.hoverEffect];
   const horizontal = cardDefaults.cardLayout === 'horizontal';
@@ -52,7 +54,7 @@ export function VideoCard({
   if (hidden) return null;
 
   const thumb = (
-    <div className={`relative overflow-hidden rounded-xl bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''}`}>
+    <div className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${brand === 'instagram' || brand === 'amazon' ? 'rounded-sm' : 'rounded-xl'}`}>
       <img
         ref={imgRef}
         src={video.thumbnail}
@@ -62,8 +64,14 @@ export function VideoCard({
         className="h-full w-full object-cover"
         style={saturate !== 1 ? { filter: `saturate(${saturate})` } : undefined}
       />
-      {cardDefaults.showDuration && (
-        <span className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white">
+      {cardDefaults.showDuration && brand !== 'amazon' && (
+        <span
+          className={`absolute bottom-2 right-2 rounded px-1.5 py-0.5 text-xs ${
+            brand === 'instagram'
+              ? 'hidden'
+              : 'bg-black/80 text-white'
+          }`}
+        >
           {video.duration}
         </span>
       )}
@@ -81,26 +89,42 @@ export function VideoCard({
     </div>
   );
 
-  const meta = (
-    <div className={`flex gap-3 ${horizontal ? 'min-w-0 flex-1 items-start' : ''}`}>
-      {!horizontal && (
+  const meta = hideMeta ? null : (
+    <div className={`flex gap-3 ${horizontal ? 'min-w-0 flex-1 items-start' : brand === 'amazon' ? 'gap-0' : ''}`}>
+      {!horizontal && brand === 'youtube' && (
         <Avatar name={video.channel.name} src={video.channel.avatar} size="md" />
       )}
       <div className="min-w-0">
         <h3
-          className={`line-clamp-2 leading-snug ${horizontal ? 'text-base' : 'text-sm'}`}
-          style={{ fontWeight: cardDefaults.titleWeight }}
+          className={`line-clamp-2 leading-snug ${
+            horizontal
+              ? 'text-base'
+              : brand === 'amazon'
+                ? 'text-sm font-normal text-[#0f1111] group-hover:text-[#c7511f]'
+                : brand === 'instagram'
+                  ? 'text-sm font-normal'
+                  : 'text-sm'
+          }`}
+          style={{ fontWeight: brand === 'instagram' ? 400 : cardDefaults.titleWeight }}
         >
           {video.title}
         </h3>
-        <p
-          className="mt-1 truncate text-xs text-[color:var(--muted-fg)]"
-          style={{ fontWeight: cardDefaults.channelNameWeight }}
-        >
-          {video.channel.name}
-          {video.channel.verified && <span className="ml-1">✓</span>}
-        </p>
-        {!hideMeta && (cardDefaults.showViewCount || cardDefaults.showPostedAgo) && (
+        {brand === 'amazon' && cardDefaults.showDuration && (
+          <p className="mt-1 text-lg font-normal text-[#b12704]">{video.duration}</p>
+        )}
+        {brand === 'amazon' && cardDefaults.showPostedAgo && video.postedAgo && (
+          <p className="mt-0.5 text-xs text-[#007185]">{video.postedAgo}</p>
+        )}
+        {brand !== 'amazon' && (
+          <p
+            className="mt-1 truncate text-xs text-[color:var(--muted-fg)]"
+            style={{ fontWeight: cardDefaults.channelNameWeight }}
+          >
+            {video.channel.name}
+            {video.channel.verified && <span className="ml-1">✓</span>}
+          </p>
+        )}
+        {!hideMeta && brand === 'youtube' && (cardDefaults.showViewCount || cardDefaults.showPostedAgo) && (
           <p className="mt-0.5 text-xs text-[color:var(--muted-fg)]">
             {cardDefaults.showViewCount && `${formatViews(video.views)} views`}
             {cardDefaults.showViewCount && cardDefaults.showPostedAgo && ' · '}
@@ -117,16 +141,20 @@ export function VideoCard({
   );
 
   const { setWatching, youtubeMode } = usePageStore();
-  const watchHref = `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+  const watchHref =
+    brand === 'amazon'
+      ? `https://www.amazon.com/dp/${encodeURIComponent(video.id)}`
+      : brand === 'instagram'
+        ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
+        : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
 
   function onCardClick(e: React.MouseEvent): void {
-    // Cmd/Ctrl-click or middle-click → fall through to native open-in-new-tab.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-    // In YouTube mode the embed iframe will load this video. In mock mode we
-    // don't have real YouTube IDs, so let the link open externally.
-    if (!youtubeMode) return;
-    e.preventDefault();
-    setWatching(video.id, video.title);
+    if (brand === 'youtube' && !youtubeMode) return;
+    if (brand === 'youtube') {
+      e.preventDefault();
+      setWatching(video.id, video.title);
+    }
   }
 
   const watchedDim = watchedMode ? 'opacity-40' : '';
@@ -152,7 +180,7 @@ export function VideoCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={onCardClick}
-      className={`group flex flex-col gap-3 cursor-pointer ${hoverClass} ${watchedDim}`}
+      className={`group flex flex-col cursor-pointer ${hoverClass} ${watchedDim} ${hideMeta ? 'gap-0' : brand === 'amazon' ? 'gap-2' : 'gap-3'}`}
     >
       {thumb}
       {meta}

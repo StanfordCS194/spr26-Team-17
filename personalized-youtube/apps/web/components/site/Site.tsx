@@ -1,6 +1,7 @@
 'use client';
 
 import { renderSection } from '../templates/registry';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { WatchPage } from './WatchPage';
 
@@ -43,7 +44,7 @@ export function Site() {
             style={chromeStyle}
           >{renderSection(section, config)}</div>
         ))}
-        <main className="min-w-0 flex-1 relative z-10">
+        <main className={`min-w-0 flex-1 relative z-10 ${getSiteBrand(config.slug) === 'instagram' ? 'site-main-feed' : ''}`}>
           {watchingId ? (
             <WatchPage />
           ) : (

@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { usePageStore } from '@/lib/store';
 import { Site } from './Site';
 import { ChatPanel } from '@/components/chat/ChatPanel';
+import { getSiteBrand } from '@/lib/site-brand';
+import { BrandBottomNav } from '@/components/brand/SiteChrome';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
 
 // Keeps the URL's ?v= (watching) and ?q= (search) params in sync with the
@@ -117,16 +119,19 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
   const chromeDim = config.theme.chromeDim ?? 0;
   const grain = config.theme.grain ?? 0;
 
+  const brand = getSiteBrand(pageSlug);
+
   return (
     <div
       data-theme={config.theme.mode}
+      data-brand={brand}
       data-bg={isGradient ? 'gradient' : isPaper ? 'paper' : 'solid'}
       style={
         chromeDim > 0
           ? ({ ...themeStyle, ['--chrome-dim' as string]: String(chromeDim) } as React.CSSProperties)
           : themeStyle
       }
-      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}`}
+      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}${brand === 'instagram' ? ' pb-16 md:pb-0' : ''}`}
     >
       {/* AmbientBackground sections render at the page-root level so they
           stay visible across both Home and Watch views — they're full-bleed
@@ -178,6 +183,7 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
         </>
       )}
       <Site />
+      <BrandBottomNav config={config} />
       <ChatPanel pageSlug={pageSlug} />
     </div>
   );

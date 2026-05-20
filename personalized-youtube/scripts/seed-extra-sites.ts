@@ -1,44 +1,50 @@
 /**
- * Upsert amazon-storefront + instagram-feed site rows (mock base_config).
+ * Upsert amazon-storefront + instagram-feed site rows (brand-specific layouts).
  * Run: node --env-file=.env --import tsx scripts/seed-extra-sites.ts
  */
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { PageConfigSchema, type PageConfig, type Video } from '@showcase/shared';
+import { PageConfigSchema, type PageConfig, type Short, type Video } from '@showcase/shared';
 
 async function loadMock(file: string): Promise<Video[]> {
   const raw = await readFile(join(__dirname, `../apps/web/lib/mock-data/${file}`), 'utf-8');
   return (JSON.parse(raw) as { videos: Video[] }).videos;
 }
 
-function shell(
-  id: string,
-  slug: string,
-  title: string,
-  accent: string,
-  logoText: string,
-  chips: string[],
-  videos: Video[],
-): PageConfig {
+function storiesFromVideos(videos: Video[]): Short[] {
+  return videos.slice(0, 10).map((v) => ({
+    id: v.id,
+    title: v.title,
+    thumbnail: v.thumbnail,
+    views: v.views,
+    channel: v.channel,
+  }));
+}
+
+function amazonConfig(videos: Video[]): PageConfig {
   return PageConfigSchema.parse({
-    id,
-    slug,
+    id: 'amazon-storefront',
+    slug: 'amazon-storefront',
     theme: {
       mode: 'light',
-      accent,
+      accent: '#FF9900',
       fontScale: '1',
-      radius: 'md',
+      fontFamily: 'sans',
+      radius: 'sm',
+      background: { kind: 'solid' },
       videoCardDefaults: {
-        aspectRatio: '16:9',
+        aspectRatio: '1:1',
         thumbnailScale: 1,
-        titleWeight: 500,
+        titleWeight: 400,
         channelNameWeight: 400,
         showDescription: false,
-        showViewCount: true,
+        showViewCount: false,
         showPostedAgo: true,
         showDuration: true,
+        cardLayout: 'vertical',
+        hoverEffect: 'none',
       },
     },
     sections: [
@@ -46,8 +52,8 @@ function shell(
         id: 'topBar',
         type: 'TopBar',
         props: {
-          logoText,
-          searchPlaceholder: 'Search',
+          logoText: 'amazon',
+          searchPlaceholder: 'Search Amazon',
           compactSearch: false,
           showProfileChip: true,
         },
@@ -57,7 +63,6 @@ function shell(
         type: 'Sidebar',
         props: {
           collapsed: false,
-          position: 'left',
           pinnedItems: ['Home', 'Deals', 'Lists', 'Account'],
           showSubscriptions: false,
         },
@@ -65,17 +70,77 @@ function shell(
       {
         id: 'categoryChips',
         type: 'CategoryChips',
-        props: { active: 'All', chips },
+        props: {
+          active: 'All',
+          chips: ['All', 'Best Sellers', 'Electronics', 'Home', 'Books', 'Fashion'],
+        },
       },
       {
         id: 'videoGrid',
         type: 'VideoGrid',
-        props: { columns: 4, density: 'cozy', videos: videos.slice(0, 48) },
+        props: { columns: 5, density: 'compact', layout: 'grid', videos: videos.slice(0, 48) },
       },
     ],
     filter: { include: [], exclude: [], requireTags: [], blockChannels: [] },
     sort: { by: 'recommended', order: 'desc' },
-    meta: { title, favicon: '/favicon.ico' },
+    meta: { title: 'Amazon.com', favicon: '/favicon.ico' },
+  });
+}
+
+function instagramConfig(videos: Video[]): PageConfig {
+  return PageConfigSchema.parse({
+    id: 'instagram-feed',
+    slug: 'instagram-feed',
+    theme: {
+      mode: 'light',
+      accent: '#E1306C',
+      fontScale: '1',
+      fontFamily: 'sans',
+      radius: 'none',
+      background: { kind: 'solid' },
+      videoCardDefaults: {
+        aspectRatio: '1:1',
+        thumbnailScale: 1,
+        titleWeight: 400,
+        channelNameWeight: 400,
+        showDescription: false,
+        showViewCount: false,
+        showPostedAgo: false,
+        showDuration: false,
+        cardLayout: 'vertical',
+        hoverEffect: 'none',
+        hideMeta: true,
+      },
+    },
+    sections: [
+      {
+        id: 'topBar',
+        type: 'TopBar',
+        props: {
+          logoText: 'Instagram',
+          searchPlaceholder: 'Search',
+          compactSearch: true,
+          showProfileChip: true,
+        },
+      },
+      {
+        id: 'storiesRow',
+        type: 'ShortsRow',
+        props: {
+          visible: true,
+          headline: 'Stories',
+          shorts: storiesFromVideos(videos),
+        },
+      },
+      {
+        id: 'videoGrid',
+        type: 'VideoGrid',
+        props: { columns: 3, density: 'compact', layout: 'grid', videos: videos.slice(0, 48) },
+      },
+    ],
+    filter: { include: [], exclude: [], requireTags: [], blockChannels: [] },
+    sort: { by: 'recent', order: 'desc' },
+    meta: { title: 'Instagram', favicon: '/favicon.ico' },
   });
 }
 
@@ -89,30 +154,8 @@ async function main() {
   const igVideos = await loadMock('instagram-feed.json');
 
   const sites = [
-    {
-      slug: 'amazon-storefront',
-      base_config: shell(
-        'amazon-storefront',
-        'amazon-storefront',
-        'Amazon',
-        '#FF9900',
-        'amazon',
-        ['All', 'Deals', 'Best Sellers', 'Electronics'],
-        amazonVideos,
-      ),
-    },
-    {
-      slug: 'instagram-feed',
-      base_config: shell(
-        'instagram-feed',
-        'instagram-feed',
-        'Instagram',
-        '#E1306C',
-        'Instagram',
-        ['All', 'Following', 'Reels', 'Photos'],
-        igVideos,
-      ),
-    },
+    { slug: 'amazon-storefront', base_config: amazonConfig(amazonVideos) },
+    { slug: 'instagram-feed', base_config: instagramConfig(igVideos) },
   ];
 
   for (const site of sites) {

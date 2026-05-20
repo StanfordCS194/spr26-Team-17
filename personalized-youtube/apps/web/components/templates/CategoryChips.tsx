@@ -1,6 +1,7 @@
 'use client';
 
 import type { PageConfig, Section, Video } from '@showcase/shared';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
 const CHIP_FILTER: Record<string, { tags?: string[]; sortRecent?: boolean }> = {
@@ -109,10 +110,15 @@ export function CategoryChips({ section, config }: { section: Section; config: P
     }
   };
 
+  const brand = getSiteBrand(config.slug);
+  if (brand === 'instagram') return null;
+
   return (
     <div
-      className="sticky top-14 z-20 flex gap-3 overflow-x-auto border-b border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
+      className={`sticky z-20 flex gap-3 overflow-x-auto border-b border-[color:var(--border)] px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+        brand === 'amazon' ? 'top-[6.5rem] bg-white' : 'top-14 bg-[color:var(--surface)]'
+      }`}
+      style={brand === 'youtube' ? { backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` } : undefined}
     >
       {chips.map((chip) => {
         const isActive = chip === active;
@@ -120,10 +126,14 @@ export function CategoryChips({ section, config }: { section: Section; config: P
           <button
             key={chip}
             onClick={() => onClick(chip)}
-            className={`shrink-0 rounded-md px-3 py-1 text-sm transition-colors ${
-              isActive
-                ? 'bg-[color:var(--fg)] text-[color:var(--bg)]'
-                : 'bg-[color:var(--muted)] text-[color:var(--fg)] hover:bg-[color:var(--border)]'
+            className={`shrink-0 rounded-full px-3 py-1 text-sm transition-colors ${
+              brand === 'amazon'
+                ? isActive
+                  ? 'bg-[#232f3e] text-white'
+                  : 'border border-[#d5d9d9] bg-white text-[#0f1111] hover:bg-[#f7fafa]'
+                : isActive
+                  ? 'bg-[color:var(--fg)] text-[color:var(--bg)]'
+                  : 'bg-[color:var(--muted)] text-[color:var(--fg)] hover:bg-[color:var(--border)]'
             }`}
           >
             {chip}

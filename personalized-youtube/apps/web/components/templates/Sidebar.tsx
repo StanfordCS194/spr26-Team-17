@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import type { Channel, PageConfig, Section } from '@showcase/shared';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore, type NavKey } from '@/lib/store';
 import { Avatar } from './Avatar';
 
@@ -72,6 +73,7 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
   const channels = useMemo(() => uniqueChannels(config), [config]);
 
   if (section.type !== 'Sidebar') return null;
+  const brand = getSiteBrand(config.slug);
   const { collapsed, pinnedItems, showSubscriptions } = section.props;
 
   function handleNavClick(item: string): void {
@@ -87,10 +89,10 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
 
   return (
     <aside
-      className={`hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface)] py-3 transition-all ${
-        collapsed ? 'w-20 px-2 items-center' : 'w-60 px-3'
-      }`}
-      style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
+      className={`site-sidebar hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto border-r py-3 transition-all ${
+        brand === 'amazon' ? 'w-56 bg-white px-2 text-sm' : 'bg-[color:var(--surface)]'
+      } ${collapsed ? 'w-20 px-2 items-center' : brand === 'amazon' ? 'w-56 px-2' : 'w-60 px-3'}`}
+      style={brand === 'youtube' ? { backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` } : undefined}
     >
       {pinnedItems.map((item) => {
         const isActive = activeNav === item;
