@@ -1,6 +1,6 @@
 import {
   Inter, Space_Grotesk, Bricolage_Grotesque, Geist,
-  Anton, Big_Shoulders, Unbounded, Syne,
+  Anton, Unbounded, Syne,
   Fraunces, DM_Serif_Display, Bodoni_Moda, Cormorant_Garamond,
   Newsreader, Lora, EB_Garamond,
   JetBrains_Mono, IBM_Plex_Mono, Space_Mono,
@@ -17,7 +17,6 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bricolage-loaded' });
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist-loaded' });
 const anton = Anton({ subsets: ['latin'], weight: '400', variable: '--font-anton-loaded' });
-const bigShoulders = Big_Shoulders({ subsets: ['latin'], variable: '--font-big-shoulders-loaded' });
 const unbounded = Unbounded({ subsets: ['latin'], variable: '--font-unbounded-loaded' });
 const syne = Syne({ subsets: ['latin'], variable: '--font-syne-loaded' });
 const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces-loaded' });
@@ -53,7 +52,7 @@ const nanumPenScript = Nanum_Pen_Script({ weight: '400', display: 'optional', pr
 
 export const fontVariables = [
   inter, spaceGrotesk, bricolage, geist,
-  anton, bigShoulders, unbounded, syne,
+  anton, unbounded, syne,
   fraunces, dmSerif, bodoniModa, cormorant,
   newsreader, lora, ebGaramond,
   jetbrains, ibmPlexMono, spaceMono,
