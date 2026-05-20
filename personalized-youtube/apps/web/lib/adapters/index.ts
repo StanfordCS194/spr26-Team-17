@@ -10,7 +10,13 @@ export type { FeedSource } from './feed-source';
 export { resolveFeedSource, isLiveFeedSource } from './feed-source';
 
 export interface FeedAdapter {
-  getFeed(): Promise<{ videos: Video[]; categories: string[]; shorts?: Short[]; chips?: YtChip[] }>;
+  getFeed(): Promise<{
+    videos: Video[];
+    categories: string[];
+    shorts?: Short[];
+    chips?: YtChip[];
+    continuation?: string | null;
+  }>;
   requestMoreContent?(category: string, count: number, style?: string): Promise<Video[]>;
 }
 

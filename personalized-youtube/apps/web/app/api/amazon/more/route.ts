@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getAmazonSearchFeed } from '@/lib/amazon/client';
+import { getAmazonSearchMore } from '@/lib/amazon/client';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const q = url.searchParams.get('q')?.trim() ?? '';
-  const result = await getAmazonSearchFeed(q || undefined);
+  const token = url.searchParams.get('token')?.trim() ?? '';
+  if (!token || token.length > 4096) {
+    return NextResponse.json({ ok: false, reason: 'invalid token' }, { status: 400 });
+  }
+  const result = await getAmazonSearchMore(token);
   if (result.kind !== 'ok') {
     return NextResponse.json({ ok: false, reason: result.reason ?? 'unavailable' }, { status: 502 });
   }
   return NextResponse.json({
     ok: true,
     videos: result.videos,
-    query: q || process.env.AMAZON_SEARCH_QUERY?.trim() || 'best sellers',
     continuation: result.continuation,
   });
 }

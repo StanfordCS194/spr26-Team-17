@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PageConfig, Section, Video } from '@showcase/shared';
 import { VideoCard } from './VideoCard';
 import { applyFeedFilter } from './_filter';
+import { feedMoreApiPath } from '@/lib/feed-interaction';
 import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
@@ -168,7 +169,8 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
         if (!e?.isIntersecting || loadingMore) return;
         setLoadingMore(true);
         const tok = ytContinuation;
-        fetch(`/api/yt/more?token=${encodeURIComponent(tok)}`)
+        const moreBase = feedMoreApiPath(getSiteBrand(config.slug));
+        fetch(`${moreBase}?token=${encodeURIComponent(tok)}`)
           .then((r) => (r.ok ? r.json() : null))
           .then((data: { ok?: boolean; videos?: Video[]; continuation?: string | null } | null) => {
             if (!data || !data.ok || !Array.isArray(data.videos) || data.videos.length === 0) {

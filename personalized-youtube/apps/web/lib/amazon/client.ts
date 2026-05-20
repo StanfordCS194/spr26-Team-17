@@ -13,10 +13,30 @@ import {
 import { fetchWithSession } from '../intercept/browser-fetch';
 
 export type AmazonFeedResult =
-  | { kind: 'ok'; videos: Video[] }
+  | { kind: 'ok'; videos: Video[]; continuation: string | null }
   | { kind: 'unavailable'; reason: string };
 
 const SEARCH_BASE = 'https://www.amazon.com/s';
+const MAX_AMAZON_PAGES = 8;
+
+function encodeAmazonContinuation(query: string, page: number): string {
+  return Buffer.from(JSON.stringify({ q: query, page })).toString('base64url');
+}
+
+export function decodeAmazonContinuation(token: string): { q: string; page: number } | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as {
+      q?: string;
+      page?: number;
+    };
+    if (typeof parsed.q === 'string' && typeof parsed.page === 'number' && parsed.page >= 1) {
+      return { q: parsed.q, page: parsed.page };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 function decodeHtml(s: string): string {
   return s
@@ -185,7 +205,7 @@ export function parseAmazonSearchHtml(html: string): Video[] {
   return out;
 }
 
-export async function getAmazonSearchFeed(query?: string): Promise<AmazonFeedResult> {
+export async function getAmazonSearchFeed(query?: string, page = 1): Promise<AmazonFeedResult> {
   const cookieResult = await readAmazonCookies();
   if (cookieResult.kind !== 'ok') {
     return { kind: 'unavailable', reason: cookieResult.reason };
@@ -200,7 +220,10 @@ export async function getAmazonSearchFeed(query?: string): Promise<AmazonFeedRes
     return { kind: 'unavailable', reason: 'amazon cookie header empty' };
   }
 
-  const url = `${SEARCH_BASE}?k=${encodeURIComponent(q)}`;
+  const url =
+    page > 1
+      ? `${SEARCH_BASE}?k=${encodeURIComponent(q)}&page=${page}`
+      : `${SEARCH_BASE}?k=${encodeURIComponent(q)}`;
   let res: Response;
   try {
     res = await fetchWithSession(url, {
@@ -230,8 +253,107 @@ export async function getAmazonSearchFeed(query?: string): Promise<AmazonFeedRes
   }
 
   const withPrice = videos.filter((v) => v.duration.startsWith('$')).length;
-  console.log(`[amazon] search "${q}": ${videos.length} products (${withPrice} with price)`);
-  return { kind: 'ok', videos };
+  const continuation =
+    videos.length >= 12 && page < MAX_AMAZON_PAGES
+      ? encodeAmazonContinuation(q, page + 1)
+      : null;
+  console.log(
+    `[amazon] search "${q}" page ${page}: ${videos.length} products (${withPrice} with price)`,
+  );
+  return { kind: 'ok', videos, continuation };
+}
+
+export async function getAmazonSearchMore(token: string): Promise<AmazonFeedResult> {
+  const decoded = decodeAmazonContinuation(token);
+  if (!decoded) {
+    return { kind: 'unavailable', reason: 'invalid amazon continuation token' };
+  }
+  return getAmazonSearchFeed(decoded.q, decoded.page);
+}
+
+export type AmazonReview = {
+  id: string;
+  author: string;
+  rating: string;
+  title: string;
+  text: string;
+  postedAgo: string;
+};
+
+export type AmazonReviewsResult =
+  | { kind: 'ok'; reviews: AmazonReview[] }
+  | { kind: 'unavailable'; reason: string };
+
+function parseAmazonReviewsHtml(html: string): AmazonReview[] {
+  const out: AmazonReview[] = [];
+  const blocks = html.split(/data-hook="review"/i).slice(1);
+  for (const chunk of blocks) {
+    const author =
+      chunk.match(/class="a-profile-name"[^>]*>([^<]{1,80})</i)?.[1]?.trim() ??
+      chunk.match(/a-size-base a-link-normal[^>]*>\s*<span[^>]*>([^<]{1,80})</i)?.[1]?.trim() ??
+      'Customer';
+    const title =
+      chunk.match(/data-hook="review-title"[^>]*>[\s\S]*?<span[^>]*>([^<]{2,200})</i)?.[1]?.trim() ??
+      '';
+    const body =
+      chunk.match(/data-hook="review-body"[^>]*>[\s\S]*?<span[^>]*>([^<]{4,1200})</i)?.[1]?.trim() ??
+      '';
+    if (!body) continue;
+    const stars = chunk.match(/([0-5](?:\.[0-9])?)\s+out of 5 stars/i)?.[1] ?? '';
+    const date =
+      chunk.match(/data-hook="review-date"[^>]*>([^<]{4,80})</i)?.[1]?.trim() ??
+      chunk.match(/reviewed in[^<]{0,40} on ([^<]{4,40})</i)?.[1]?.trim() ??
+      '';
+    out.push({
+      id: `${author}-${out.length}`,
+      author: decodeHtml(author),
+      rating: stars ? `${stars} ★` : '',
+      title: decodeHtml(title),
+      text: decodeHtml(body),
+      postedAgo: decodeHtml(date),
+    });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+export async function getAmazonProductReviews(asin: string): Promise<AmazonReviewsResult> {
+  const normalized = asin.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(normalized)) {
+    return { kind: 'unavailable', reason: 'invalid asin' };
+  }
+
+  const cookieResult = await readAmazonCookies();
+  if (cookieResult.kind !== 'ok') {
+    return { kind: 'unavailable', reason: cookieResult.reason };
+  }
+  const cookieHeader = composeCookieHeader(cookieResult.cookies, 'amazon.com');
+  if (!cookieHeader) {
+    return { kind: 'unavailable', reason: 'amazon cookie header empty' };
+  }
+
+  const url = `https://www.amazon.com/product-reviews/${encodeURIComponent(normalized)}?reviewerType=all_reviews`;
+  try {
+    const res = await fetchWithSession(url, {
+      method: 'GET',
+      cookieHeader,
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Referer: `https://www.amazon.com/dp/${normalized}`,
+      },
+    });
+    if (!res.ok) {
+      return { kind: 'unavailable', reason: `amazon reviews HTTP ${res.status}` };
+    }
+    const html = await res.text();
+    const reviews = parseAmazonReviewsHtml(html);
+    if (reviews.length === 0) {
+      return { kind: 'unavailable', reason: 'amazon reviews parsed empty' };
+    }
+    return { kind: 'ok', reviews };
+  } catch (err) {
+    return { kind: 'unavailable', reason: `amazon reviews fetch failed: ${(err as Error).message}` };
+  }
 }
 
 export function amazonCookiesForDiagnostics(cookies: Cookie[]): { count: number; hasSession: boolean } {

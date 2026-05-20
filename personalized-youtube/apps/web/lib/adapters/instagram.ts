@@ -7,6 +7,10 @@ export const instagramAdapter: FeedAdapter = {
     if (result.kind !== 'ok') {
       throw new Error(`instagram adapter unavailable: ${result.reason}`);
     }
-    return { videos: result.videos, categories: ['All', 'Following', 'Photos', 'Reels'] };
+    return {
+      videos: result.videos,
+      categories: ['All', 'Following', 'Photos', 'Reels'],
+      continuation: result.continuation,
+    };
   },
 };

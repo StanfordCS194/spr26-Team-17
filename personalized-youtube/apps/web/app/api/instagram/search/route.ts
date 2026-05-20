@@ -13,5 +13,10 @@ export async function GET(req: Request) {
   if (result.kind !== 'ok') {
     return NextResponse.json({ ok: false, reason: result.reason ?? 'unavailable' }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, videos: result.videos, query: q || 'timeline' });
+  return NextResponse.json({
+    ok: true,
+    videos: result.videos,
+    query: q || 'timeline',
+    continuation: result.continuation,
+  });
 }

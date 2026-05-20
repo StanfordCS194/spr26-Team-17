@@ -12,11 +12,22 @@ import {
 } from '../innertube/chrome-cookies';
 import { cookieValue, fetchWithSession } from '../intercept/browser-fetch';
 
-export type InstagramFeedResult =
-  | { kind: 'ok'; videos: Video[] }
+export type InstagramComment = {
+  id: string;
+  author: string;
+  authorAvatar: string;
+  text: string;
+  postedAgo: string;
+  likes: number;
+};
+
+export type InstagramCommentsResult =
+  | { kind: 'ok'; comments: InstagramComment[]; total: number | null }
   | { kind: 'unavailable'; reason: string };
 
-// Web app id observed on instagram.com (stable for years; update if capture differs).
+export type InstagramFeedResult =
+  | { kind: 'ok'; videos: Video[]; continuation: string | null }
+  | { kind: 'unavailable'; reason: string };
 const IG_APP_ID = '936619743392459';
 
 const TIMELINE_URL =
@@ -61,6 +72,9 @@ function mediaToVideo(media: Record<string, unknown>): Video | null {
       ? `${Math.round(media.video_duration)}s`
       : 'Post';
 
+  const tags = ['instagram', isVideo ? 'video' : 'photo'];
+  if (pk) tags.push(`igpk:${pk}`);
+
   return {
     id: code || pk,
     title,
@@ -74,7 +88,7 @@ function mediaToVideo(media: Record<string, unknown>): Video | null {
     duration,
     views: likeCount,
     postedAgo: takenAt > 0 ? relativeAgo(takenAt) : '',
-    tags: ['instagram', isVideo ? 'video' : 'photo'],
+    tags,
     description: caption.slice(0, 500),
     category: 'social',
   };
@@ -185,6 +199,68 @@ async function fetchInstagramJson(
   }
 }
 
+export function extractInstagramPkFromVideo(video: Video): string | null {
+  const tag = video.tags.find((t) => t.startsWith('igpk:'));
+  if (tag) return tag.slice(5);
+  return /^[0-9]+$/.test(video.id) ? video.id : null;
+}
+
+function extractInstagramContinuation(json: unknown): string | null {
+  const next = (json as { next_max_id?: string | number | null }).next_max_id;
+  if (next == null || next === '') return null;
+  return String(next);
+}
+
+function parseInstagramCommentsJson(body: unknown): InstagramComment[] {
+  const out: InstagramComment[] = [];
+  if (typeof body !== 'object' || body === null) return out;
+  const comments = (body as { comments?: unknown[] }).comments;
+  if (!Array.isArray(comments)) return out;
+  for (const row of comments) {
+    if (typeof row !== 'object' || row === null) continue;
+    const c = row as Record<string, unknown>;
+    const user = c.user as { username?: string; profile_pic_url?: string } | undefined;
+    const text = typeof c.text === 'string' ? c.text : '';
+    if (!text.trim()) continue;
+    const created = typeof c.created_at === 'number' ? c.created_at : 0;
+    out.push({
+      id: String(c.pk ?? c.id ?? text.slice(0, 24)),
+      author: user?.username ?? 'user',
+      authorAvatar: user?.profile_pic_url ?? '',
+      text,
+      postedAgo: created > 0 ? relativeAgo(created) : '',
+      likes: typeof c.comment_like_count === 'number' ? c.comment_like_count : 0,
+    });
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
+export async function getInstagramMediaComments(mediaKey: string): Promise<InstagramCommentsResult> {
+  const session = await instagramSessionHeaders();
+  if (session.kind !== 'ok') return session;
+
+  const urls = [
+    `https://www.instagram.com/api/v1/media/${encodeURIComponent(mediaKey)}/comments/?can_support_threading=true`,
+    `https://www.instagram.com/api/v1/media/${encodeURIComponent(mediaKey)}/comments/?can_support_threading=true&permalink=true`,
+  ];
+
+  for (const url of urls) {
+    const res = await fetchInstagramJson(url, session);
+    if (!res.ok) continue;
+    const comments = parseInstagramCommentsJson(res.json);
+    if (comments.length > 0) {
+      const total =
+        typeof (res.json as { comment_count?: number }).comment_count === 'number'
+          ? (res.json as { comment_count: number }).comment_count
+          : comments.length;
+      return { kind: 'ok', comments, total };
+    }
+  }
+
+  return { kind: 'unavailable', reason: 'instagram comments unavailable for this post' };
+}
+
 export async function getInstagramSearchFeed(query: string): Promise<InstagramFeedResult> {
   const q = query.trim();
   if (!q) return getInstagramTimelineFeed();
@@ -198,7 +274,7 @@ export async function getInstagramSearchFeed(query: string): Promise<InstagramFe
     const videos = parseInstagramSearchJson(searchRes.json);
     if (videos.length > 0) {
       console.log(`[instagram] search "${q}": ${videos.length} posts`);
-      return { kind: 'ok', videos };
+      return { kind: 'ok', videos, continuation: null };
     }
   }
 
@@ -221,14 +297,17 @@ export async function getInstagramSearchFeed(query: string): Promise<InstagramFe
     return { kind: 'unavailable', reason: `instagram search "${q}" returned no matches` };
   }
   console.log(`[instagram] search "${q}" (timeline filter): ${filtered.length} posts`);
-  return { kind: 'ok', videos: filtered };
+  return { kind: 'ok', videos: filtered, continuation: timeline.continuation };
 }
 
-export async function getInstagramTimelineFeed(): Promise<InstagramFeedResult> {
+export async function getInstagramTimelineFeed(maxId?: string): Promise<InstagramFeedResult> {
   const session = await instagramSessionHeaders();
   if (session.kind !== 'ok') return session;
 
-  const fetchRes = await fetchInstagramJson(TIMELINE_URL, session);
+  const url = maxId
+    ? `${TIMELINE_URL}&max_id=${encodeURIComponent(maxId)}`
+    : TIMELINE_URL;
+  const fetchRes = await fetchInstagramJson(url, session);
   if (!fetchRes.ok) return { kind: 'unavailable', reason: fetchRes.reason };
 
   const json = fetchRes.json;
@@ -242,6 +321,14 @@ export async function getInstagramTimelineFeed(): Promise<InstagramFeedResult> {
     };
   }
 
-  console.log(`[instagram] timeline: ${videos.length} posts`);
-  return { kind: 'ok', videos };
+  const continuation = extractInstagramContinuation(json);
+  console.log(`[instagram] timeline: ${videos.length} posts${maxId ? ` (max_id=${maxId.slice(0, 8)}…)` : ''}`);
+  return { kind: 'ok', videos, continuation };
+}
+
+export async function getInstagramTimelineMore(token: string): Promise<InstagramFeedResult> {
+  if (!token.trim()) {
+    return { kind: 'unavailable', reason: 'invalid instagram continuation token' };
+  }
+  return getInstagramTimelineFeed(token);
 }

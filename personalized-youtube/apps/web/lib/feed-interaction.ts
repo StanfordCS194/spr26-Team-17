@@ -32,12 +32,31 @@ export function searchApiPath(brand: SiteBrand, query: string): string {
   return `/api/yt/search?q=${q}`;
 }
 
-export async function fetchBrandSearch(brand: SiteBrand, query: string): Promise<Video[]> {
+export async function fetchBrandSearch(
+  brand: SiteBrand,
+  query: string,
+): Promise<{ videos: Video[]; continuation: string | null }> {
   const res = await fetch(searchApiPath(brand, query));
-  if (!res.ok) return [];
-  const data = (await res.json()) as { ok?: boolean; videos?: Video[] };
-  if (!data.ok || !Array.isArray(data.videos) || data.videos.length === 0) return [];
-  return data.videos;
+  if (!res.ok) return { videos: [], continuation: null };
+  const data = (await res.json()) as {
+    ok?: boolean;
+    videos?: Video[];
+    continuation?: string | null;
+  };
+  if (!data.ok || !Array.isArray(data.videos) || data.videos.length === 0) {
+    return { videos: [], continuation: null };
+  }
+  const continuation =
+    typeof data.continuation === 'string' && data.continuation.length > 0
+      ? data.continuation
+      : null;
+  return { videos: data.videos, continuation };
+}
+
+export function feedMoreApiPath(brand: SiteBrand): string {
+  if (brand === 'amazon') return '/api/amazon/more';
+  if (brand === 'instagram') return '/api/instagram/more';
+  return '/api/yt/more';
 }
 
 export function hideRowSections(
@@ -105,14 +124,14 @@ export async function applyBrandSearch({
   setYtContinuation,
   hideRows = true,
 }: SearchApplyArgs): Promise<boolean> {
-  const videos = await fetchBrandSearch(brand, query);
+  const { videos, continuation } = await fetchBrandSearch(brand, query);
   if (videos.length === 0) return false;
 
   enterSearch(query, { config, ytContinuation });
   const columns =
     brand === 'amazon' ? 5 : brand === 'instagram' ? 3 : 4;
   applyVideosToGrid(dispatch, config, videos, columns);
-  setYtContinuation(null);
+  setYtContinuation(continuation);
   dispatch({ op: 'set_filter', filter: { requireTags: [] } });
   if (hideRows) hideRowSections(dispatch, config);
   return true;

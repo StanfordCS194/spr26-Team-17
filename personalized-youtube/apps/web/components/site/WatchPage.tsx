@@ -143,21 +143,66 @@ function WatchSidebar({ suggestions, label }: { suggestions: Video[]; label: str
   );
 }
 
+type ReviewsState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ok'; reviews: Array<{ id: string; author: string; rating: string; title: string; text: string; postedAgo: string }> }
+  | { status: 'error'; reason: string };
+
+type IgCommentsState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ok'; comments: Array<{ id: string; author: string; authorAvatar: string; text: string; postedAgo: string; likes: number }>; total: number | null }
+  | { status: 'error'; reason: string };
+
 function AmazonProductView({
   currentVideo,
   suggestions,
   watchingTitle,
+  watchingId,
 }: {
   currentVideo: Video | undefined;
   suggestions: Video[];
   watchingTitle: string | null;
+  watchingId: string;
 }) {
   const { setWatching } = usePageStore();
+  const [reviewsState, setReviewsState] = useState<ReviewsState>({ status: 'idle' });
   const title = watchingTitle || currentVideo?.title || 'Product';
   const price = currentVideo?.duration?.startsWith('$') ? currentVideo.duration : null;
   const rating = currentVideo?.postedAgo || '';
   const description = productDescriptionText(currentVideo?.description);
   const productUrl = currentVideo ? amazonProductHref(currentVideo) : '#';
+
+  useEffect(() => {
+    if (!watchingId) {
+      setReviewsState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setReviewsState({ status: 'loading' });
+    fetch(`/api/amazon/reviews?asin=${encodeURIComponent(watchingId)}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          const data = (await r.json().catch(() => ({}))) as { reason?: string };
+          setReviewsState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          return;
+        }
+        const data = (await r.json()) as { ok?: boolean; reviews?: ReviewsState extends { status: 'ok'; reviews: infer R } ? R : never };
+        if (!data.ok || !Array.isArray(data.reviews)) {
+          setReviewsState({ status: 'error', reason: 'reviews unavailable' });
+          return;
+        }
+        setReviewsState({ status: 'ok', reviews: data.reviews });
+      })
+      .catch((err) => {
+        if (!cancelled) setReviewsState({ status: 'error', reason: (err as Error).message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [watchingId]);
 
   return (
     <div className="px-6 py-4">
@@ -204,6 +249,36 @@ function AmazonProductView({
               <p className="whitespace-pre-wrap">{description}</p>
             </div>
           )}
+
+          <section className="rounded-sm border border-[#ddd] bg-white p-4">
+            <h2 className="mb-3 text-base font-medium text-[#0f1111]">Customer reviews</h2>
+            {reviewsState.status === 'loading' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Loading reviews…</p>
+            )}
+            {reviewsState.status === 'error' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">
+                Reviews unavailable for this product.
+              </p>
+            )}
+            {reviewsState.status === 'ok' && reviewsState.reviews.length === 0 && (
+              <p className="text-sm text-[color:var(--muted-fg)]">No reviews yet.</p>
+            )}
+            {reviewsState.status === 'ok' && reviewsState.reviews.length > 0 && (
+              <ul className="space-y-4">
+                {reviewsState.reviews.map((r) => (
+                  <li key={r.id} className="border-b border-[#eee] pb-4 last:border-0 last:pb-0">
+                    <p className="text-sm font-medium text-[#0f1111]">{r.author}</p>
+                    {r.rating && <p className="text-xs text-[#007185]">{r.rating}</p>}
+                    {r.title && <p className="mt-1 text-sm font-medium">{r.title}</p>}
+                    <p className="mt-1 text-sm leading-relaxed text-[#0f1111]">{r.text}</p>
+                    {r.postedAgo && (
+                      <p className="mt-1 text-xs text-[color:var(--muted-fg)]">{r.postedAgo}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
         <WatchSidebar suggestions={suggestions} label="Customers also viewed" />
@@ -224,8 +299,45 @@ function InstagramPostView({
   watchingTitle: string | null;
 }) {
   const { setWatching } = usePageStore();
+  const [commentsState, setCommentsState] = useState<IgCommentsState>({ status: 'idle' });
   const title = watchingTitle || currentVideo?.title || 'Instagram post';
   const embedSrc = `https://www.instagram.com/p/${encodeURIComponent(watchingId)}/embed`;
+  const mediaKey =
+    currentVideo?.tags.find((t) => t.startsWith('igpk:'))?.slice(5) ?? watchingId;
+
+  useEffect(() => {
+    if (!mediaKey) {
+      setCommentsState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setCommentsState({ status: 'loading' });
+    fetch(`/api/instagram/comments?id=${encodeURIComponent(mediaKey)}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          const data = (await r.json().catch(() => ({}))) as { reason?: string };
+          setCommentsState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          return;
+        }
+        const data = (await r.json()) as {
+          ok?: boolean;
+          comments?: IgCommentsState extends { status: 'ok'; comments: infer C } ? C : never;
+          total?: number | null;
+        };
+        if (!data.ok || !Array.isArray(data.comments)) {
+          setCommentsState({ status: 'error', reason: 'comments unavailable' });
+          return;
+        }
+        setCommentsState({ status: 'ok', comments: data.comments, total: data.total ?? null });
+      })
+      .catch((err) => {
+        if (!cancelled) setCommentsState({ status: 'error', reason: (err as Error).message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaKey]);
 
   return (
     <div className="px-4 py-4 md:px-6">
@@ -271,6 +383,37 @@ function InstagramPostView({
               ← Back to feed
             </button>
           </div>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+              {commentsState.status === 'ok' && commentsState.total != null
+                ? `${commentsState.total} comments`
+                : 'Comments'}
+            </h2>
+            {commentsState.status === 'loading' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Loading comments…</p>
+            )}
+            {commentsState.status === 'error' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Comments unavailable for this post.</p>
+            )}
+            {commentsState.status === 'ok' && commentsState.comments.length > 0 && (
+              <ul className="space-y-4">
+                {commentsState.comments.map((c) => (
+                  <li key={c.id} className="flex items-start gap-3">
+                    <Avatar name={c.author} src={c.authorAvatar} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{c.author}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{c.text}</p>
+                      <p className="mt-1 text-xs text-[color:var(--muted-fg)]">
+                        {c.postedAgo}
+                        {c.likes > 0 ? ` · ${c.likes} likes` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <WatchSidebar suggestions={suggestions} label="More posts" />
         </div>
@@ -577,6 +720,7 @@ export function WatchPage() {
         currentVideo={currentVideo}
         suggestions={suggestions}
         watchingTitle={watchingTitle}
+        watchingId={watchingId}
       />
     );
   }

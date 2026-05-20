@@ -7,6 +7,10 @@ export const amazonAdapter: FeedAdapter = {
     if (result.kind !== 'ok') {
       throw new Error(`amazon adapter unavailable: ${result.reason}`);
     }
-    return { videos: result.videos, categories: ['All', 'Deals', 'Best Sellers'] };
+    return {
+      videos: result.videos,
+      categories: ['All', 'Deals', 'Best Sellers'],
+      continuation: result.continuation,
+    };
   },
 };
