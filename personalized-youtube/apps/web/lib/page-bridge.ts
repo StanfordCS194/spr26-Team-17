@@ -1,5 +1,4 @@
 import type { PageConfig, Patch } from '@showcase/shared';
-import type { NavKey } from '@/lib/store';
 
 /** Live handle to whichever showcase page is mounted (YouTube / Amazon / IG). */
 export interface PageBridgeContext {

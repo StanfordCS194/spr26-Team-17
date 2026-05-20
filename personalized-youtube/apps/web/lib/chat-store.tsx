@@ -179,7 +179,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               const ev = JSON.parse(data);
               if (ev.kind === 'text') assistantContent += ev.text;
               if (ev.kind === 'tool_use') toolUses.push({ name: ev.name, rationale: ev.rationale });
-              if (ev.kind === 'patch') getPageBridge()?.dispatch(ev.patch as Patch, { trace: true });
+              if (ev.kind === 'patch') {
+                const bridge = getPageBridge();
+                if (bridge) {
+                  bridge.dispatch(ev.patch as Patch, { persist: true, trace: true });
+                } else {
+                  console.warn('[chat] patch dropped — no page bridge registered', ev.patch);
+                }
+              }
               if (ev.kind === 'request_more_content') void fetchMoreContent(ev.input, pageSlug);
               if (ev.kind === 'switch_site' && typeof ev.path === 'string') router.push(ev.path);
               if (ev.kind === 'ask_user') {

@@ -181,7 +181,9 @@ Top-level state, edited via set_filter and set_sort:
       requireTitleMatches?: string[],    // keep videos whose title matches one — substring OR '/regex/flags'
       excludeTitleMatches?: string[],    // drop videos whose title matches one — same shape
       hideLive?: boolean,                // drop live/upcoming/premiere streams
-      onlyLive?: boolean                 // only keep live/upcoming/premiere streams
+      onlyLive?: boolean,                // only keep live/upcoming/premiere streams
+      minPriceUsd?: number,              // Amazon: price lives in Video.duration as "$12.99"
+      maxPriceUsd?: number               // Amazon: e.g. maxPriceUsd: 20 for "under $20"
     }
   - sort: {
       by: 'recommended'|'recent'|'popular'|'duration'|'density'|'mood',

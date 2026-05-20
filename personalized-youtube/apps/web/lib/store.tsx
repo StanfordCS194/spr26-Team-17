@@ -144,18 +144,19 @@ export function PageStoreProvider({
   );
   const replace = useCallback((next: PageConfig) => setConfig(next), []);
 
-  useEffect(() => {
-    registerPageBridge({
-      pageSlug,
-      config,
-      dispatch,
-      replace,
-      watchingId,
-      watchingTitle,
-      youtubeMode,
-    });
-    return () => unregisterPageBridge(pageSlug);
-  }, [pageSlug, config, dispatch, replace, watchingId, watchingTitle, youtubeMode]);
+  // Keep the global chat bridge in sync every render (not only in useEffect).
+  // Chat lives outside PageStoreProvider; registering here ensures patches
+  // from SSE always reach the mounted page's dispatch.
+  registerPageBridge({
+    pageSlug,
+    config,
+    dispatch,
+    replace,
+    watchingId,
+    watchingTitle,
+    youtubeMode,
+  });
+  useEffect(() => () => unregisterPageBridge(pageSlug), [pageSlug]);
 
   return (
     <PageStoreContext.Provider

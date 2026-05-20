@@ -66,7 +66,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'set_filter',
-    description: 'Apply or update content filters on the feed: requireTags, blockChannels, exclude tags, duration bounds. Filters compose; pass only fields to change.',
+    description: 'Apply or update content filters on the feed: requireTags, blockChannels, exclude tags, duration bounds, maxPriceUsd (Amazon retail). Filters compose; pass only fields to change.',
     input_schema: toJsonSchema(SetFilterInput),
   },
   {

@@ -153,6 +153,15 @@ export function applyFeedFilter(videos: Video[], config: PageConfig): Video[] {
   if (filter.onlyLive) {
     out = out.filter((v) => isLiveDuration(v.duration));
   }
+  if (filter.minPriceUsd != null || filter.maxPriceUsd != null) {
+    out = out.filter((v) => {
+      const price = parsePriceUsd(v.duration);
+      if (price == null) return true;
+      if (filter.minPriceUsd != null && price < filter.minPriceUsd) return false;
+      if (filter.maxPriceUsd != null && price > filter.maxPriceUsd) return false;
+      return true;
+    });
+  }
 
   switch (sort.by) {
     case 'recent':
@@ -205,4 +214,12 @@ function parseDuration(s: string): number {
   if (parts.length === 2) return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
   if (parts.length === 3) return (parts[0] ?? 0) * 3600 + (parts[1] ?? 0) * 60 + (parts[2] ?? 0);
   return 0;
+}
+
+/** Retail adapters stash price in duration, e.g. "$15.99". */
+function parsePriceUsd(duration: string): number | null {
+  const m = duration.trim().match(/^\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/);
+  if (!m?.[1]) return null;
+  const n = parseFloat(m[1].replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
 }
