@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyDomPatch, scanHostPage } from '../dist/index.js';
 
+// Browser-like element fixture with enough style/dataset behavior for patch tests.
 class FixtureElement {
   constructor({ tag = 'div', text = '', attrs = {}, children = [] } = {}) {
     this.tag = tag;
@@ -59,6 +60,7 @@ class FixtureElement {
   }
 }
 
+// Minimal document wrapper that provides the fields scanHostPage reads.
 class FixtureDocument extends FixtureElement {
   constructor(body) {
     super({ tag: 'document', children: [body] });
@@ -68,6 +70,7 @@ class FixtureDocument extends FixtureElement {
   }
 }
 
+// Supports just the selectors used by the install scanner.
 function matches(node, selector) {
   if (selector === 'a,button') return node.tag === 'a' || node.tag === 'button';
   const attrMatch = selector.match(/^\[([^=\]]+)(?:='([^']+)')?\]$/);
@@ -77,10 +80,12 @@ function matches(node, selector) {
   return value === undefined || node.attrs[attr] === value;
 }
 
+// Convenience helper for building fixture nodes.
 function el(tag, attrs, text, children = []) {
   return new FixtureElement({ tag, attrs, text, children });
 }
 
+// Builds a repeatable YouTube-like DOM for each patch test.
 function fixture() {
   const main = el('main', {}, '', [
     el('section', { 'data-showcase-section': 'shorts' }, 'Shorts'),
@@ -104,6 +109,7 @@ function fixture() {
   return scanHostPage({}, new FixtureDocument(body));
 }
 
+// Confirms theme patches mutate CSS variables on the host root.
 test('applyDomPatch applies theme variables to the host root', () => {
   const { bindings } = fixture();
   applyDomPatch({ op: 'update_theme', patch: { mode: 'dark', accent: '#ef4444' } }, bindings);
@@ -111,6 +117,7 @@ test('applyDomPatch applies theme variables to the host root', () => {
   assert.equal(bindings.root.style.values['--accent'], '#ef4444');
 });
 
+// Confirms filter patches hide non-matching video cards.
 test('applyDomPatch filters cards by title or tags', () => {
   const { bindings } = fixture();
   applyDomPatch({ op: 'set_filter', filter: { requireTitleMatches: ['NBA'] } }, bindings);
@@ -118,6 +125,7 @@ test('applyDomPatch filters cards by title or tags', () => {
   assert.equal(bindings.videoCards[1].style.display, 'none');
 });
 
+// Confirms section visibility and ordering patches touch the right DOM nodes.
 test('applyDomPatch hides sections and reorders siblings', () => {
   const { bindings } = fixture();
   applyDomPatch({ op: 'remove_section', sectionId: 'shorts' }, bindings);

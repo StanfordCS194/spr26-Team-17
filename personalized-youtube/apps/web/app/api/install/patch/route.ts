@@ -3,10 +3,12 @@ import { installJson, optionsResponse, resolveInstallSite, ensureInstallVisitor,
 
 export const runtime = 'nodejs';
 
+// Responds to browser CORS preflight requests from installed sites.
 export function OPTIONS(req: NextRequest) {
   return optionsResponse(req);
 }
 
+// Persists one patch generated for an installed static site.
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as InstallPatchBody;
   if (!body.patch) return installJson(req, { error: 'patch required' }, { status: 400 });

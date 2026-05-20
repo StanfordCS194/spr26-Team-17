@@ -170,7 +170,9 @@
       }
     </style>
   </head>
+  <!-- data-showcase-root marks the area our install script is allowed to scan. -->
   <body data-showcase-root>
+    <!-- data-showcase-section ids become stable patch targets. -->
     <header class="topbar" data-showcase-section="topbar">
       <div class="brand" data-showcase-logo>StaticTube</div>
       <div class="search" data-showcase-search>Search</div>
@@ -186,6 +188,7 @@
       </aside>
 
       <main>
+        <!-- Chips are scanned into CategoryChips config for the chat prompt. -->
         <nav class="chips" data-showcase-section="chips">
           <button class="chip active" data-showcase-chip>All</button>
           <button class="chip" data-showcase-chip>NBA</button>
@@ -214,6 +217,7 @@
         <section data-showcase-section="video-grid">
           <h2 class="section-heading">Recommended</h2>
           <div class="grid" data-showcase-video-grid>
+            <!-- Each card exposes title/channel/thumbnail metadata for scanning and filtering. -->
             <article class="card" data-showcase-video-card data-showcase-tags="nba basketball sports">
               <img class="thumb" data-showcase-video-thumbnail alt="" src="https://i.ytimg.com/vi/7QUtEmBT_-w/hqdefault.jpg" />
               <h3 class="title" data-showcase-video-title>NBA playoff spacing explained with film</h3>
@@ -249,8 +253,10 @@
       </main>
     </div>
 
+    <!-- Browser bundle produced by packages/install/scripts/build.mjs. -->
     <script src="./showcase-install.iife.js"></script>
     <script>
+      // This is the exact shape a customer site would pass to our install SDK.
       window.showcaseInstallConfig = {
         siteId: "static-youtube-demo",
         apiBaseUrl: window.location.origin,
@@ -268,7 +274,10 @@
         }
       };
 
+      // Starts scanning, persistence, patch replay, and the floating chat widget.
       window.ShowcasePersonalize.init(window.showcaseInstallConfig);
+
+      // Debug-only visibility into whether the SDK can find the expected markup.
       console.info("[Showcase demo] scanned elements", {
         sections: document.querySelectorAll("[data-showcase-section]").length,
         cards: document.querySelectorAll("[data-showcase-video-card]").length,

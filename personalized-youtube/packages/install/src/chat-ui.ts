@@ -9,6 +9,7 @@ interface ChatUiArgs {
   reset: () => Promise<void>;
 }
 
+// Mounts the install chat UI into Shadow DOM so host page CSS cannot break it.
 export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, reset }: ChatUiArgs): { destroy(): void } {
   const host = document.createElement('div');
   host.setAttribute('data-showcase-chat-host', '');
@@ -16,6 +17,8 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
   document.body.appendChild(host);
 
   const apiBaseUrl = config.apiBaseUrl ?? window.location.origin;
+
+  // Local widget state only; durable preferences live in the install APIs.
   const state = {
     open: true,
     busy: false,
@@ -73,6 +76,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
   const submit = shadow.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   const messages = shadow.querySelector<HTMLElement>('.messages')!;
 
+  // Toggles between the floating launcher and the expanded chat panel.
   function setOpen(open: boolean) {
     state.open = open;
     panel.hidden = !open;
@@ -80,6 +84,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
     if (open) input.focus();
   }
 
+  // Adds one message bubble and scrolls the message list to the newest item.
   function appendMessage(role: 'user' | 'assistant', text: string) {
     const node = document.createElement('div');
     node.className = `msg ${role}`;
@@ -89,6 +94,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
     return node;
   }
 
+  // Sends the user's request, streams assistant events, and applies patches live.
   async function send(text: string) {
     if (state.busy) return;
     state.busy = true;
@@ -112,6 +118,8 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
       if (!res.body) throw new Error(`Chat failed: ${res.status}`);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+
+      // The server streams Server-Sent Events; each "patch" event mutates the host page.
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -140,6 +148,8 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
   }
 
   close.addEventListener('click', () => setOpen(false));
+
+  // Reset is debug-only so normal installed sites do not expose developer controls.
   resetButton.hidden = !config.debug;
   resetButton.addEventListener('click', async () => {
     resetButton.disabled = true;
@@ -162,6 +172,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
   appendMessage('assistant', 'Tell me how you want this page to feel.');
 
   return {
+    // Removes all SDK-owned chat UI from the host page.
     destroy() {
       host.remove();
     },

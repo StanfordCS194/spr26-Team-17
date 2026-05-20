@@ -23,10 +23,12 @@ const INSTALL_SUPPORTED_OPS = new Set([
   'reorder_sections',
 ]);
 
+// Responds to browser CORS preflight requests from installed sites.
 export function OPTIONS(req: NextRequest) {
   return optionsResponse(req);
 }
 
+// Streams assistant text and install-safe patches for one user chat message.
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as InstallChatRequest;
   if (!body.siteId) return jsonError(req, 'siteId required', 400);
@@ -40,6 +42,8 @@ export async function POST(req: NextRequest) {
 
   const sys = buildSystemBlocks();
   const visitorState = buildVisitorState(body.pageSnapshot, []);
+
+  // Tell the model it is editing a static installed page, not the full app runtime.
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     ...(body.history ?? []),
     {
@@ -51,6 +55,8 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const enc = new TextEncoder();
+
+      // Emits one Server-Sent Event to the browser chat widget.
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
       const t0 = Date.now();
       const toolUses: Array<{ name: string; input: unknown }> = [];
@@ -61,6 +67,7 @@ export async function POST(req: NextRequest) {
       let lastMessageId: string | undefined;
 
       try {
+        // Use the same tool schema as the main app, but filter the result below.
         const response = anthropic.messages.stream({
           model: MODEL_OPUS,
           max_tokens: 1024,
@@ -83,6 +90,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Convert final tool calls into DOM patches the install runtime understands.
         const finalMessage = await response.finalMessage();
         finalUsage = finalMessage.usage;
         for (const block of finalMessage.content) {
@@ -105,6 +113,7 @@ export async function POST(req: NextRequest) {
         send({ kind: 'error', message: (err as Error).message });
       }
 
+      // Persist patches and chat telemetry after streaming so UI stays responsive.
       const cacheRead = finalUsage.cache_read_input_tokens ?? 0;
       const cacheCreate = finalUsage.cache_creation_input_tokens ?? 0;
       const inputT = (finalUsage.input_tokens ?? 0) + cacheRead + cacheCreate;
@@ -157,6 +166,7 @@ export async function POST(req: NextRequest) {
         stopReason,
       });
 
+      // Signal completion to the browser EventSource-style reader.
       send({ kind: 'done', cacheHitRatio, costUsd: cost });
       controller.enqueue(enc.encode('data: [DONE]\n\n'));
       controller.close();
@@ -173,10 +183,12 @@ export async function POST(req: NextRequest) {
   });
 }
 
+// Small helper so every error still includes CORS headers.
 function jsonError(req: NextRequest, error: string, status: number) {
   return Response.json({ error }, { status, headers: installCorsHeaders(req) });
 }
 
+// Converts model tool calls into the limited patch format supported by static DOM.
 function toolUseToInstallPatch(tu: { name: string; input: any }): Patch | null {
   if (!INSTALL_SUPPORTED_OPS.has(tu.name)) return null;
   switch (tu.name) {

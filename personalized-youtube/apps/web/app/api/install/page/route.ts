@@ -4,10 +4,12 @@ import { installJson, optionsResponse, resolveInstallSite, ensureInstallVisitor 
 
 export const runtime = 'nodejs';
 
+// Responds to browser CORS preflight requests from installed sites.
 export function OPTIONS(req: NextRequest) {
   return optionsResponse(req);
 }
 
+// Returns the base page config plus any saved patches for this visitor.
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const siteId = url.searchParams.get('siteId') ?? 'youtube-clone';
@@ -17,6 +19,8 @@ export async function GET(req: NextRequest) {
 
   let config = PageConfigSchema.parse(site.base_config);
   let patches: Patch[] = [];
+
+  // If the caller supplies a visitor id, replay their stored preferences.
   if (visitorId) {
     await ensureInstallVisitor(visitorId);
     const { data } = await db

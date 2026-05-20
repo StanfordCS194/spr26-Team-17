@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { scanHostPage } from '../dist/index.js';
 
+// Tiny DOM fixture so scanner tests can run in Node without a browser.
 class FixtureElement {
   constructor({ tag = 'div', text = '', attrs = {}, children = [] } = {}) {
     this.tag = tag;
@@ -33,6 +34,7 @@ class FixtureElement {
   }
 }
 
+// Minimal document wrapper that provides the fields scanHostPage reads.
 class FixtureDocument extends FixtureElement {
   constructor(body) {
     super({ tag: 'document', children: [body] });
@@ -42,6 +44,7 @@ class FixtureDocument extends FixtureElement {
   }
 }
 
+// Supports just the selectors used by the install scanner.
 function matches(node, selector) {
   if (selector === 'a,button') return node.tag === 'a' || node.tag === 'button';
   const attrMatch = selector.match(/^\[([^=\]]+)(?:='([^']+)')?\]$/);
@@ -51,10 +54,12 @@ function matches(node, selector) {
   return value === undefined || node.attrs[attr] === value;
 }
 
+// Convenience helper for building fixture nodes.
 function el(tag, attrs, text, children = []) {
   return new FixtureElement({ tag, attrs, text, children });
 }
 
+// Verifies static host markup becomes the shared PageConfig shape.
 test('scanHostPage converts a static YouTube-like DOM into PageConfig', () => {
   const body = el('body', { 'data-showcase-root': '' }, '', [
     el('header', { 'data-showcase-section': 'topbar' }, 'StaticTube'),

@@ -3,10 +3,12 @@ import { installJson, optionsResponse, resolveInstallSite } from '../_shared';
 
 export const runtime = 'nodejs';
 
+// Responds to browser CORS preflight requests from installed sites.
 export function OPTIONS(req: NextRequest) {
   return optionsResponse(req);
 }
 
+// Deletes all saved preferences for this visitor/site pair.
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { siteId?: string; visitorId?: string };
   if (!body.visitorId) return installJson(req, { error: 'visitorId required' }, { status: 400 });

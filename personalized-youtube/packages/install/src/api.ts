@@ -1,5 +1,6 @@
 const VISITOR_KEY_PREFIX = 'showcase:visitor:';
 
+// Reads the anonymous visitor id saved for this installed site.
 export function getStoredVisitorId(siteId: string): string | null {
   try {
     return window.localStorage.getItem(VISITOR_KEY_PREFIX + siteId);
@@ -8,6 +9,7 @@ export function getStoredVisitorId(siteId: string): string | null {
   }
 }
 
+// Persists the anonymous visitor id locally so preferences survive reloads.
 export function storeVisitorId(siteId: string, visitorId: string) {
   try {
     window.localStorage.setItem(VISITOR_KEY_PREFIX + siteId, visitorId);
@@ -16,6 +18,7 @@ export function storeVisitorId(siteId: string, visitorId: string) {
   }
 }
 
+// Creates or resumes an install session with our hosted backend.
 export async function ensureInstallSession(apiBaseUrl: string, siteId: string): Promise<string> {
   const existing = getStoredVisitorId(siteId);
   const res = await fetch(`${apiBaseUrl}/api/install/session`, {
@@ -30,6 +33,7 @@ export async function ensureInstallSession(apiBaseUrl: string, siteId: string): 
   return data.visitorId;
 }
 
+// Loads patches that were previously saved for this visitor/site pair.
 export async function loadInstallPatches(apiBaseUrl: string, siteId: string, visitorId: string): Promise<unknown[]> {
   const url = new URL(`${apiBaseUrl}/api/install/page`);
   url.searchParams.set('siteId', siteId);
@@ -40,6 +44,7 @@ export async function loadInstallPatches(apiBaseUrl: string, siteId: string, vis
   return Array.isArray(data.patches) ? data.patches : [];
 }
 
+// Clears persisted preferences for this visitor/site pair.
 export async function resetInstallPreferences(apiBaseUrl: string, siteId: string, visitorId: string): Promise<void> {
   const res = await fetch(`${apiBaseUrl}/api/install/reset`, {
     method: 'POST',
