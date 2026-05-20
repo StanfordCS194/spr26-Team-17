@@ -36,9 +36,16 @@ function replaceFeedVideos(
   //   VideoGrid        = remainder (or full feed if too few for the rows)
   // ShortsRow gets real shorts when available; otherwise left untouched so
   // the original mock shorts remain visible (so the "hide shorts" demo still works).
-  const continueSlice = videos.slice(0, 6);
-  const recommendedSlice = videos.slice(6, 12);
-  const gridSlice = videos.length > 12 ? videos.slice(12) : videos;
+  const hasContinue = config.sections.some((s) => s.type === 'ContinueWatchingRow');
+  const hasRecommended = config.sections.some((s) => s.type === 'RecommendedRow');
+  const continueSlice = hasContinue ? videos.slice(0, 6) : [];
+  const recommendedSlice = hasRecommended ? videos.slice(6, 12) : [];
+  const gridSlice =
+    hasContinue || hasRecommended
+      ? videos.length > 12
+        ? videos.slice(12)
+        : videos
+      : videos;
   // Build the active chip list: prefer the real YouTube labels (which are
   // personalized to the account) when available; always include "All" first.
   const realChipList = Array.isArray(chips) && chips.length > 0

@@ -334,12 +334,16 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
   }
 
   const gridPad =
-    brand === 'instagram' ? 'gap-1 px-1 py-0' : brand === 'amazon' ? `${d.gap} px-4 sm:px-6 ${d.padY}` : `${d.gap} px-6 ${d.padY}`;
-  const igCols = 'grid-cols-3';
+    brand === 'instagram'
+      ? 'gap-0.5 px-0 py-0'
+      : brand === 'amazon'
+        ? `${d.gap} px-4 sm:px-6 ${d.padY}`
+        : `${d.gap} px-6 ${d.padY}`;
+  const igCols = 'grid-cols-3 gap-0.5';
 
   return (
     <>
-      <div className={`grid ${brand === 'instagram' ? igCols : colClasses} ${gridPad}`}>
+      <div className={`grid ${brand === 'instagram' ? igCols : colClasses} ${brand === 'instagram' ? 'px-0 py-0' : gridPad}`}>
         {filtered.map((v) => (
           <VideoCard key={v.id} video={v} config={config} />
         ))}

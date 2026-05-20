@@ -121,8 +121,8 @@ You: update_theme({ videoCardDefaults: { channelNameWeight: 700, titleWeight: 50
 Visitor: "hide the shorts row"
 You: remove_section({ sectionId: 'shortsRow' })  (read the actual id from the snapshot)
 
-Visitor: "compact mode"
-You: update_section({ sectionId: 'videoGrid', patch: { density: 'compact' } })
+Visitor: "Square thumbnails, larger size"
+You: update_theme({ videoCardDefaults: { aspectRatio: '1:1', thumbnailScale: 1.12 } }) + update_section({ sectionId: 'videoGrid', patch: { columns: 3, density: 'cozy' } })
 
 Visitor: "move recommendations to the top"
 You: reorder_sections({ order: ['topBar', 'recommendedRow', 'continueWatching', 'shortsRow', 'categoryChips', 'filterSummary', 'videoGrid', 'customNote'] })  (read actual ids from the snapshot; preserve TopBar+Sidebar ordering at the top)

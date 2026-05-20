@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { SHOWCASE_SITES, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
+import { SHOWCASE_SITES, type PageConfig, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
 import { getPageBridge } from '@/lib/page-bridge';
 
 export interface ChatMessage {
@@ -204,6 +204,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           ...next,
           { role: 'assistant', content: assistantContent, toolUses, askOptions, ...meta },
         ]);
+
+        // Reconcile with server-rendered config (preferences applied in DB).
+        const bridge = getPageBridge();
+        if (bridge && bridge.pageSlug === pageSlug) {
+          try {
+            const pageRes = await fetch(`/api/page?slug=${encodeURIComponent(pageSlug)}`);
+            if (pageRes.ok) {
+              const data = (await pageRes.json()) as { config?: PageConfig };
+              if (data.config) bridge.replace(data.config);
+            }
+          } catch {
+            /* optimistic patches already applied */
+          }
+        }
       } catch (err) {
         setMessages([
           ...next,

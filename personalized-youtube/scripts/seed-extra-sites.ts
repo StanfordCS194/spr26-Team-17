@@ -135,7 +135,7 @@ function instagramConfig(videos: Video[]): PageConfig {
       {
         id: 'videoGrid',
         type: 'VideoGrid',
-        props: { columns: 3, density: 'compact', layout: 'grid', videos: videos.slice(0, 48) },
+        props: { columns: 3, density: 'compact', layout: 'grid', videos: videos.slice(0, 27) },
       },
     ],
     filter: { include: [], exclude: [], requireTags: [], blockChannels: [] },

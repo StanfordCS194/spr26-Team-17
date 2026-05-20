@@ -53,8 +53,54 @@ export function VideoCard({
 
   if (hidden) return null;
 
+  const watchHref =
+    brand === 'amazon'
+      ? `https://www.amazon.com/dp/${encodeURIComponent(video.id)}`
+      : brand === 'instagram'
+        ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
+        : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+
+  const scale = cardDefaults.thumbnailScale ?? 1;
+  const thumbRadius =
+    brand === 'instagram' ? 'rounded-none' : brand === 'amazon' ? 'rounded-sm' : 'rounded-xl';
+
+  // Instagram explore: tight square tiles, image only.
+  if (brand === 'instagram' && hideMeta) {
+    return (
+      <a
+        href={watchHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group relative block aspect-square overflow-hidden bg-[#efefef]"
+      >
+        <img
+          ref={imgRef}
+          src={video.thumbnail}
+          alt={video.title}
+          loading="lazy"
+          onError={() => setHidden(true)}
+          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+        />
+        {video.duration && video.duration !== 'Post' && (
+          <span className="absolute bottom-2 right-2 text-white drop-shadow-md" aria-hidden>
+            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        )}
+      </a>
+    );
+  }
+
   const thumb = (
-    <div className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${brand === 'instagram' || brand === 'amazon' ? 'rounded-sm' : 'rounded-xl'} ${brand === 'amazon' ? 'bg-white' : ''}`}>
+    <div
+      className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${thumbRadius} ${brand === 'amazon' ? 'bg-white' : ''}`}
+      style={
+        scale !== 1 && !horizontal
+          ? { transform: `scale(${scale})`, transformOrigin: 'top center' }
+          : undefined
+      }
+    >
       <img
         ref={imgRef}
         src={video.thumbnail}
@@ -143,12 +189,6 @@ export function VideoCard({
   );
 
   const { setWatching, youtubeMode } = usePageStore();
-  const watchHref =
-    brand === 'amazon'
-      ? `https://www.amazon.com/dp/${encodeURIComponent(video.id)}`
-      : brand === 'instagram'
-        ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
-        : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
 
   function onCardClick(e: React.MouseEvent): void {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
