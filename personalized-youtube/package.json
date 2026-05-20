@@ -17,7 +17,7 @@
     "migrate": "node --env-file=.env --import tsx scripts/migrate.ts",
     "seed": "node --env-file=.env --import tsx scripts/seed.ts",
     "seed:sites": "node --env-file=.env --import tsx scripts/seed-extra-sites.ts",
-    "check:feeds": "node --import tsx scripts/check-intercept-feeds.ts",
+    "check:feeds": "node --env-file=.env --import tsx scripts/check-intercept-feeds.ts",
     "patch-config": "node --env-file=.env --import tsx scripts/patch-base-config.ts",
     "clean-thumbs": "node --env-file=.env --import tsx scripts/clean-thumbs.ts",
     "clean": "turbo run clean && rm -rf node_modules"
