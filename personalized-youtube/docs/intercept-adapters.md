@@ -39,6 +39,20 @@ The personalize panel has **YouTube | Amazon | Instagram** pills, or ask in chat
 
 If cookies or parsing fail, adapters fall back to `lib/mock-data/amazon-products.json` / `instagram-feed.json`.
 
+## Security (matches InnerTube)
+
+All intercept adapters share `lib/innertube/chrome-cookies.ts`:
+
+- **Read-only** snapshot of Chrome’s cookie DB; never write back.
+- **Never log cookie values** — count-only lines (`loaded N cookies for amazon.com`).
+- **Cookies are the server operator’s**, not the website visitor’s. Visitors cannot inject their own Amazon/IG session.
+- **No upstream bodies in API errors** — `/api/amazon/*` and `/api/instagram/*` sanitize reasons via `lib/intercept/security.ts` (Instagram used to leak HTML snippets; fixed).
+- **Input bounds** — search queries ≤256 chars, continuation tokens ≤4096 chars (same as `/api/yt/more`).
+
+TOS posture: same as YouTube intercept — educational showcase on the operator’s machine with their own logged-in Chrome profile; not a production multi-tenant service.
+
+Full audit and deploy checklist: [`security.md`](./security.md).
+
 ## Updating when sites change
 
 1. Re-capture request in DevTools (URL, headers, body).

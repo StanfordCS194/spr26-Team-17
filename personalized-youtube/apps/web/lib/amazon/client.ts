@@ -3,6 +3,11 @@
 // Replays the same request shape as amazon.com search: GET /s?k=… with the
 // user's Chrome session cookies. Parses product cards from the HTML response.
 // Capture reference: DevTools → Network → document or xhr on /s?k=…
+//
+// Tolerance contract (matches lib/innertube/client.ts):
+//   - Returns discriminated unions; no throws from public functions.
+//   - Cookie values are never logged. Count-only via chrome-cookies.
+//   - Chrome cookies belong to the server machine, not the site visitor.
 
 import type { Video } from '@showcase/shared';
 import {
