@@ -51,15 +51,15 @@ export async function createInnertube(): Promise<Innertube | null> {
   }
 
   const result = await readYoutubeCookies();
-  if (result.kind !== 'ok') {
-    console.warn(`[innertube] cookies unavailable: ${result.reason}`);
-    return null;
+  let cookieHeader: string | undefined;
+  if (result.kind === 'ok') {
+    cookieHeader = composeCookieHeader(result.cookies);
+  } else {
+    console.warn(`[innertube] cookies unavailable, falling back to guest mode: ${result.reason}`);
   }
 
-  const cookieHeader = composeCookieHeader(result.cookies);
-  if (cookieHeader.length === 0) {
-    console.warn('[innertube] cookie header empty after compose');
-    return null;
+  if (cookieHeader && cookieHeader.length === 0) {
+    cookieHeader = undefined;
   }
 
   try {
@@ -761,6 +761,25 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
   }
 
   if (videos.length === 0) {
+    console.warn(`[innertube] home feed empty (guest mode). Falling back to search "popular right now"...`);
+    try {
+      const searchResp = await innertube.actions.execute('/search', { query: 'popular right now' });
+      const searchRaw = (searchResp as { data?: unknown })?.data ?? searchResp;
+      const searchExtracted = extractLockupVideos(searchRaw);
+      
+      if (searchExtracted.videos.length > 0) {
+        return { 
+          kind: 'ok', 
+          videos: searchExtracted.videos, 
+          shorts: searchExtracted.shorts, 
+          continuation: searchExtracted.continuation, 
+          chips: initial.chips 
+        };
+      }
+    } catch(err) {
+      console.warn(`[innertube] fallback search failed: ${(err as Error).message}`);
+    }
+
     return {
       kind: 'unavailable',
       reason: 'home feed parsed empty (cookie expired?)',

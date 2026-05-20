@@ -1,0 +1,29 @@
+{
+  "name": "@showcase/install",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Script-tag install runtime for Showcase personalization",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./browser": "./dist/showcase-install.iife.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@showcase/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.7",
+    "typescript": "^5.5.0"
+  }
+}

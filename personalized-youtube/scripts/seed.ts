@@ -113,6 +113,7 @@ function makeBaseConfig(videos: Video[]): PageConfig {
         type: 'Sidebar',
         props: {
           collapsed: false,
+          position: 'left',
           pinnedItems: ['Home', 'Shorts', 'Subscriptions', 'You'],
           showSubscriptions: true,
         },

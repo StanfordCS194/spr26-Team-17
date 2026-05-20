@@ -104,6 +104,7 @@ export function ChatPanel() {
   const [open, setOpen] = useState(true);
   const [minimized, setMinimized] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [provider, setProvider] = useState<'gemini' | 'anthropic'>('gemini');
   const [windowState, setWindowState] = useState<WindowState | null>(null);
   const [dragging, setDragging] = useState(false);
   const [input, setInput] = useState('');
@@ -300,6 +301,22 @@ export function ChatPanel() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {!minimized && (
+              <div className="mr-2 flex items-center gap-1 rounded-full bg-[color:var(--muted)] p-0.5 text-[10px] font-medium text-[color:var(--muted-fg)]" onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setProvider('gemini')}
+                  className={`rounded-full px-2 py-0.5 transition-colors ${provider === 'gemini' ? 'bg-[color:var(--bg)] text-[color:var(--fg)] shadow-sm' : 'hover:text-[color:var(--fg)]'}`}
+                >
+                  Gemini
+                </button>
+                <button
+                  onClick={() => setProvider('anthropic')}
+                  className={`rounded-full px-2 py-0.5 transition-colors ${provider === 'anthropic' ? 'bg-[color:var(--bg)] text-[color:var(--fg)] shadow-sm' : 'hover:text-[color:var(--fg)]'}`}
+                >
+                  Claude
+                </button>
+              </div>
+            )}
             <button
               onClick={toggleMinimize}
               aria-label={minimized ? 'Expand' : 'Minimize'}
