@@ -18,16 +18,39 @@ function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
   return `Got it. ${verbs.join(', ')}.`;
 }
 
-const STORAGE_KEY = 'chatPanel:window:v2';
+const STORAGE_KEY = 'chatPanel:window:v3';
 const DEFAULT_W = 420;
 const DEFAULT_H = 620;
 const MIN_W = 320;
 const MIN_H = 200;
 const MINIMIZED_H = 48;
+const VIEWPORT_MARGIN = 16;
 
 type WindowState = { x: number; y: number; width: number; height: number };
 
-function loadWindowState(): WindowState | null {
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function normalizeWindowState(state: WindowState, minimized: boolean): WindowState {
+  if (typeof window === 'undefined') return state;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const maxW = Math.max(MIN_W, vw - VIEWPORT_MARGIN * 2);
+  const maxH = Math.max(MIN_H, vh - VIEWPORT_MARGIN * 2);
+  const width = clamp(state.width, MIN_W, maxW);
+  const height = minimized ? MINIMIZED_H : clamp(state.height, MIN_H, maxH);
+  const maxX = Math.max(0, vw - width);
+  const maxY = Math.max(0, vh - height);
+  return {
+    width,
+    height,
+    x: clamp(state.x, 0, maxX),
+    y: clamp(state.y, 0, maxY),
+  };
+}
+
+function loadWindowState(): { state: WindowState; minimized: boolean } | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -39,7 +62,11 @@ function loadWindowState(): WindowState | null {
       typeof parsed.width === 'number' &&
       typeof parsed.height === 'number'
     ) {
-      return parsed;
+      const minimized = parsed.height <= MINIMIZED_H;
+      return {
+        state: normalizeWindowState(parsed, minimized),
+        minimized,
+      };
     }
   } catch {
     /* ignore */
@@ -51,16 +78,15 @@ function defaultWindowState(): WindowState {
   if (typeof window === 'undefined') {
     return { x: 0, y: 0, width: DEFAULT_W, height: DEFAULT_H };
   }
-  return {
-    x: Math.max(16, window.innerWidth - DEFAULT_W - 24),
-    y: Math.max(16, window.innerHeight - DEFAULT_H - 24),
-    width: DEFAULT_W,
-    height: DEFAULT_H,
-  };
-}
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, n));
+  return normalizeWindowState(
+    {
+      x: Math.max(VIEWPORT_MARGIN, window.innerWidth - DEFAULT_W - 24),
+      y: Math.max(VIEWPORT_MARGIN, window.innerHeight - DEFAULT_H - 24),
+      width: DEFAULT_W,
+      height: DEFAULT_H,
+    },
+    false,
+  );
 }
 
 function useActivePageSlug(): string {
@@ -88,8 +114,24 @@ export function ChatPanel() {
   useEffect(() => {
     setMounted(true);
     setChips(pickRotatingChips(Math.floor(Date.now() / 1000), 3));
-    setWindowState(loadWindowState() ?? defaultWindowState());
+    const loaded = loadWindowState();
+    if (loaded) {
+      setMinimized(loaded.minimized);
+      setWindowState(loaded.state);
+    } else {
+      setWindowState(defaultWindowState());
+    }
   }, []);
+
+  useEffect(() => {
+    function onResize() {
+      setWindowState((current) =>
+        current ? normalizeWindowState(current, minimized) : current,
+      );
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [minimized]);
 
   useEffect(() => {
     if (open && !minimized) inputRef.current?.focus();
