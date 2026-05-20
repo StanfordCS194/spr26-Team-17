@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Video } from '@showcase/shared';
 import { getSiteBrand } from '@/lib/site-brand';
 import { amazonProductHref } from '@/lib/amazon/href';
+import { AmazonStars, parseAmazonRating } from '@/components/amazon/AmazonStars';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from './Avatar';
 
@@ -167,12 +168,22 @@ export function VideoCard({
           {video.title}
         </h3>
         {brand === 'amazon' && cardDefaults.showDuration && (
-          <p className={`mt-1 text-lg font-normal ${video.duration.startsWith('$') ? 'text-[#b12704]' : 'text-[color:var(--muted-fg)] text-sm'}`}>
-            {video.duration}
+          <p className={`mt-1 text-lg font-normal ${video.duration.startsWith('$') ? 'text-[#0f1111]' : 'text-[color:var(--muted-fg)] text-sm'}`}>
+            {video.duration.startsWith('$') ? (
+              <>
+                <span className="text-[13px] align-top">$</span>
+                <span className="text-[21px]">{video.duration.replace('$', '').split('.')[0]}</span>
+                <span className="text-[13px] align-top">{video.duration.includes('.') ? video.duration.split('.')[1] : '00'}</span>
+              </>
+            ) : (
+              video.duration
+            )}
           </p>
         )}
         {brand === 'amazon' && cardDefaults.showPostedAgo && video.postedAgo && (
-          <p className="mt-0.5 text-xs text-[#007185]">{video.postedAgo}</p>
+          <div className="mt-0.5">
+            <AmazonStars rating={parseAmazonRating(video.postedAgo)} size="sm" />
+          </div>
         )}
         {brand !== 'amazon' && (
           <p

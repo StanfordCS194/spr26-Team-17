@@ -38,7 +38,7 @@ export function decodeAmazonContinuation(token: string): { q: string; page: numb
   return null;
 }
 
-function decodeHtml(s: string): string {
+export function decodeHtml(s: string): string {
   return s
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)))

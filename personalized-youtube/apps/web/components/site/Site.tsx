@@ -13,6 +13,8 @@ const ROOT_OVERLAY_TYPES = new Set(['AmbientBackground']);
 
 export function Site() {
   const { config, watchingId } = usePageStore();
+  const brand = getSiteBrand(config.slug);
+  const hideSidebar = brand === 'amazon' && Boolean(watchingId);
 
   const header = config.sections.filter((s) => HEADER_TYPES.has(s.type));
   const sidebar = config.sections.filter((s) => SIDEBAR_TYPES.has(s.type));
@@ -36,14 +38,15 @@ export function Site() {
         >{renderSection(section, config)}</div>
       ))}
       <div className="flex">
-        {sidebar.map((section) => (
-          <div
-            key={section.id}
-            data-section-id={section.id}
-            data-section-type={section.type}
-            style={chromeStyle}
-          >{renderSection(section, config)}</div>
-        ))}
+        {!hideSidebar &&
+          sidebar.map((section) => (
+            <div
+              key={section.id}
+              data-section-id={section.id}
+              data-section-type={section.type}
+              style={chromeStyle}
+            >{renderSection(section, config)}</div>
+          ))}
         <main className={`min-w-0 flex-1 relative z-10 ${getSiteBrand(config.slug) === 'instagram' ? 'site-main-feed' : ''}`}>
           {watchingId ? (
             <WatchPage />

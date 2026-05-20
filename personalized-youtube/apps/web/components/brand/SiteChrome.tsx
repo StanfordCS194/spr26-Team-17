@@ -8,9 +8,21 @@ import { usePageStore, type NavKey } from '@/lib/store';
 
 function AmazonLogo() {
   return (
-    <span className="flex items-baseline gap-0 text-xl font-bold tracking-tight text-white">
-      <span>amazon</span>
-      <span className="text-[#ff9900] text-2xl leading-none">⌵</span>
+    <span className="flex items-baseline gap-0 leading-none text-white">
+      <span className="text-[22px] font-bold tracking-tight">amazon</span>
+      <svg viewBox="0 0 28 12" className="h-[14px] w-[28px] -translate-x-0.5 translate-y-0.5" aria-hidden>
+        <path
+          d="M2 10c6 2 14 2 22-1 1 0 1 2 0 2-9 4-19 3-26-2-1-1 1-2 4 1z"
+          fill="#ff9900"
+        />
+        <path
+          d="M2 10c6 2 14 2 22-1"
+          fill="none"
+          stroke="#ff9900"
+          strokeWidth="1.5"
+        />
+      </svg>
+      <span className="ml-1 text-[11px] font-normal text-[#ccc]">.com</span>
     </span>
   );
 }
@@ -93,12 +105,21 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
   if (brand === 'amazon') {
     return (
       <header className="brand-amazon-header sticky top-0 z-30 border-b">
-        <div className="flex h-14 items-center gap-3 px-4">
-          <button type="button" onClick={goHome} className="shrink-0" aria-label="Amazon home">
+        <div className="flex h-[60px] items-stretch gap-2 px-3 sm:gap-3 sm:px-4">
+          <button type="button" onClick={goHome} className="flex shrink-0 items-center self-center" aria-label="Amazon home">
             <AmazonLogo />
           </button>
+
+          <button
+            type="button"
+            className="hidden shrink-0 flex-col justify-center text-left text-[11px] leading-tight text-[#ccc] hover:text-white lg:flex"
+          >
+            <span className="text-[#ccc]">Deliver to</span>
+            <span className="font-bold text-white">Akira · Stanford 94305</span>
+          </button>
+
           <form
-            className="mx-auto flex h-10 max-w-3xl flex-1 items-stretch"
+            className="mx-auto flex h-10 max-w-3xl flex-1 items-stretch self-center"
             onSubmit={onSubmit}
           >
             <select
@@ -107,6 +128,9 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
               defaultValue="all"
             >
               <option>All</option>
+              <option>Home &amp; Kitchen</option>
+              <option>Electronics</option>
+              <option>Books</option>
             </select>
             <input
               ref={searchInputRef}
@@ -130,18 +154,27 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
               </svg>
             </button>
           </form>
+
           {showProfileChip && (
-            <div className="flex shrink-0 items-center gap-1 text-white">
-              <button type="button" className="px-2 py-1 text-xs hover:underline" aria-label="Account">
-                Account
+            <div className="flex shrink-0 items-center gap-1 self-center text-white">
+              <button type="button" className="hidden px-2 py-1 text-left text-[11px] leading-tight hover:outline hover:outline-1 hover:outline-white sm:block">
+                <span className="block text-[#ccc]">EN</span>
+                <span className="font-bold">🇺🇸</span>
               </button>
-              <button type="button" className="px-2 py-1 text-xs hover:underline" aria-label="Orders">
-                Orders
+              <button type="button" className="px-2 py-1 text-left text-[11px] leading-tight hover:outline hover:outline-1 hover:outline-white">
+                <span className="block text-[#ccc]">Hello, Akira</span>
+                <span className="font-bold">Account &amp; Lists</span>
               </button>
-              <button type="button" className="relative px-2 py-1" aria-label="Cart">
-                <svg viewBox="0 0 24 24" className="h-7 w-7 fill-white">
+              <button type="button" className="hidden px-2 py-1 text-left text-[11px] leading-tight hover:outline hover:outline-1 hover:outline-white md:block">
+                <span className="block text-[#ccc]">Returns</span>
+                <span className="font-bold">&amp; Orders</span>
+              </button>
+              <button type="button" className="relative px-2 py-1 hover:outline hover:outline-1 hover:outline-white" aria-label="Cart">
+                <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
                   <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM7.16 14l.84-2h8.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20.84 3H6.21L5.27 1H2v2h2l3.6 7.59-1.35 2.44C5.52 13.37 6.24 14 7.16 14z" />
                 </svg>
+                <span className="absolute left-5 top-0 text-base font-bold text-[#ff9900]">0</span>
+                <span className="absolute -bottom-0.5 left-6 text-[11px] font-bold">Cart</span>
               </button>
             </div>
           )}

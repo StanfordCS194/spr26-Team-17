@@ -17,6 +17,7 @@
   --chip-bg: #ffffff;
   --chip-active-bg: #232f3e;
   --chip-active-fg: #ffffff;
+  font-family: 'Amazon Ember', Arial, sans-serif;
 }
 
 [data-brand='instagram'] {
@@ -71,6 +72,15 @@
 [data-brand='amazon'] .site-sidebar {
   background: var(--muted);
   border-color: var(--border);
+}
+
+[data-brand='amazon'] .amazon-pdp,
+[data-brand='amazon'] .brand-amazon-header {
+  font-family: inherit;
+}
+
+[data-brand='amazon'] .amazon-buy-box {
+  box-shadow: 0 2px 5px rgba(15, 17, 17, 0.15);
 }
 
 [data-brand='instagram'] .site-main-feed {
