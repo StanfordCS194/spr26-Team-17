@@ -75,19 +75,50 @@
 }
 
 [data-brand='amazon'] .amazon-pdp,
-[data-brand='amazon'] .brand-amazon-header {
-  font-family: inherit;
+[data-brand='amazon'] .amazon-pdp *:not(svg):not(path) {
+  font-family: 'Amazon Ember', Arial, Helvetica, sans-serif !important;
+}
+
+[data-brand='amazon'] .amazon-pdp-title {
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 [data-brand='amazon'] .amazon-buy-box {
   box-shadow: 0 2px 5px rgba(15, 17, 17, 0.15);
 }
 
-/* Keep Amazon pages clear of the floating Personalize chat panel */
-@media (min-width: 1280px) {
-  [data-brand='amazon'] .amazon-pdp,
+[data-brand='amazon'] .amazon-btn-cart {
+  background: #ffd814;
+  border: 1px solid #fcd200;
+  box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+}
+
+[data-brand='amazon'] .amazon-btn-cart:hover {
+  background: #f7ca00;
+}
+
+[data-brand='amazon'] .amazon-btn-buy {
+  background: #ffa41c;
+  border: 1px solid #ff8f00;
+  box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+}
+
+[data-brand='amazon'] .amazon-btn-buy:hover {
+  background: #fa8900;
+}
+
+[data-brand='amazon'] .amazon-pdp-hero {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Content column stops before the Personalize chat panel */
+@media (min-width: 1100px) {
   [data-brand='amazon'] .amazon-pdp-body {
-    padding-right: max(1rem, min(440px, 36vw));
+    max-width: min(1180px, calc(100vw - 460px));
+    margin-right: auto;
+    margin-left: auto;
+    padding-right: 1rem;
   }
 }
 

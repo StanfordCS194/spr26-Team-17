@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
 import { AmazonBuyBox } from '@/components/amazon/AmazonBuyBox';
+import { AmazonImageGalleryControlled } from '@/components/amazon/AmazonImageGallery';
+import { AmazonPrice } from '@/components/amazon/AmazonPrice';
 import { AmazonStars, formatReviewCount, parseAmazonRating } from '@/components/amazon/AmazonStars';
 import type { AmazonProductDetail } from '@/lib/amazon/product-detail';
 import { dedupeAmazonImages } from '@/lib/amazon/image-utils';
@@ -30,7 +32,7 @@ function deliveryWindow(): { day: string; cutoff: string } {
   return { day, cutoff: `${mins} mins` };
 }
 
-function SuggestionCard({ video, onSelect }: { video: Video; onSelect: (id: string, title: string) => void }) {
+function CarouselCard({ video, onSelect }: { video: Video; onSelect: (id: string, title: string) => void }) {
   const price = video.duration?.startsWith('$') ? video.duration : null;
   const rating = parseAmazonRating(video.postedAgo);
 
@@ -38,35 +40,29 @@ function SuggestionCard({ video, onSelect }: { video: Video; onSelect: (id: stri
     <button
       type="button"
       onClick={() => onSelect(video.id, video.title)}
-      className="flex w-full gap-2 rounded-sm p-1 text-left transition-colors hover:bg-[#f7fafa]"
+      className="group w-[148px] shrink-0 text-left"
     >
-      <div className="relative h-[115px] w-[115px] shrink-0 overflow-hidden rounded-sm border border-[#ddd] bg-white">
+      <div className="flex h-[148px] items-center justify-center overflow-hidden rounded-sm border border-[#e7e7e7] bg-white p-2 transition-shadow group-hover:shadow-md">
         {video.thumbnail && (
-          <img src={video.thumbnail} alt={video.title} loading="lazy" className="h-full w-full object-contain p-1" />
+          <img src={video.thumbnail} alt={video.title} loading="lazy" className="max-h-full max-w-full object-contain" />
         )}
       </div>
-      <div className="min-w-0 flex-1 pt-0.5">
-        <h4 className="line-clamp-3 text-[13px] leading-snug text-[#007185] hover:text-[#c7511f] hover:underline">
-          {video.title}
-        </h4>
-        {rating != null && (
-          <div className="mt-1">
-            <AmazonStars rating={rating} size="sm" showNumeric={false} />
-          </div>
-        )}
-        {price && <p className="mt-1 text-[13px] text-[#0f1111]">{price}</p>}
-      </div>
+      <p className="mt-2 line-clamp-2 text-[12px] leading-snug text-[#007185] group-hover:text-[#c7511f] group-hover:underline">
+        {video.title}
+      </p>
+      {rating != null && (
+        <div className="mt-1">
+          <AmazonStars rating={rating} size="sm" showNumeric={false} />
+        </div>
+      )}
+      {price && <p className="mt-0.5 text-[13px] font-medium text-[#0f1111]">{price}</p>}
     </button>
   );
 }
 
-function PrimeMark({ className = 'h-[18px]' }: { className?: string }) {
+function PrimeInline() {
   return (
-    <svg viewBox="0 0 54 16" className={className} aria-label="Prime">
-      <text x="0" y="12" fill="#00a8e1" fontSize="13" fontWeight="700" fontFamily="Arial,sans-serif">
-        prime
-      </text>
-    </svg>
+    <span className="text-[#00a8e1] font-bold text-[13px]">prime</span>
   );
 }
 
@@ -103,23 +99,20 @@ export function AmazonProductView({
       .then(async (r) => {
         if (cancelled) return;
         if (!r.ok) {
-          const data = (await r.json().catch(() => ({}))) as { reason?: string };
-          setProductState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          setProductState({ status: 'error', reason: 'unavailable' });
           return;
         }
         const data = (await r.json()) as { ok?: boolean; product?: AmazonProductDetail };
         if (!data.ok || !data.product) {
-          setProductState({ status: 'error', reason: 'product unavailable' });
+          setProductState({ status: 'error', reason: 'unavailable' });
           return;
         }
         setProductState({ status: 'ok', product: data.product });
       })
-      .catch((err) => {
-        if (!cancelled) setProductState({ status: 'error', reason: (err as Error).message });
+      .catch(() => {
+        if (!cancelled) setProductState({ status: 'error', reason: 'unavailable' });
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [watchingId]);
 
   useEffect(() => {
@@ -132,10 +125,7 @@ export function AmazonProductView({
           setReviewsState({ status: 'error', reason: 'unavailable' });
           return;
         }
-        const data = (await r.json()) as {
-          ok?: boolean;
-          reviews?: ReviewsState extends { status: 'ok'; reviews: infer R } ? R : never;
-        };
+        const data = (await r.json()) as { ok?: boolean; reviews?: ReviewsState extends { status: 'ok'; reviews: infer R } ? R : never };
         if (!data.ok || !Array.isArray(data.reviews)) {
           setReviewsState({ status: 'error', reason: 'unavailable' });
           return;
@@ -145,9 +135,7 @@ export function AmazonProductView({
       .catch(() => {
         if (!cancelled) setReviewsState({ status: 'error', reason: 'unavailable' });
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [watchingId]);
 
   useEffect(() => {
@@ -184,251 +172,190 @@ export function AmazonProductView({
   };
 
   return (
-    <div className="amazon-pdp bg-[#eaeded] min-h-full">
+    <div className="amazon-pdp min-h-full bg-[#eaeded]">
       {addedBanner && (
-        <div className="sticky top-[96px] z-20 border-b border-[#007600] bg-[#232f3e] px-4 py-2 text-sm text-white">
-          <span className="text-[#7fda89] font-bold">✓ Added to cart</span>
-          <span className="mx-2 text-[#ccc]">—</span>
-          <span className="text-[#ccc]">{addedBanner}</span>
-          <button
-            type="button"
-            onClick={goToCart}
-            className="ml-4 text-[#ff9900] hover:underline"
-          >
+        <div className="sticky top-[60px] z-20 flex items-center gap-3 border-b border-[#007600]/30 bg-[#232f3e] px-4 py-2 text-[13px] text-white">
+          <span className="font-bold text-[#7fda89]">✓ Added to cart</span>
+          <span className="truncate text-[#ccc]">{addedBanner}</span>
+          <button type="button" onClick={goToCart} className="ml-auto shrink-0 text-[#ff9900] hover:underline">
             Cart ({cartCount})
           </button>
-          <button type="button" onClick={clearAddedBanner} className="ml-4 text-[#ccc] hover:text-white">
-            ✕
-          </button>
+          <button type="button" onClick={clearAddedBanner} className="shrink-0 text-[#999] hover:text-white" aria-label="Dismiss">✕</button>
         </div>
       )}
 
-      <nav className="border-b border-[#ddd] bg-white px-4 py-2 text-[12px] text-[#565959]">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2">
+      <nav className="border-b border-[#ddd] bg-[#f7fafa] px-4 py-1.5 text-[12px] text-[#565959]">
+        <div className="amazon-pdp-body mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-2">
           <ol className="flex flex-wrap items-center gap-1">
             {breadcrumbs.map((crumb, i) => (
               <li key={`${crumb}-${i}`} className="flex items-center gap-1">
-                {i > 0 && <span>›</span>}
-                <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">
-                  {crumb}
-                </button>
+                {i > 0 && <span className="text-[#949494]">›</span>}
+                <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">{crumb}</button>
               </li>
             ))}
           </ol>
-          <button
-            type="button"
-            onClick={() => setWatching(null)}
-            className="shrink-0 text-[13px] text-[#007185] hover:text-[#c7511f] hover:underline"
-          >
+          <button type="button" onClick={() => setWatching(null)} className="text-[#007185] hover:text-[#c7511f] hover:underline">
             ← Back to results
           </button>
         </div>
       </nav>
 
-      <div className="amazon-pdp-body mx-auto max-w-[1400px] px-4 py-4">
-        {/* Top-aligned 3-col row — suggestions live below, not beside buy box */}
-        <div className="grid items-start gap-x-6 gap-y-5 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)_280px]">
-          {/* Image gallery */}
-          <div className="flex gap-2 self-start">
-            {galleryImages.length > 1 && (
-              <ul className="flex shrink-0 flex-col gap-1.5">
-                {galleryImages.map((src, i) => (
-                  <li key={src}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveImage(i)}
-                      className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-sm border bg-white p-0.5 ${
-                        activeImage === i ? 'border-[#007185] shadow-[0_0_0_1px_#007185]' : 'border-[#ddd]'
-                      }`}
-                    >
-                      <img src={src} alt="" className="max-h-full max-w-full object-contain" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="relative flex h-[340px] w-full items-center justify-center rounded-sm border border-[#ddd] bg-white p-3 sm:h-[380px]">
-              {heroImage ? (
-                <button type="button" onClick={() => setZoomOpen(true)} className="h-full w-full">
-                  <img src={heroImage} alt={title} className="mx-auto max-h-full max-w-full object-contain" />
-                </button>
-              ) : (
-                <div className="text-sm text-[#565959]">No image</div>
+      <div className="amazon-pdp-body mx-auto max-w-[1180px] px-3 py-3 sm:px-4 sm:py-4">
+        {/* Main product panel — white card like amazon.com */}
+        <section className="amazon-pdp-hero rounded-sm border border-[#ddd] bg-white px-4 py-5 sm:px-6">
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,42%)_minmax(0,1fr)] xl:grid-cols-[minmax(0,40%)_minmax(0,1fr)_260px] xl:gap-6">
+            <AmazonImageGalleryControlled
+              images={galleryImages}
+              title={title}
+              activeIndex={activeImage}
+              onSelect={setActiveImage}
+              onZoom={() => setZoomOpen(true)}
+            />
+
+            <div className="min-w-0">
+              <h1 className="amazon-pdp-title text-[22px] font-normal leading-tight text-[#0f1111] sm:text-[24px]">{title}</h1>
+
+              {brand && (
+                <p className="mt-1 text-[13px]">
+                  by <button type="button" className="text-[#007185] hover:underline">{brand}</button>
+                  <span className="text-[#565959]"> · </span>
+                  <button type="button" className="text-[#007185] hover:underline">Visit the Store</button>
+                </p>
               )}
-            </div>
-          </div>
 
-          {/* Product info */}
-          <div className="min-w-0 self-start">
-            <h1 className="text-xl font-normal leading-snug text-[#0f1111] sm:text-2xl">{title}</h1>
-
-            {brand && (
-              <p className="mt-1 text-[13px]">
-                Visit the{' '}
-                <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">
-                  {brand} Store
-                </button>
-              </p>
-            )}
-
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {rating != null && (
-                <>
-                  <AmazonStars rating={rating} size="md" />
-                  {reviewCount && (
-                    <button type="button" className="text-[13px] text-[#007185] hover:text-[#c7511f] hover:underline">
-                      {formatReviewCount(reviewCount)} ratings
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-
-            {detail?.amazonChoice && (
-              <div className="mt-2 inline-flex items-center gap-1 rounded-sm bg-[#232f3e] px-2 py-1 text-[12px] text-white">
-                <span className="font-bold">Amazon&apos;s</span>
-                <span className="text-[#ff9900]">Choice</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2 border-b border-[#e7e7e7] pb-3">
+                {rating != null && (
+                  <>
+                    <AmazonStars rating={rating} size="md" />
+                    {reviewCount && (
+                      <button type="button" className="text-[13px] text-[#007185] hover:underline">
+                        {formatReviewCount(reviewCount)} ratings
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
-            )}
 
-            {detail?.boughtPastMonth && (
-              <p className="mt-2 text-[13px] text-[#565959]">
-                <span className="font-bold text-[#0f1111]">{detail.boughtPastMonth}+ bought</span> in past month
-              </p>
-            )}
-
-            <hr className="my-3 border-[#e7e7e7]" />
-
-            {price && (
-              <div className="flex items-end gap-0.5">
-                <span className="mb-1 text-[13px] text-[#565959]">$</span>
-                <span className="text-[28px] leading-none text-[#0f1111]">{price.replace('$', '').split('.')[0]}</span>
-                <span className="mb-0.5 text-[13px] text-[#0f1111]">{price.includes('.') ? price.split('.')[1] : '00'}</span>
-              </div>
-            )}
-
-            {primeEligible && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
-                <PrimeMark />
-                <span className="text-[#007185]">
-                  Two-Day Delivery · <button type="button" className="hover:underline">FREE Returns</button>
+              {detail?.amazonChoice && (
+                <span className="mt-2 inline-block rounded-sm bg-[#232f3e] px-2 py-0.5 text-[11px] font-bold text-white">
+                  Amazon&apos;s <span className="text-[#ff9900]">Choice</span>
                 </span>
-              </div>
-            )}
+              )}
 
-            {/* Buy box on narrow viewports — sits under price, above About */}
-            <div className="mt-4 xl:hidden">
-              <AmazonBuyBox {...buyBoxProps} />
+              {detail?.boughtPastMonth && (
+                <p className="mt-2 text-[13px] text-[#565959]">
+                  <span className="font-bold text-[#0f1111]">{detail.boughtPastMonth}+ bought</span> in past month
+                </p>
+              )}
+
+              {/* Price in center column — hidden on xl where buy box shows it */}
+              <div className="mt-3 xl:hidden">
+                {price && <AmazonPrice price={price} />}
+                {primeEligible && (
+                  <p className="mt-1 flex items-center gap-1.5 text-[13px] text-[#007185]">
+                    <PrimeInline /> Two-Day Delivery · <button type="button" className="hover:underline">FREE Returns</button>
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4 xl:hidden">
+                <AmazonBuyBox {...buyBoxProps} />
+              </div>
+
+              {bullets.length > 0 && (
+                <div className="mt-5 border-t border-[#e7e7e7] pt-4">
+                  <h2 className="mb-2 text-[16px] font-bold text-[#0f1111]">About this item</h2>
+                  <ul className="list-disc space-y-1.5 pl-5 text-[14px] leading-relaxed text-[#0f1111]">
+                    {bullets.map((b) => (
+                      <li key={b.slice(0, 48)}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
-            {bullets.length > 0 && (
-              <div className="mt-5">
-                <h2 className="mb-2 text-base font-bold text-[#0f1111]">About this item</h2>
-                <ul className="list-disc space-y-1 pl-5 text-[14px] leading-relaxed text-[#0f1111]">
-                  {bullets.map((b) => (
-                    <li key={b.slice(0, 40)}>{b}</li>
-                  ))}
-                </ul>
+            <div className="hidden xl:block">
+              <div className="sticky top-[72px]">
+                <AmazonBuyBox {...buyBoxProps} />
               </div>
-            )}
-          </div>
-
-          {/* Buy box — sticky on desktop, clear of chat panel via .amazon-pdp-body padding */}
-          <div className="hidden self-start xl:block">
-            <div className="sticky top-24">
-              <AmazonBuyBox {...buyBoxProps} />
             </div>
           </div>
-        </div>
+        </section>
 
         {suggestions.length > 0 && (
-          <div className="mt-8 rounded-lg border border-[#d5d9d9] bg-white p-4">
-            <h2 className="mb-3 text-[15px] font-bold text-[#0f1111]">Customers who viewed this item also viewed</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {suggestions.slice(0, 6).map((v) => (
-                <SuggestionCard key={v.id} video={v} onSelect={setWatching} />
+          <section className="mt-4 rounded-sm border border-[#ddd] bg-white px-4 py-4 sm:px-5">
+            <h2 className="mb-3 text-[18px] font-bold text-[#0f1111]">Customers who viewed this item also viewed</h2>
+            <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+              {suggestions.slice(0, 12).map((v) => (
+                <CarouselCard key={v.id} video={v} onSelect={setWatching} />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Reviews */}
-        <section className="mt-8 rounded-lg border border-[#d5d9d9] bg-white p-6">
-          <div className="mb-6 flex flex-wrap items-end gap-6 border-b border-[#e7e7e7] pb-6">
+        <section className="mt-4 rounded-sm border border-[#ddd] bg-white px-4 py-5 sm:px-6">
+          <div className="flex flex-wrap items-start gap-8 border-b border-[#e7e7e7] pb-5">
             <div>
-              <h2 className="text-xl font-bold text-[#0f1111]">Customer reviews</h2>
+              <h2 className="text-[21px] font-bold text-[#0f1111]">Customer reviews</h2>
               {rating != null && (
-                <div className="mt-2 flex items-center gap-3">
-                  <AmazonStars rating={rating} size="lg" />
+                <div className="mt-2 flex items-center gap-2">
+                  <AmazonStars rating={rating} size="lg" showNumeric={false} />
                   <span className="text-[13px] text-[#565959]">
-                    {reviewCount ? `${formatReviewCount(reviewCount)} global ratings` : 'Ratings from customers'}
+                    {reviewCount ? `${formatReviewCount(reviewCount)} global ratings` : ''}
                   </span>
                 </div>
               )}
             </div>
             {rating != null && (
-              <div className="flex items-center gap-2">
-                <span className="text-4xl font-normal text-[#0f1111]">{rating.toFixed(1)}</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[32px] leading-none text-[#0f1111]">{rating.toFixed(1)}</span>
                 <span className="text-[13px] text-[#565959]">out of 5</span>
               </div>
             )}
           </div>
 
-          {reviewsState.status === 'loading' && <p className="text-sm text-[#565959]">Loading reviews…</p>}
-          {reviewsState.status === 'error' && (
-            <div className="text-sm text-[#565959]">
-              <p>Individual reviews couldn&apos;t be loaded right now.</p>
-              {rating != null && reviewCount && (
-                <p className="mt-2">
-                  This product is rated {rating.toFixed(1)} stars with {formatReviewCount(reviewCount)} ratings on Amazon.
-                </p>
-              )}
-              <a
-                href={`https://www.amazon.com/product-reviews/${encodeURIComponent(watchingId)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-[#007185] hover:underline"
-              >
-                See all reviews on Amazon.com →
-              </a>
-            </div>
-          )}
-          {reviewsState.status === 'ok' && reviewsState.reviews.length === 0 && (
-            <p className="text-sm text-[#565959]">No written reviews yet.</p>
-          )}
-          {reviewsState.status === 'ok' && reviewsState.reviews.length > 0 && (
-            <ul className="divide-y divide-[#e7e7e7]">
-              {reviewsState.reviews.map((r) => {
-                const rRating = parseAmazonRating(r.rating);
-                return (
-                  <li key={r.id} className="py-5 first:pt-0">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#232f3e] text-xs font-bold text-white">
-                        {r.author.charAt(0).toUpperCase()}
+          <div className="mt-4">
+            {reviewsState.status === 'loading' && <p className="text-[13px] text-[#565959]">Loading reviews…</p>}
+            {reviewsState.status === 'error' && (
+              <div className="text-[13px] text-[#565959]">
+                <p>Couldn&apos;t load reviews right now.</p>
+                {rating != null && reviewCount && (
+                  <p className="mt-1">Rated {rating.toFixed(1)} · {formatReviewCount(reviewCount)} ratings on Amazon.</p>
+                )}
+                <a href={`https://www.amazon.com/product-reviews/${encodeURIComponent(watchingId)}`} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[#007185] hover:underline">
+                  See all on Amazon.com →
+                </a>
+              </div>
+            )}
+            {reviewsState.status === 'ok' && reviewsState.reviews.length > 0 && (
+              <ul className="divide-y divide-[#e7e7e7]">
+                {reviewsState.reviews.map((r) => {
+                  const rRating = parseAmazonRating(r.rating);
+                  return (
+                    <li key={r.id} className="py-4 first:pt-0">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#232f3e] text-[11px] font-bold text-white">
+                          {r.author.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-[13px] font-medium">{r.author}</span>
                       </div>
-                      <span className="text-[13px] font-medium text-[#0f1111]">{r.author}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {rRating != null && <AmazonStars rating={rRating} size="sm" showNumeric={false} />}
-                      {r.title && <span className="text-[13px] font-bold text-[#0f1111]">{r.title}</span>}
-                    </div>
-                    {r.postedAgo && <p className="mt-1 text-[12px] text-[#565959]">Reviewed {r.postedAgo}</p>}
-                    <p className="mt-2 text-[14px] leading-relaxed text-[#0f1111]">{r.text}</p>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        {rRating != null && <AmazonStars rating={rRating} size="sm" showNumeric={false} />}
+                        {r.title && <span className="text-[13px] font-bold">{r.title}</span>}
+                      </div>
+                      {r.postedAgo && <p className="mt-0.5 text-[12px] text-[#565959]">{r.postedAgo}</p>}
+                      <p className="mt-2 text-[14px] leading-relaxed">{r.text}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </section>
       </div>
 
       {zoomOpen && heroImage && (
-        <button
-          type="button"
-          aria-label="Close zoom"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8"
-          onClick={() => setZoomOpen(false)}
-        >
+        <button type="button" aria-label="Close zoom" className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6" onClick={() => setZoomOpen(false)}>
           <img src={heroImage} alt={title} className="max-h-full max-w-full object-contain" onClick={(e) => e.stopPropagation()} />
         </button>
       )}
