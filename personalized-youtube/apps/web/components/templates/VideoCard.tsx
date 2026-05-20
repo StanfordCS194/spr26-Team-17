@@ -54,14 +54,14 @@ export function VideoCard({
   if (hidden) return null;
 
   const thumb = (
-    <div className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${brand === 'instagram' || brand === 'amazon' ? 'rounded-sm' : 'rounded-xl'}`}>
+    <div className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${brand === 'instagram' || brand === 'amazon' ? 'rounded-sm' : 'rounded-xl'} ${brand === 'amazon' ? 'bg-white' : ''}`}>
       <img
         ref={imgRef}
         src={video.thumbnail}
         alt={video.title}
         loading="lazy"
         onError={() => setHidden(true)}
-        className="h-full w-full object-cover"
+        className={`h-full w-full ${brand === 'amazon' ? 'object-contain p-2' : 'object-cover'}`}
         style={saturate !== 1 ? { filter: `saturate(${saturate})` } : undefined}
       />
       {cardDefaults.showDuration && brand !== 'amazon' && (
@@ -110,7 +110,9 @@ export function VideoCard({
           {video.title}
         </h3>
         {brand === 'amazon' && cardDefaults.showDuration && (
-          <p className="mt-1 text-lg font-normal text-[#b12704]">{video.duration}</p>
+          <p className={`mt-1 text-lg font-normal ${video.duration.startsWith('$') ? 'text-[#b12704]' : 'text-[color:var(--muted-fg)] text-sm'}`}>
+            {video.duration}
+          </p>
         )}
         {brand === 'amazon' && cardDefaults.showPostedAgo && video.postedAgo && (
           <p className="mt-0.5 text-xs text-[#007185]">{video.postedAgo}</p>

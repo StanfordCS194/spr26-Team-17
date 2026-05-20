@@ -30,37 +30,120 @@ function decodeHtml(s: string): string {
     .replace(/&nbsp;/g, ' ');
 }
 
-/** Parse search-results HTML for ASIN blocks (defensive regex walk). */
+/** Prefer a high-res product image (Amazon serves tiny SX/US tiles in src). */
+export function upgradeAmazonImageUrl(url: string): string {
+  if (!url.includes('media-amazon.com')) return url;
+  const base = url.split('?')[0] ?? url;
+  if (/\._AC_[A-Z0-9_,]+_\./i.test(base)) {
+    return base.replace(/\._AC_[A-Z0-9_,]+_\./i, '._AC_SL500_.');
+  }
+  return base;
+}
+
+function extractAmazonImage(chunk: string): string {
+  const dynamic = chunk.match(/data-a-dynamic-image="([^"]+)"/i);
+  if (dynamic?.[1]) {
+    try {
+      const json = decodeHtml(dynamic[1].replace(/&quot;/g, '"'));
+      const sizes = JSON.parse(json) as Record<string, [number, number]>;
+      const sorted = Object.entries(sizes).sort((a, b) => (b[1][0] ?? 0) - (a[1][0] ?? 0));
+      const best = sorted.find(([u]) => u.includes('media-amazon.com'))?.[0];
+      if (best) return upgradeAmazonImageUrl(best);
+    } catch {
+      /* fall through */
+    }
+  }
+
+  let bestUrl = '';
+  let bestWidth = 0;
+  for (const srcset of chunk.matchAll(/srcset="([^"]+)"/gi)) {
+    const srcsetValue = srcset[1];
+    if (!srcsetValue) continue;
+    for (const part of srcsetValue.split(',')) {
+      const trimmed = part.trim();
+      const space = trimmed.lastIndexOf(' ');
+      if (space <= 0) continue;
+      const url = trimmed.slice(0, space);
+      const widthToken = trimmed.slice(space + 1);
+      if (!url.includes('media-amazon.com')) continue;
+      // Prefer JPG over AVIF for broad browser support; bump QL54/70 → larger SF variant via upgrade.
+      if (url.includes('avif') || url.includes('FMavif')) continue;
+      const width = parseInt(widthToken.replace(/\D/g, ''), 10) || 0;
+      if (width >= bestWidth) {
+        bestWidth = width;
+        bestUrl = url;
+      }
+    }
+  }
+  if (bestUrl) return upgradeAmazonImageUrl(bestUrl);
+
+  const imgMatch =
+    chunk.match(/<img[^>]+class="[^"]*s-image[^"]*"[^>]+src="([^"]+)"/i) ??
+    chunk.match(/src="(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"/i);
+  return imgMatch?.[1] ? upgradeAmazonImageUrl(decodeHtml(imgMatch[1])) : '';
+}
+
+function extractAmazonPrice(chunk: string): string {
+  for (const m of chunk.matchAll(/<span class="a-offscreen">\s*(\$[\d,]+(?:\.\d{2})?)\s*<\/span>/gi)) {
+    const price = m[1];
+    if (!price) continue;
+    const idx = m.index ?? 0;
+    const before = chunk.slice(Math.max(0, idx - 280), idx);
+    if (/a-text-strike|List:|Was:|Typical:/i.test(before)) continue;
+    const normalized = price.replace(/\s/g, '');
+    if (normalized === '$0.00') continue;
+    return normalized;
+  }
+
+  const whole = chunk.match(
+    /class="a-price-whole"[^>]*>([\d,]+)(?:<span class="a-price-decimal">\.)?<\/span>/i,
+  );
+  const frac = chunk.match(/class="a-price-fraction"[^>]*>(\d{2})/i);
+  if (whole?.[1]) {
+    const dollars = whole[1].replace(/,/g, '');
+    return `$${dollars}.${frac?.[1] ?? '00'}`;
+  }
+
+  const loose = chunk.match(/\$\s*[\d,]+\.\d{2}/);
+  return loose?.[0].replace(/\s/g, '') ?? '';
+}
+
+function splitSearchResultBlocks(html: string): string[] {
+  const re = /<div[^>]+data-asin="([A-Z0-9]{10})"[^>]*data-component-type="s-search-result"/gi;
+  const indices: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (m.index != null) indices.push(m.index);
+  }
+  const blocks: string[] = [];
+  for (let i = 0; i < indices.length; i++) {
+    const start = indices[i]!;
+    const end = indices[i + 1] ?? html.length;
+    blocks.push(html.slice(start, Math.min(end, start + 32000)));
+  }
+  return blocks;
+}
+
+/** Parse search-results HTML for ASIN blocks (defensive walk). */
 export function parseAmazonSearchHtml(html: string): Video[] {
   const out: Video[] = [];
   const seen = new Set<string>();
-  // Each result tile usually has data-asin on a div; skip empty ASINs.
-  const asinRe = /data-asin="([A-Z0-9]{10})"/g;
-  let m: RegExpExecArray | null;
-  while ((m = asinRe.exec(html)) !== null) {
-    const asin = m[1];
+
+  for (const chunk of splitSearchResultBlocks(html)) {
+    const asinMatch = chunk.match(/data-asin="([A-Z0-9]{10})"/i);
+    const asin = asinMatch?.[1];
     if (!asin || seen.has(asin)) continue;
-    const start = Math.max(0, m.index - 400);
-    const end = Math.min(html.length, m.index + 12000);
-    const chunk = html.slice(start, end);
     if (chunk.includes('data-component-type="sp-sponsored"')) continue;
 
     const titleMatch =
-      chunk.match(/<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([^<]{4,200})<\/span>/i) ??
-      chunk.match(/<h2[^>]*>[\s\S]*?<span[^>]*>([^<]{4,200})<\/span>/i);
+      chunk.match(/<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([^<]{4,220})<\/span>/i) ??
+      chunk.match(/<h2[^>]*>[\s\S]*?<span[^>]*>([^<]{4,220})<\/span>/i);
     const titleRaw = titleMatch?.[1];
     const title = titleRaw ? decodeHtml(titleRaw.trim()) : `Product ${asin}`;
     if (title.length < 3) continue;
 
-    const imgMatch =
-      chunk.match(/src="(https:\/\/m\.media-amazon\.com\/images\/[^"]+)"/i) ??
-      chunk.match(/src="(https:\/\/[^"]+media-amazon[^"]+)"/i);
-    const thumbnail = imgMatch?.[1] ?? '';
-
-    const priceMatch =
-      chunk.match(/class="a-offscreen"[^>]*>\s*\$([^<]+)/i) ??
-      chunk.match(/\$([0-9][0-9.,]*)/);
-    const price = priceMatch?.[1] ? `$${priceMatch[1].trim()}` : '';
+    const thumbnail = extractAmazonImage(chunk);
+    const price = extractAmazonPrice(chunk);
 
     const ratingMatch = chunk.match(/([0-5]\.[0-9])\s+out of 5 stars/i);
     const rating = ratingMatch?.[1] ? `${ratingMatch[1]} ★` : '';
@@ -76,7 +159,7 @@ export function parseAmazonSearchHtml(html: string): Video[] {
         subscriberCount: 0,
       },
       thumbnail,
-      duration: price || '—',
+      duration: price || 'See price',
       views: 0,
       postedAgo: rating,
       tags: ['amazon', 'shopping'],
@@ -85,6 +168,7 @@ export function parseAmazonSearchHtml(html: string): Video[] {
     });
     if (out.length >= 48) break;
   }
+
   return out;
 }
 
@@ -132,7 +216,8 @@ export async function getAmazonSearchFeed(query?: string): Promise<AmazonFeedRes
     };
   }
 
-  console.log(`[amazon] search "${q}": ${videos.length} products`);
+  const withPrice = videos.filter((v) => v.duration.startsWith('$')).length;
+  console.log(`[amazon] search "${q}": ${videos.length} products (${withPrice} with price)`);
   return { kind: 'ok', videos };
 }
 
