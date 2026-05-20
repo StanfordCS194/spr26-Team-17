@@ -313,7 +313,7 @@ export function ChatPanel() {
                   <p>One conversation for all sites — switch anytime.</p>
                   <ul className="list-disc pl-5 space-y-1">
                     <li>&quot;Use a forest green dark theme&quot;</li>
-                    <li>&quot;Open Amazon and make the grid compact&quot;</li>
+                    <li>&quot;Open Amazon and show me electronics deals&quot;</li>
                     <li>&quot;Switch to Instagram — show more photos&quot;</li>
                   </ul>
                 </div>
