@@ -31,6 +31,10 @@ No third-party SDKs. We replay browser requests with Chrome cookies (same patter
 - **Code:** `lib/instagram/client.ts` → `GET /api/v1/feed/timeline/` with `sessionid`, `csrftoken`, `X-IG-App-ID`.
 - **Requires:** `sessionid` + `csrftoken` cookies.
 
+## Chat site switcher
+
+The personalize panel has **YouTube | Amazon | Instagram** pills, or ask in chat (e.g. “open Amazon”) — Claude can call `switch_site`.
+
 ## Fallback
 
 If cookies or parsing fail, adapters fall back to `lib/mock-data/amazon-products.json` / `instagram-feed.json`.

@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { anthropic, MODEL_OPUS, appendLog, estimateCost } from '@/lib/anthropic';
 import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
-import { TOOL_DEFINITIONS, type Patch } from '@showcase/shared';
+import { TOOL_DEFINITIONS, siteById, type Patch } from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
 
@@ -185,6 +185,17 @@ export async function POST(req: NextRequest) {
             send({ kind: 'request_more_content', input: tu.input });
           } else if (tu.name === 'ask_user') {
             send({ kind: 'ask_user', input: tu.input });
+          } else if (tu.name === 'switch_site') {
+            const target = siteById(String(tu.input?.site ?? ''));
+            if (target) {
+              send({
+                kind: 'switch_site',
+                site: target.id,
+                slug: target.slug,
+                path: target.path,
+                label: target.label,
+              });
+            }
           }
         }
       } catch (err) {
@@ -293,6 +304,7 @@ function toolUseToPatch(tu: { name: string; input: any }): Patch | null {
       return { op: 'reorder_sections', order: tu.input.order ?? [] };
     case 'request_more_content':
     case 'ask_user':
+    case 'switch_site':
       return null;
     default:
       return null;

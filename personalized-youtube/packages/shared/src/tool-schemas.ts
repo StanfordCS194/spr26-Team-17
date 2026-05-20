@@ -45,6 +45,11 @@ export const AskUserInput = z.object({
   options: z.array(z.string()).optional(),
 });
 
+export const SwitchSiteInput = z.object({
+  site: z.enum(['youtube', 'amazon', 'instagram']),
+  rationale: z.string().optional(),
+});
+
 const toJsonSchema = (s: z.ZodTypeAny) =>
   zodToJsonSchema(s, { target: 'jsonSchema7', $refStrategy: 'none' });
 
@@ -93,6 +98,12 @@ export const TOOL_DEFINITIONS = [
     name: 'ask_user',
     description: 'Ask the visitor a clarifying question. Use sparingly — only when the request would ambiguously affect multiple sections AND the choice is not cheaply reversible.',
     input_schema: toJsonSchema(AskUserInput),
+  },
+  {
+    name: 'switch_site',
+    description:
+      'Navigate the visitor to another showcase surface (YouTube, Amazon, or Instagram). Use when they ask to open/switch/go to another site, or when personalization only makes sense on a different surface (e.g. "show me Amazon deals" while on YouTube). Does not change the current page layout — it loads that site\'s clone.',
+    input_schema: toJsonSchema(SwitchSiteInput),
   },
 ] as const;
 

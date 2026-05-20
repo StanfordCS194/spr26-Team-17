@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { pickRotatingChips, type RecommendedPrompt } from '@/lib/recommended-prompts';
 import { usePageStore } from '@/lib/store';
-import type { Patch, Video } from '@showcase/shared';
+import { SHOWCASE_SITES, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -26,6 +27,7 @@ const TOOL_VERBS: Record<string, string> = {
   reorder_sections: 'reordered the page',
   request_more_content: 'pulling fresh videos',
   ask_user: 'has a quick question',
+  switch_site: 'switching site',
 };
 
 function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
@@ -84,7 +86,10 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 export function ChatPanel({ pageSlug }: { pageSlug: string }) {
+  const router = useRouter();
   const { config, dispatch, replace, watchingId, watchingTitle } = usePageStore();
+  const activeSiteId =
+    SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.id ?? 'youtube';
   const [open, setOpen] = useState(true);
   const [minimized, setMinimized] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -114,6 +119,15 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
   useEffect(() => {
     if (open && !minimized) inputRef.current?.focus();
   }, [open, minimized]);
+
+  const goToSite = useCallback(
+    (siteId: ShowcaseSiteId) => {
+      const target = SHOWCASE_SITES.find((s) => s.id === siteId);
+      if (!target || target.slug === pageSlug) return;
+      router.push(target.path);
+    },
+    [pageSlug, router],
+  );
 
   useEffect(() => {
     if (!windowState) return;
@@ -227,6 +241,9 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
             if (ev.kind === 'tool_use') toolUses.push({ name: ev.name, rationale: ev.rationale });
             if (ev.kind === 'patch') dispatch(ev.patch as Patch, { trace: true });
             if (ev.kind === 'request_more_content') fetchMoreContent(ev.input);
+            if (ev.kind === 'switch_site' && typeof ev.path === 'string') {
+              router.push(ev.path);
+            }
             if (ev.kind === 'ask_user') {
               const q = typeof ev.input?.question === 'string' ? ev.input.question : '';
               if (q) assistantContent += (assistantContent ? '\n\n' : '') + q;
@@ -450,6 +467,26 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
 
         {!minimized && (
           <>
+            <div
+              className="flex shrink-0 gap-1 border-b border-[color:var(--border)] px-3 py-2"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {SHOWCASE_SITES.map((site) => (
+                <button
+                  key={site.id}
+                  type="button"
+                  onClick={() => goToSite(site.id)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    activeSiteId === site.id
+                      ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
+                      : 'bg-[color:var(--muted)] text-[color:var(--muted-fg)] hover:text-[color:var(--fg)]'
+                  }`}
+                  title={`Open ${site.label}`}
+                >
+                  {site.label}
+                </button>
+              ))}
+            </div>
             <div className="flex-1 overflow-y-auto p-4">
               {messages.length === 0 ? (
                 <div className="space-y-3 text-sm text-[color:var(--muted-fg)]">
@@ -457,7 +494,7 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
                   <ul className="list-disc pl-5 space-y-1">
                     <li>&quot;Use a forest green dark theme&quot;</li>
                     <li>&quot;Show me more chill jazz, less bangers&quot;</li>
-                    <li>&quot;Hide the shorts row&quot;</li>
+                    <li>&quot;Open Amazon and make the grid compact&quot;</li>
                   </ul>
                 </div>
               ) : (

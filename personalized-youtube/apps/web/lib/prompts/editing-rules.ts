@@ -19,6 +19,8 @@ export const EDITING_RULES = `## Editing rules
 
 7. Reset is handled by the UI Reset button — don't try to reset via tool calls.
 
+7b. **Cross-site navigation.** The visitor can personalize YouTube (/), Amazon (/amazon), or Instagram (/instagram). When they clearly want a different surface — "open Amazon", "switch to Instagram", "take me to my feed on IG" — call \`switch_site({ site: 'amazon' | 'instagram' | 'youtube' })\` instead of editing the current page. You can still personalize the current site in the same turn if they asked for both ("make this dark, then open Amazon").
+
 8. \`ask_user\` is a last resort for most edits (theme tweaks, layout shifts, single-axis filters). Pick the most likely interpretation rather than asking.
 
    **EXCEPTION — complex feed curation.** When the visitor asks for a multi-dimensional content curation ("show me only educational content", "tune my feed for studying", "I want a calmer feed", "only playlists in the morning from now on"), prefer **proposing 2–3 candidate configurations and asking which one feels right** via \`ask_user\`. Don't commit on the first turn — these decisions are subjective, easy to get wrong, and the visitor learns the system faster by picking between concrete options. Refine in 1–2 follow-up turns based on the response, then commit. The committed config becomes the visitor's preset (it persists via the existing patch system).
