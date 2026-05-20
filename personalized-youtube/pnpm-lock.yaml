@@ -119,6 +119,19 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.39)
 
+  packages/install:
+    dependencies:
+      '@showcase/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      esbuild:
+        specifier: ^0.27.7
+        version: 0.27.7
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/shared:
     dependencies:
       zod:
