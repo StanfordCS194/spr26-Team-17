@@ -1,0 +1,41 @@
+{
+  "categories": ["All", "Following", "Photos", "Reels"],
+  "videos": [
+    {
+      "id": "mockig001",
+      "title": "Sunset from the roof tonight",
+      "channel": { "name": "alex.photo", "avatar": "https://www.instagram.com/favicon.ico", "verified": false, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1495616812853-172ff9e996c9?w=640",
+      "duration": "Post",
+      "views": 842,
+      "postedAgo": "2h ago",
+      "tags": ["instagram", "photo"],
+      "description": "Mock feed fallback.",
+      "category": "social"
+    },
+    {
+      "id": "mockig002",
+      "title": "New track preview 🎧",
+      "channel": { "name": "djnova", "avatar": "https://www.instagram.com/favicon.ico", "verified": true, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=640",
+      "duration": "42s",
+      "views": 12040,
+      "postedAgo": "5h ago",
+      "tags": ["instagram", "video", "music"],
+      "description": "Mock reel",
+      "category": "social"
+    },
+    {
+      "id": "mockig003",
+      "title": "Weekend hike essentials",
+      "channel": { "name": "trailnotes", "avatar": "https://www.instagram.com/favicon.ico", "verified": false, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1551632811-561732d1e306?w=640",
+      "duration": "Post",
+      "views": 2103,
+      "postedAgo": "1d ago",
+      "tags": ["instagram", "photo", "outdoors"],
+      "description": "Mock post",
+      "category": "social"
+    }
+  ]
+}

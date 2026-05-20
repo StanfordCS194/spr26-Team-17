@@ -1,6 +1,6 @@
 import { applyPatches, PageConfigSchema, type PageConfig, type Patch, type Short, type Video } from '@showcase/shared';
 import { supabaseAdmin } from '../supabase';
-import { getAdapter } from '../adapters';
+import { getAdapter, isLiveFeedSource, resolveFeedSource } from '../adapters';
 
 interface GetRenderedConfigArgs {
   slug: string;
@@ -90,14 +90,11 @@ export async function getRenderedPage(
   let ytContinuation: string | null = null;
   let ytChips: YtChipMeta[] = [];
 
-  // If SHOWCASE_FEED_SOURCE=youtube, pull live videos from the youtubei.js
-  // adapter and substitute them into the row sections + grid. Adapter falls
-  // back to mock if the cookies/network/parser fails.
-  const source = process.env.SHOWCASE_FEED_SOURCE ?? process.env.FEED_ADAPTER ?? 'mock';
-  console.log('[page] feed source =', JSON.stringify(source), 'env=', process.env.SHOWCASE_FEED_SOURCE);
-  if (source === 'youtube') {
+  const source = resolveFeedSource(slug);
+  console.log('[page] slug=', slug, 'feed source =', source);
+  if (isLiveFeedSource(source)) {
     try {
-      const feed = await getAdapter().getFeed();
+      const feed = await getAdapter(source, slug).getFeed();
       if (feed.videos.length > 0) {
         config = replaceFeedVideos(config, feed.videos, feed.shorts ?? [], feed.chips);
         const maybeCont = (feed as { continuation?: unknown }).continuation;
@@ -107,7 +104,7 @@ export async function getRenderedPage(
         }
       }
     } catch (err) {
-      console.warn('[page] youtube adapter threw; using db catalog', err);
+      console.warn(`[page] ${source} adapter threw; using db catalog`, err);
     }
   } else {
     const { data: generated } = await db

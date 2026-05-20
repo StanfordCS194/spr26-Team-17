@@ -1,0 +1,41 @@
+{
+  "categories": ["All", "Deals", "Electronics", "Home"],
+  "videos": [
+    {
+      "id": "B0MOCK0001",
+      "title": "Wireless Noise Cancelling Headphones",
+      "channel": { "name": "Amazon", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=640",
+      "duration": "$79.99",
+      "views": 12400,
+      "postedAgo": "4.5 ★",
+      "tags": ["amazon", "electronics", "audio"],
+      "description": "Mock catalog fallback when Amazon session fetch fails.",
+      "category": "shopping"
+    },
+    {
+      "id": "B0MOCK0002",
+      "title": "Stainless Steel French Press 34oz",
+      "channel": { "name": "KitchenCo", "avatar": "https://www.amazon.com/favicon.ico", "verified": false, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=640",
+      "duration": "$24.50",
+      "views": 3200,
+      "postedAgo": "4.7 ★",
+      "tags": ["amazon", "kitchen", "coffee"],
+      "description": "Mock product",
+      "category": "shopping"
+    },
+    {
+      "id": "B0MOCK0003",
+      "title": "USB-C Hub 7-in-1 Adapter",
+      "channel": { "name": "TechBasics", "avatar": "https://www.amazon.com/favicon.ico", "verified": true, "subscriberCount": 0 },
+      "thumbnail": "https://images.unsplash.com/photo-1625948515291-69613efd2c5e?w=640",
+      "duration": "$35.99",
+      "views": 8900,
+      "postedAgo": "4.3 ★",
+      "tags": ["amazon", "electronics", "usb-c"],
+      "description": "Mock product",
+      "category": "shopping"
+    }
+  ]
+}
