@@ -6,6 +6,7 @@ import { Site } from './Site';
 import { getSiteBrand } from '@/lib/site-brand';
 import { BrandBottomNav } from '@/components/brand/SiteChrome';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
+import { AmazonCartProvider } from '@/lib/amazon-cart';
 
 // Keeps the URL's ?v= (watching) and ?q= (search) params in sync with the
 // store. Lives at the page root (always mounted) so the URL also clears when
@@ -120,7 +121,7 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
 
   const brand = getSiteBrand(pageSlug);
 
-  return (
+  const inner = (
     <div
       data-theme={config.theme.mode}
       data-brand={brand}
@@ -185,4 +186,10 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
       <BrandBottomNav config={config} />
     </div>
   );
+
+  if (brand === 'amazon') {
+    return <AmazonCartProvider>{inner}</AmazonCartProvider>;
+  }
+
+  return inner;
 }

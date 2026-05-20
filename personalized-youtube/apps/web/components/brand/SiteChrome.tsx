@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Section } from '@showcase/shared';
 import { applyBrandSearch } from '@/lib/feed-interaction';
+import { useAmazonCartOptional } from '@/lib/amazon-cart';
 import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore, type NavKey } from '@/lib/store';
 
@@ -92,7 +93,7 @@ function useBrandSearch(config: PageConfig) {
 
 export function BrandTopBar({ section, config }: { section: Section; config: PageConfig }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { brand, query, setQuery, searching, runSearch, goHome, liveFeedMode } = useBrandSearch(config);
+  const { brand, query, setQuery, searching, runSearch, goHome, liveFeedMode, setWatching } = useBrandSearch(config);
 
   if (section.type !== 'TopBar') return null;
   const { searchPlaceholder, showProfileChip } = section.props;
@@ -103,10 +104,23 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
   }
 
   if (brand === 'amazon') {
+    const amazonCart = useAmazonCartOptional();
+    const cartCount = amazonCart?.cartCount ?? 0;
+
+    function openCart() {
+      setWatching(null);
+      amazonCart?.goToCart();
+    }
+
+    function handleGoHome() {
+      goHome();
+      amazonCart?.goToBrowse();
+    }
+
     return (
       <header className="brand-amazon-header sticky top-0 z-30 border-b">
         <div className="flex h-[60px] items-stretch gap-2 px-3 sm:gap-3 sm:px-4">
-          <button type="button" onClick={goHome} className="flex shrink-0 items-center self-center" aria-label="Amazon home">
+          <button type="button" onClick={handleGoHome} className="flex shrink-0 items-center self-center" aria-label="Amazon home">
             <AmazonLogo />
           </button>
 
@@ -169,11 +183,11 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
                 <span className="block text-[#ccc]">Returns</span>
                 <span className="font-bold">&amp; Orders</span>
               </button>
-              <button type="button" className="relative px-2 py-1 hover:outline hover:outline-1 hover:outline-white" aria-label="Cart">
+              <button type="button" onClick={openCart} className="relative px-2 py-1 hover:outline hover:outline-1 hover:outline-white" aria-label="Cart">
                 <svg viewBox="0 0 24 24" className="h-8 w-8 fill-white">
                   <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM7.16 14l.84-2h8.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20.84 3H6.21L5.27 1H2v2h2l3.6 7.59-1.35 2.44C5.52 13.37 6.24 14 7.16 14z" />
                 </svg>
-                <span className="absolute left-5 top-0 text-base font-bold text-[#ff9900]">0</span>
+                <span className="absolute left-5 top-0 text-base font-bold text-[#ff9900]">{cartCount}</span>
                 <span className="absolute -bottom-0.5 left-6 text-[11px] font-bold">Cart</span>
               </button>
             </div>

@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
+import { AmazonBuyBox } from '@/components/amazon/AmazonBuyBox';
 import { AmazonStars, formatReviewCount, parseAmazonRating } from '@/components/amazon/AmazonStars';
 import type { AmazonProductDetail } from '@/lib/amazon/product-detail';
+import { dedupeAmazonImages } from '@/lib/amazon/image-utils';
 import { amazonProductHref } from '@/lib/amazon/href';
+import { useAmazonCart } from '@/lib/amazon-cart';
 import { usePageStore } from '@/lib/store';
 
 type ReviewsState =
@@ -67,106 +70,6 @@ function PrimeMark({ className = 'h-[18px]' }: { className?: string }) {
   );
 }
 
-function BuyBox({
-  price,
-  inStock,
-  primeEligible,
-  delivery,
-  productUrl,
-}: {
-  price: string;
-  inStock: boolean;
-  primeEligible: boolean;
-  delivery: { day: string; cutoff: string };
-  productUrl: string;
-}) {
-  const [qty, setQty] = useState(1);
-
-  return (
-    <div className="amazon-buy-box rounded-lg border border-[#d5d9d9] bg-white p-4 shadow-sm">
-      {price && (
-        <div className="mb-2">
-          <span className="text-xs text-[#565959]">Price:</span>
-          <div className="flex items-start gap-1">
-            <span className="text-xs text-[#0f1111] align-top mt-1">$</span>
-            <span className="text-[28px] leading-none text-[#0f1111]">
-              {price.replace('$', '').split('.')[0]}
-            </span>
-            <span className="text-[13px] text-[#0f1111] mt-0.5">
-              {price.includes('.') ? price.split('.')[1] : '00'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {primeEligible && (
-        <div className="mb-2 flex items-center gap-2 text-[13px]">
-          <PrimeMark />
-          <span className="text-[#007185]">FREE delivery <strong className="text-[#0f1111]">{delivery.day}</strong></span>
-        </div>
-      )}
-
-      {!primeEligible && inStock && (
-        <p className="mb-2 text-[13px] text-[#007185]">
-          FREE delivery <strong className="text-[#0f1111]">{delivery.day}</strong>
-        </p>
-      )}
-
-      {inStock && (
-        <p className="mb-3 text-lg font-normal text-[#007600]">In Stock</p>
-      )}
-
-      {inStock && (
-        <p className="mb-3 text-[13px] text-[#565959]">
-          Usually ships within 2 to 3 days. Order within <span className="text-[#b12704]">{delivery.cutoff}</span>
-        </p>
-      )}
-
-      <label className="mb-3 flex items-center gap-2 text-[13px]">
-        <span>Quantity:</span>
-        <select
-          value={qty}
-          onChange={(e) => setQty(Number(e.target.value))}
-          className="rounded-sm border border-[#888c8c] bg-[#f0f2f2] px-2 py-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]"
-        >
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-      </label>
-
-      <button
-        type="button"
-        className="mb-2 w-full rounded-full border border-[#fcd200] bg-[#ffd814] py-2 text-[13px] shadow-sm hover:bg-[#f7ca00]"
-      >
-        Add to Cart
-      </button>
-      <button
-        type="button"
-        className="mb-3 w-full rounded-full border border-[#ff8f00] bg-[#ffa41c] py-2 text-[13px] shadow-sm hover:bg-[#fa8900]"
-      >
-        Buy Now
-      </button>
-
-      <div className="space-y-1 border-t border-[#e7e7e7] pt-3 text-[12px] text-[#565959]">
-        <p><span className="text-[#007185]">Ships from</span> Amazon.com</p>
-        <p><span className="text-[#007185]">Sold by</span> Amazon.com</p>
-        <p><span className="text-[#007185]">Returns</span> FREE 30-day refund/replacement</p>
-        <p><span className="text-[#007185]">Payment</span> Secure transaction</p>
-      </div>
-
-      <a
-        href={productUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-3 block text-center text-[12px] text-[#007185] hover:text-[#c7511f] hover:underline"
-      >
-        See this product on Amazon.com
-      </a>
-    </div>
-  );
-}
-
 export function AmazonProductView({
   currentVideo,
   suggestions,
@@ -179,9 +82,11 @@ export function AmazonProductView({
   watchingId: string;
 }) {
   const { setWatching } = usePageStore();
+  const { addedBanner, clearAddedBanner, goToCart, cartCount } = useAmazonCart();
   const [productState, setProductState] = useState<ProductState>({ status: 'idle' });
   const [reviewsState, setReviewsState] = useState<ReviewsState>({ status: 'idle' });
   const [activeImage, setActiveImage] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const delivery = useMemo(() => deliveryWindow(), [watchingId]);
 
   const fallbackTitle = watchingTitle || currentVideo?.title || 'Product';
@@ -193,6 +98,7 @@ export function AmazonProductView({
     let cancelled = false;
     setProductState({ status: 'loading' });
     setActiveImage(0);
+    setZoomOpen(false);
     fetch(`/api/amazon/product?asin=${encodeURIComponent(watchingId)}`)
       .then(async (r) => {
         if (cancelled) return;
@@ -244,30 +150,64 @@ export function AmazonProductView({
     };
   }, [watchingId]);
 
+  useEffect(() => {
+    if (!addedBanner) return;
+    const t = window.setTimeout(clearAddedBanner, 5000);
+    return () => window.clearTimeout(t);
+  }, [addedBanner, clearAddedBanner]);
+
   const detail = productState.status === 'ok' ? productState.product : null;
   const title = detail?.title ?? fallbackTitle;
   const price = detail?.price || fallbackPrice;
   const rating = detail?.rating ?? fallbackRating;
   const reviewCount = detail?.reviewCount ?? '';
   const brand = detail?.brand ?? '';
-  const images = useMemo(() => {
-    if (detail?.images.length) return detail.images;
-    if (currentVideo?.thumbnail) return [currentVideo.thumbnail];
-    return [];
+  const galleryImages = useMemo(() => {
+    const raw = detail?.images.length ? detail.images : currentVideo?.thumbnail ? [currentVideo.thumbnail] : [];
+    return dedupeAmazonImages(raw);
   }, [detail?.images, currentVideo?.thumbnail]);
+  const heroImage = galleryImages[activeImage] ?? galleryImages[0] ?? '';
   const bullets = detail?.bullets ?? [];
   const breadcrumbs = detail?.breadcrumbs ?? ['All'];
   const inStock = detail?.inStock ?? true;
   const primeEligible = detail?.primeEligible ?? true;
 
+  const buyBoxProps = {
+    asin: watchingId,
+    title,
+    thumbnail: heroImage,
+    price,
+    inStock,
+    primeEligible,
+    delivery,
+    productUrl,
+  };
+
   return (
     <div className="amazon-pdp bg-[#eaeded] min-h-full">
-      {/* Breadcrumbs */}
+      {addedBanner && (
+        <div className="sticky top-[96px] z-20 border-b border-[#007600] bg-[#232f3e] px-4 py-2 text-sm text-white">
+          <span className="text-[#7fda89] font-bold">✓ Added to cart</span>
+          <span className="mx-2 text-[#ccc]">—</span>
+          <span className="text-[#ccc]">{addedBanner}</span>
+          <button
+            type="button"
+            onClick={goToCart}
+            className="ml-4 text-[#ff9900] hover:underline"
+          >
+            Cart ({cartCount})
+          </button>
+          <button type="button" onClick={clearAddedBanner} className="ml-4 text-[#ccc] hover:text-white">
+            ✕
+          </button>
+        </div>
+      )}
+
       <nav className="border-b border-[#ddd] bg-white px-4 py-2 text-[12px] text-[#565959]">
         <ol className="flex flex-wrap items-center gap-1">
           {breadcrumbs.map((crumb, i) => (
             <li key={`${crumb}-${i}`} className="flex items-center gap-1">
-              {i > 0 && <span className="text-[#565959]">›</span>}
+              {i > 0 && <span>›</span>}
               <button type="button" className="text-[#007185] hover:text-[#c7511f] hover:underline">
                 {crumb}
               </button>
@@ -277,12 +217,12 @@ export function AmazonProductView({
       </nav>
 
       <div className="mx-auto max-w-[1500px] px-4 py-4">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)_320px]">
-          {/* Image gallery */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)_300px]">
+          {/* Image gallery — only distinct views, not zoom duplicates */}
           <div className="flex gap-3">
-            {images.length > 1 && (
+            {galleryImages.length > 1 && (
               <ul className="flex shrink-0 flex-col gap-2">
-                {images.map((src, i) => (
+                {galleryImages.map((src, i) => (
                   <li key={src}>
                     <button
                       type="button"
@@ -297,26 +237,23 @@ export function AmazonProductView({
                 ))}
               </ul>
             )}
-            <div className="relative flex min-h-[400px] flex-1 items-center justify-center rounded-sm border border-[#ddd] bg-white p-4">
-              {images[activeImage] ? (
-                <img
-                  src={images[activeImage]}
-                  alt={title}
-                  className="max-h-[480px] max-w-full object-contain"
-                />
+            <div className="relative flex min-h-[380px] flex-1 items-center justify-center rounded-sm border border-[#ddd] bg-white p-4">
+              {heroImage ? (
+                <button type="button" onClick={() => setZoomOpen(true)} className="max-h-[480px] max-w-full">
+                  <img src={heroImage} alt={title} className="max-h-[480px] max-w-full object-contain" />
+                </button>
               ) : (
                 <div className="text-sm text-[#565959]">No image</div>
               )}
-              <button
-                type="button"
-                className="absolute bottom-3 left-3 text-[12px] text-[#007185] hover:underline"
-              >
-                Click to see full view
-              </button>
+              {heroImage && (
+                <span className="absolute bottom-3 left-3 text-[12px] text-[#007185]">
+                  Roll over image to zoom in
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Product info */}
+          {/* Product info + mobile buy box */}
           <div className="min-w-0">
             <h1 className="text-[24px] font-normal leading-snug text-[#0f1111]">{title}</h1>
 
@@ -347,9 +284,9 @@ export function AmazonProductView({
             </div>
 
             {detail?.amazonChoice && (
-              <div className="mt-3 inline-flex items-center gap-2 rounded-sm bg-[#232f3e] px-2 py-1 text-[12px] text-white">
+              <div className="mt-3 inline-flex items-center gap-1 rounded-sm bg-[#232f3e] px-2 py-1 text-[12px] text-white">
                 <span className="font-bold">Amazon&apos;s</span>
-                <span className="rounded-sm bg-[#232f3e] px-1 text-[#ff9900]">Choice</span>
+                <span className="text-[#ff9900]">Choice</span>
               </div>
             )}
 
@@ -362,8 +299,8 @@ export function AmazonProductView({
             <hr className="my-3 border-[#e7e7e7]" />
 
             {price && (
-              <div className="flex items-end gap-1">
-                <span className="text-[13px] text-[#565959]">$</span>
+              <div className="flex items-end gap-0.5">
+                <span className="text-[13px] text-[#565959] mb-1">$</span>
                 <span className="text-[28px] leading-none text-[#0f1111]">{price.replace('$', '').split('.')[0]}</span>
                 <span className="text-[13px] text-[#0f1111] mb-0.5">{price.includes('.') ? price.split('.')[1] : '00'}</span>
               </div>
@@ -379,26 +316,9 @@ export function AmazonProductView({
               </div>
             )}
 
-            {/* Decorative variant rows — visual parity with Amazon PDP */}
-            <div className="mt-5 space-y-4">
-              <div>
-                <p className="mb-2 text-[13px] text-[#0f1111]">
-                  <span className="font-bold">Color:</span> Standard
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`h-[50px] w-[50px] overflow-hidden rounded-sm border bg-white p-0.5 ${
-                        i === 0 ? 'border-[#007185] shadow-[0_0_0_1px_#007185]' : 'border-[#ddd]'
-                      }`}
-                    >
-                      {images[i] && <img src={images[i]} alt="" className="h-full w-full object-contain" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Buy box visible on tablet/mobile — desktop uses right column */}
+            <div className="mt-4 lg:hidden">
+              <AmazonBuyBox {...buyBoxProps} />
             </div>
 
             {bullets.length > 0 && (
@@ -412,13 +332,6 @@ export function AmazonProductView({
               </div>
             )}
 
-            {!bullets.length && currentVideo?.description && !/^https?:\/\//i.test(currentVideo.description) && (
-              <div className="mt-6">
-                <h2 className="mb-2 text-base font-bold text-[#0f1111]">About this item</h2>
-                <p className="text-[14px] leading-relaxed text-[#0f1111] whitespace-pre-wrap">{currentVideo.description}</p>
-              </div>
-            )}
-
             <button
               type="button"
               onClick={() => setWatching(null)}
@@ -428,15 +341,9 @@ export function AmazonProductView({
             </button>
           </div>
 
-          {/* Buy box + suggestions */}
-          <div className="flex flex-col gap-4">
-            <BuyBox
-              price={price}
-              inStock={inStock}
-              primeEligible={primeEligible}
-              delivery={delivery}
-              productUrl={productUrl}
-            />
+          {/* Desktop buy box + suggestions */}
+          <div className="hidden flex-col gap-4 lg:flex">
+            <AmazonBuyBox {...buyBoxProps} />
 
             {suggestions.length > 0 && (
               <div className="rounded-lg border border-[#d5d9d9] bg-white p-4">
@@ -473,9 +380,7 @@ export function AmazonProductView({
             )}
           </div>
 
-          {reviewsState.status === 'loading' && (
-            <p className="text-sm text-[#565959]">Loading reviews…</p>
-          )}
+          {reviewsState.status === 'loading' && <p className="text-sm text-[#565959]">Loading reviews…</p>}
           {reviewsState.status === 'error' && (
             <div className="text-sm text-[#565959]">
               <p>Individual reviews couldn&apos;t be loaded right now.</p>
@@ -513,9 +418,7 @@ export function AmazonProductView({
                       {rRating != null && <AmazonStars rating={rRating} size="sm" showNumeric={false} />}
                       {r.title && <span className="text-[13px] font-bold text-[#0f1111]">{r.title}</span>}
                     </div>
-                    {r.postedAgo && (
-                      <p className="mt-1 text-[12px] text-[#565959]">Reviewed {r.postedAgo}</p>
-                    )}
+                    {r.postedAgo && <p className="mt-1 text-[12px] text-[#565959]">Reviewed {r.postedAgo}</p>}
                     <p className="mt-2 text-[14px] leading-relaxed text-[#0f1111]">{r.text}</p>
                   </li>
                 );
@@ -524,6 +427,17 @@ export function AmazonProductView({
           )}
         </section>
       </div>
+
+      {zoomOpen && heroImage && (
+        <button
+          type="button"
+          aria-label="Close zoom"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8"
+          onClick={() => setZoomOpen(false)}
+        >
+          <img src={heroImage} alt={title} className="max-h-full max-w-full object-contain" onClick={(e) => e.stopPropagation()} />
+        </button>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
 } from '../innertube/chrome-cookies';
 import { fetchWithSession } from '../intercept/browser-fetch';
 import { decodeHtml, upgradeAmazonImageUrl } from './client';
+import { dedupeAmazonImages } from './image-utils';
 
 export type AmazonProductDetail = {
   asin: string;
@@ -59,7 +60,7 @@ function extractImages(html: string): string[] {
     urls.add(upgradeAmazonImageUrl(decodeHtml(m[1] ?? '')));
   }
 
-  return [...urls].slice(0, 8);
+  return dedupeAmazonImages([...urls]).slice(0, 7);
 }
 
 function extractPrice(html: string): { price: string; listPrice: string } {
