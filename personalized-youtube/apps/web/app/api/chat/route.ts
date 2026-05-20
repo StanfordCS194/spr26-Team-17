@@ -6,6 +6,7 @@ import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
 import { TOOL_DEFINITIONS, siteById, siteBySlug, type Patch } from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
+import { chatDebugEventsEnabled, isAllowedOutboundImageUrl } from '@/lib/intercept/security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
     ];
     const lower = message.toLowerCase();
     const wantsVision = VISION_KEYWORDS.some((k) => lower.includes(k));
-    if (wantsVision && watching.thumbnail) {
+    if (wantsVision && watching.thumbnail && isAllowedOutboundImageUrl(watching.thumbnail)) {
       const img = await fetchAsImageBlock(watching.thumbnail);
       if (img) userBlocks.push(img);
     }
@@ -132,6 +133,10 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const enc = new TextEncoder();
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      const debug = chatDebugEventsEnabled();
+      const sendDebug = (obj: unknown) => {
+        if (debug) send(obj);
+      };
 
       const t0 = Date.now();
       const toolUses: Array<{ name: string; input: unknown }> = [];
@@ -273,13 +278,13 @@ export async function POST(req: NextRequest) {
           tools: TOOL_DEFINITIONS,
           messages,
         };
-        send({ kind: 'debug_request', payload: requestPayload });
+        sendDebug({ kind: 'debug_request', payload: requestPayload });
 
         try {
           const response = anthropic.messages.stream(requestPayload as any);
 
           for await (const ev of response) {
-            send({ kind: 'debug_stream_event', payload: ev });
+            sendDebug({ kind: 'debug_stream_event', payload: ev });
             if (ev.type === 'message_start') lastMessageId = ev.message.id;
             if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
               send({ kind: 'tool_use', name: ev.content_block.name });
@@ -295,7 +300,7 @@ export async function POST(req: NextRequest) {
 
           const finalMessage = await response.finalMessage();
           finalUsage = finalMessage.usage;
-          send({ kind: 'debug_final', payload: { content: finalMessage.content, usage: finalUsage, stop_reason: stopReason } });
+          sendDebug({ kind: 'debug_final', payload: { content: finalMessage.content, usage: finalUsage, stop_reason: stopReason } });
 
           for (const block of finalMessage.content) {
             if (block.type === 'text') {

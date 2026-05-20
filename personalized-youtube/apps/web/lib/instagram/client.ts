@@ -4,6 +4,11 @@
 //   GET https://www.instagram.com/api/v1/feed/timeline/…
 // Auth: Chrome cookies (sessionid, csrftoken, ds_user_id). Capture reference in
 // DevTools while logged in on instagram.com → filter "timeline".
+//
+// Tolerance contract (matches lib/innertube/client.ts):
+//   - Returns discriminated unions; no throws from public functions.
+//   - Cookie values are never logged. Count-only via chrome-cookies.
+//   - Upstream error bodies are not forwarded in reason strings.
 
 import type { Video } from '@showcase/shared';
 import {
@@ -11,6 +16,7 @@ import {
   readInstagramCookies,
 } from '../innertube/chrome-cookies';
 import { cookieValue, fetchWithSession } from '../intercept/browser-fetch';
+import { logInterceptFailure } from '../intercept/security';
 
 export type InstagramComment = {
   id: string;
@@ -191,7 +197,8 @@ async function fetchInstagramJson(
     });
     if (!res.ok) {
       const snippet = (await res.text()).slice(0, 200);
-      return { ok: false, reason: `instagram HTTP ${res.status}: ${snippet}` };
+      logInterceptFailure('instagram', `HTTP ${res.status}: ${snippet}`);
+      return { ok: false, reason: `instagram HTTP ${res.status}` };
     }
     return { ok: true, json: await res.json() };
   } catch (err) {

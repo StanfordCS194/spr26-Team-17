@@ -95,3 +95,14 @@ Append-only. Every domain agent (schema-keeper, api-keeper, db-keeper, etc.) app
   Why: covers aesthetic + behavioral personalization. `request_more_content` solves arbitrary-niche-query coverage when mock catalog is thin.
 - Decision: 8 specialist subagents in `.claude/agents/` (research-runner, schema-keeper, template-author, api-keeper, db-keeper, feed-curator, youtube-adapter, debugger) + cache-doctor. Main session is orchestrator only.
   Why: prevent context bloat across multi-week build. Each agent owns disjoint slice; main session sees only summaries.
+
+## 2026-05-20 — intercept security hardening (Amazon + Instagram + chat)
+
+- Decision: add `lib/intercept/security.ts` and `lib/intercept/api-response.ts` so Amazon/Instagram API routes match InnerTube error-handling posture — sanitize public reasons, never forward upstream HTML/cookie snippets, bound query/token inputs.
+  Why: Instagram errors previously included response body fragments in JSON returned to the browser; Amazon search lacked query length caps. Documented in `docs/security.md`.
+- Decision: gate Anthropic `debug_request` / `debug_final` chat SSE behind `chatDebugEventsEnabled()` (off in production unless `NEXT_PUBLIC_DEVTOOLS_ENABLED=true`).
+  Why: debug events streamed the full system prompt and tool definitions to every chat client.
+- Decision: allowlist HTTPS CDN hosts in `isAllowedOutboundImageUrl()` before server-side thumbnail fetch for multimodal chat.
+  Why: OWASP SSRF — `watching.thumbnail` is client-influenced; block internal/metadata URL fetches.
+- Decision: bump Next.js to ≥15.5.18 after `pnpm audit` reported high-severity Server Components / middleware CVEs on 15.5.15.
+  Why: supply-chain hygiene for any public deploy.

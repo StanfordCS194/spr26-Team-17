@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAmazonProductDetail } from '@/lib/amazon/product-detail';
+import { interceptUnavailable } from '@/lib/intercept/api-response';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   }
   const result = await getAmazonProductDetail(asin);
   if (result.kind !== 'ok') {
-    return NextResponse.json({ ok: false, reason: result.reason ?? 'unavailable' }, { status: 502 });
+    return interceptUnavailable(result.reason);
   }
   return NextResponse.json({ ok: true, product: result.product });
 }

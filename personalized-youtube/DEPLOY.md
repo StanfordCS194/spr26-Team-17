@@ -49,6 +49,8 @@ The build runs `pnpm --filter web build` per `vercel.json`. Output URL is printe
 
 ### Things to watch
 
+- **`FEED_ADAPTER=mock` in production** — live Amazon/Instagram/YouTube intercepts use the **server operator's** Chrome cookies, not each visitor's. See [`docs/security.md`](docs/security.md).
+- **`NEXT_PUBLIC_DEVTOOLS_ENABLED=false`** in production — prevents chat debug SSE from leaking system prompts to the browser.
 - `api/generate-content` has `maxDuration: 30` — Hobby plan caps function runtime at 10s. Pro plan gets 60s. If you're on Hobby and Haiku takes >10s, the request will be killed mid-stream. Mitigation: switch to Pro, or reduce `count` from 8 to 4 in `request_more_content`.
 - Cookies are `SameSite=Lax`. Visitors viewing through a third-party iframe (e.g., embedded somewhere) may not get a stable visitor_id.
 - The mock catalog (`apps/web/lib/mock-data/videos.json`) is bundled into the build. ~300 videos × ~600 bytes each = ~180KB JSON shipped to the server. Acceptable.
