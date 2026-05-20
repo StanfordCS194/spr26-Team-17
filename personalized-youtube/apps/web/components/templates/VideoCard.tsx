@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Video } from '@showcase/shared';
 import { getSiteBrand } from '@/lib/site-brand';
+import { amazonProductHref } from '@/lib/amazon/href';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from './Avatar';
 
@@ -55,7 +56,7 @@ export function VideoCard({
 
   const watchHref =
     brand === 'amazon'
-      ? `https://www.amazon.com/dp/${encodeURIComponent(video.id)}`
+      ? amazonProductHref(video)
       : brand === 'instagram'
         ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
         : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;

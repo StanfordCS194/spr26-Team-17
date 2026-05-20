@@ -108,9 +108,21 @@ function extractAmazonPrice(chunk: string): string {
   return loose?.[0].replace(/\s/g, '') ?? '';
 }
 
+function extractProductUrl(chunk: string, asin: string): string {
+  const dpPath =
+    chunk.match(new RegExp(`href="(/[^"?]*/dp/${asin}[^"]*)"`, 'i'))?.[1] ??
+    chunk.match(new RegExp(`href="(/dp/${asin}[^"]*)"`, 'i'))?.[1];
+  if (dpPath) {
+    const path = decodeHtml(dpPath).replace(/&amp;/g, '&');
+    return `https://www.amazon.com${path.split('?')[0]}`;
+  }
+  return `https://www.amazon.com/dp/${asin}`;
+}
+
 function splitSearchResultBlocks(html: string): string[] {
-  const re = /<div[^>]+data-asin="([A-Z0-9]{10})"[^>]*data-component-type="s-search-result"/gi;
   const indices: number[] = [];
+  const re =
+    /<div[^>]+data-asin="([A-Z0-9]{10})"[^>]*data-component-type="s-search-result"|<div[^>]+data-component-type="s-search-result"[^>]*data-asin="([A-Z0-9]{10})"/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     if (m.index != null) indices.push(m.index);
@@ -149,6 +161,7 @@ export function parseAmazonSearchHtml(html: string): Video[] {
     const rating = ratingMatch?.[1] ? `${ratingMatch[1]} ★` : '';
 
     seen.add(asin);
+    const productUrl = extractProductUrl(chunk, asin);
     out.push({
       id: asin,
       title,
@@ -163,7 +176,7 @@ export function parseAmazonSearchHtml(html: string): Video[] {
       views: 0,
       postedAgo: rating,
       tags: ['amazon', 'shopping'],
-      description: `https://www.amazon.com/dp/${asin}`,
+      description: productUrl,
       category: 'shopping',
     });
     if (out.length >= 48) break;
