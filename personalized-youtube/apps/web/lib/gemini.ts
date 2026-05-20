@@ -110,6 +110,7 @@ export function toolCallToPatch(name: string, args: Record<string, unknown>): Pa
     case 'reorder_sections': return { op: 'reorder_sections', order: (args.order ?? []) as string[] };
     case 'request_more_content':
     case 'ask_user':
+    case 'switch_site':
       return null;
     default: return null;
   }

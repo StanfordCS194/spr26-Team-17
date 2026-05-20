@@ -1,0 +1,138 @@
+/* Per-site chrome tokens — activated via data-brand on PageRoot */
+
+[data-brand='amazon'] {
+  --bg: #eaeded;
+  --fg: #0f1111;
+  --muted: #ffffff;
+  --muted-fg: #565959;
+  --border: #d5d9d9;
+  --accent: #ff9900;
+  --accent-fg: #0f1111;
+  --surface: #131921;
+  --surface-fg: #ffffff;
+  --surface-muted: #232f3e;
+  --surface-border: #3a4553;
+  --radius: 0.5rem;
+  --search-bg: #ffffff;
+  --chip-bg: #ffffff;
+  --chip-active-bg: #232f3e;
+  --chip-active-fg: #ffffff;
+  font-family: 'Amazon Ember', Arial, sans-serif;
+}
+
+[data-brand='instagram'] {
+  --bg: #ffffff;
+  --fg: #262626;
+  --muted: #fafafa;
+  --muted-fg: #8e8e8e;
+  --border: #dbdbdb;
+  --accent: #e1306c;
+  --accent-fg: #ffffff;
+  --surface: #ffffff;
+  --surface-fg: #262626;
+  --surface-muted: #fafafa;
+  --surface-border: #dbdbdb;
+  --radius: 0.25rem;
+  --search-bg: #efefef;
+  --chip-bg: transparent;
+  --chip-active-fg: #262626;
+}
+
+[data-brand='amazon'] .brand-amazon-header {
+  background: var(--surface);
+  color: var(--surface-fg);
+  border-color: var(--surface-border);
+}
+
+[data-brand='amazon'] .brand-search-input {
+  background: var(--search-bg);
+  color: var(--fg);
+  border-color: #888c8c;
+  border-radius: 0.375rem;
+}
+
+[data-brand='instagram'] .brand-ig-header {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+[data-brand='instagram'] .brand-search-input {
+  background: var(--search-bg);
+  border: none;
+  border-radius: 0.5rem;
+}
+
+[data-brand='instagram'] .brand-ig-gradient-text {
+  background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-brand='amazon'] .site-sidebar {
+  background: var(--muted);
+  border-color: var(--border);
+}
+
+[data-brand='amazon'] .amazon-pdp {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+[data-brand='amazon'] .amazon-pdp-title {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+[data-brand='amazon'] .amazon-buy-box {
+  box-shadow: 0 2px 5px rgba(15, 17, 17, 0.15);
+}
+
+[data-brand='amazon'] .amazon-btn-cart {
+  background: #ffd814;
+  border: 1px solid #fcd200;
+  box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+  color: #0f1111 !important;
+  -webkit-text-fill-color: #0f1111 !important;
+}
+
+[data-brand='amazon'] .amazon-btn-cart:hover {
+  background: #f7ca00;
+  color: #0f1111 !important;
+}
+
+[data-brand='amazon'] .amazon-btn-buy {
+  background: #ffa41c;
+  border: 1px solid #ff8f00;
+  box-shadow: 0 2px 5px rgba(213, 217, 217, 0.5);
+  color: #0f1111 !important;
+  -webkit-text-fill-color: #0f1111 !important;
+}
+
+[data-brand='amazon'] .amazon-btn-buy:hover {
+  background: #fa8900;
+  color: #0f1111 !important;
+}
+
+[data-brand='amazon'] .amazon-pdp-hero {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Content column stops before the Personalize chat panel */
+@media (min-width: 1100px) {
+  [data-brand='amazon'] .amazon-pdp-body {
+    max-width: min(1180px, calc(100vw - 460px));
+    margin-right: auto;
+    margin-left: auto;
+    padding-right: 1rem;
+  }
+}
+
+[data-brand='instagram'] .site-main-feed {
+  max-width: 935px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[data-brand='instagram'] .brand-ig-bottom-nav {
+  background: var(--surface);
+}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import type { PageConfig, Section, Video } from '@showcase/shared';
+import { BrandTopBar } from '@/components/brand/SiteChrome';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
 const ROW_SECTIONS_TO_HIDE_FOR_SEARCH: ReadonlyArray<string> = ['ContinueWatchingRow', 'RecommendedRow', 'ShortsRow'];
@@ -29,6 +31,10 @@ export function TopBar({ section, config }: { section: Section; config: PageConf
   }, [searchQuery]);
 
   if (section.type !== 'TopBar') return null;
+  const brand = getSiteBrand(config.slug);
+  if (brand !== 'youtube') {
+    return <BrandTopBar section={section} config={config} />;
+  }
   const { logoText, searchPlaceholder, compactSearch, showProfileChip } = section.props;
 
   async function onSearch(e: React.FormEvent) {

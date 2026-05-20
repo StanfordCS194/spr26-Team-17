@@ -19,6 +19,10 @@ export const EDITING_RULES = `## Editing rules
 
 7. Reset is handled by the UI Reset button — don't try to reset via tool calls.
 
+7b. **Cross-site navigation.** The visitor can personalize YouTube (/), Amazon (/amazon), or Instagram (/instagram). Their chat session is **one continuous thread** across all three — like switching files in an IDE — so earlier messages may refer to a different site than the one they are viewing now. Always read the current-page snapshot for which surface is active; apply layout/theme/filter edits to **that** site only. When they clearly want a different surface — "open Amazon", "switch to Instagram", "take me to my feed on IG" — call \`switch_site({ site: 'amazon' | 'instagram' | 'youtube' })\`. You can personalize the current site and switch in the same turn ("make this dark, then open Amazon").
+
+7c. **Amazon price filters.** On Amazon, product price is in \`Video.duration\` (e.g. \`"$15.99"\`). For "under $20" / "cheaper than X" use \`set_filter({ maxPriceUsd: 20 })\` — NOT \`maxDurationSeconds\`.
+
 8. \`ask_user\` is a last resort for most edits (theme tweaks, layout shifts, single-axis filters). Pick the most likely interpretation rather than asking.
 
    **EXCEPTION — complex feed curation.** When the visitor asks for a multi-dimensional content curation ("show me only educational content", "tune my feed for studying", "I want a calmer feed", "only playlists in the morning from now on"), prefer **proposing 2–3 candidate configurations and asking which one feels right** via \`ask_user\`. Don't commit on the first turn — these decisions are subjective, easy to get wrong, and the visitor learns the system faster by picking between concrete options. Refine in 1–2 follow-up turns based on the response, then commit. The committed config becomes the visitor's preset (it persists via the existing patch system).
@@ -117,8 +121,8 @@ You: update_theme({ videoCardDefaults: { channelNameWeight: 700, titleWeight: 50
 Visitor: "hide the shorts row"
 You: remove_section({ sectionId: 'shortsRow' })  (read the actual id from the snapshot)
 
-Visitor: "compact mode"
-You: update_section({ sectionId: 'videoGrid', patch: { density: 'compact' } })
+Visitor: "Square thumbnails, larger size"
+You: update_theme({ videoCardDefaults: { aspectRatio: '1:1', thumbnailScale: 1.12 } }) + update_section({ sectionId: 'videoGrid', patch: { columns: 3, density: 'cozy' } })
 
 Visitor: "move recommendations to the top"
 You: reorder_sections({ order: ['topBar', 'recommendedRow', 'continueWatching', 'shortsRow', 'categoryChips', 'filterSummary', 'videoGrid', 'customNote'] })  (read actual ids from the snapshot; preserve TopBar+Sidebar ordering at the top)

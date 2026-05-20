@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
+import { AmazonProductView } from '@/components/amazon/AmazonProductView';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
 
@@ -93,11 +95,15 @@ function SuggestionCard({ video }: { video: Video }) {
   );
 }
 
-export function WatchPage() {
-  const { config, watchingId, watchingTitle, setWatching } = usePageStore();
+function productDescriptionText(description: string | undefined): string {
+  const text = description?.trim() ?? '';
+  if (!text || /^https?:\/\//i.test(text)) return '';
+  return text;
+}
 
-  // Pull suggestions from whatever section currently holds videos
-  // (VideoGrid in normal mode, or any RecommendedRow). Exclude currentvideo.
+function useWatchVideos() {
+  const { config, watchingId } = usePageStore();
+
   const suggestions: Video[] = useMemo(() => {
     if (!watchingId) return [];
     const grid = config.sections.find((s) => s.type === 'VideoGrid');
@@ -116,6 +122,180 @@ export function WatchPage() {
     return undefined;
   }, [config.sections, watchingId]);
 
+  return { suggestions, currentVideo };
+}
+
+function WatchSidebar({ suggestions, label }: { suggestions: Video[]; label: string }) {
+  return (
+    <aside className="min-w-0">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+        {label}
+      </h2>
+      <div className="flex flex-col gap-2">
+        {suggestions.map((v) => (
+          <SuggestionCard key={v.id} video={v} />
+        ))}
+        {suggestions.length === 0 && (
+          <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+type IgCommentsState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ok'; comments: Array<{ id: string; author: string; authorAvatar: string; text: string; postedAgo: string; likes: number }>; total: number | null }
+  | { status: 'error'; reason: string };
+
+function InstagramPostView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
+  const [commentsState, setCommentsState] = useState<IgCommentsState>({ status: 'idle' });
+  const title = watchingTitle || currentVideo?.title || 'Instagram post';
+  const embedSrc = `https://www.instagram.com/p/${encodeURIComponent(watchingId)}/embed`;
+  const mediaKey =
+    currentVideo?.tags.find((t) => t.startsWith('igpk:'))?.slice(5) ?? watchingId;
+
+  useEffect(() => {
+    if (!mediaKey) {
+      setCommentsState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setCommentsState({ status: 'loading' });
+    fetch(`/api/instagram/comments?id=${encodeURIComponent(mediaKey)}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          const data = (await r.json().catch(() => ({}))) as { reason?: string };
+          setCommentsState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          return;
+        }
+        const data = (await r.json()) as {
+          ok?: boolean;
+          comments?: IgCommentsState extends { status: 'ok'; comments: infer C } ? C : never;
+          total?: number | null;
+        };
+        if (!data.ok || !Array.isArray(data.comments)) {
+          setCommentsState({ status: 'error', reason: 'comments unavailable' });
+          return;
+        }
+        setCommentsState({ status: 'ok', comments: data.comments, total: data.total ?? null });
+      })
+      .catch((err) => {
+        if (!cancelled) setCommentsState({ status: 'error', reason: (err as Error).message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaKey]);
+
+  return (
+    <div className="px-4 py-4 md:px-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-md">
+          <div className="overflow-hidden rounded-lg border border-[#dbdbdb] bg-white shadow-sm">
+            <iframe
+              src={embedSrc}
+              title={title}
+              className="w-full border-0"
+              style={{ minHeight: '680px' }}
+              scrolling="no"
+              allowTransparency={true}
+            />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <Avatar
+                name={currentVideo?.channel.name ?? 'Instagram'}
+                src={currentVideo?.channel.avatar ?? ''}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {currentVideo?.channel.name ?? 'Instagram'}
+                </p>
+                {currentVideo?.postedAgo && (
+                  <p className="text-xs text-[color:var(--muted-fg)]">{currentVideo.postedAgo}</p>
+                )}
+              </div>
+            </div>
+            {title && title !== 'Instagram post' && (
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{title}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => setWatching(null)}
+              className="mt-4 rounded-full bg-[color:var(--muted)] px-4 py-2 text-sm hover:bg-[color:var(--border)]"
+            >
+              ← Back to feed
+            </button>
+          </div>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+              {commentsState.status === 'ok' && commentsState.total != null
+                ? `${commentsState.total} comments`
+                : 'Comments'}
+            </h2>
+            {commentsState.status === 'loading' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Loading comments…</p>
+            )}
+            {commentsState.status === 'error' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Comments unavailable for this post.</p>
+            )}
+            {commentsState.status === 'ok' && commentsState.comments.length > 0 && (
+              <ul className="space-y-4">
+                {commentsState.comments.map((c) => (
+                  <li key={c.id} className="flex items-start gap-3">
+                    <Avatar name={c.author} src={c.authorAvatar} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{c.author}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{c.text}</p>
+                      <p className="mt-1 text-xs text-[color:var(--muted-fg)]">
+                        {c.postedAgo}
+                        {c.likes > 0 ? ` · ${c.likes} likes` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <WatchSidebar suggestions={suggestions} label="More posts" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YoutubeWatchView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
   const [commentsState, setCommentsState] = useState<CommentsState>({ status: 'idle' });
   const [infoState, setInfoState] = useState<InfoState>({ status: 'idle' });
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -383,21 +563,47 @@ export function WatchPage() {
           </section>
         </div>
 
-        {/* Right column: up next */}
-        <aside className="min-w-0">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
-            Up next
-          </h2>
-          <div className="flex flex-col gap-2">
-            {suggestions.map((v) => (
-              <SuggestionCard key={v.id} video={v} />
-            ))}
-            {suggestions.length === 0 && (
-              <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
-            )}
-          </div>
-        </aside>
+        <WatchSidebar suggestions={suggestions} label="Up next" />
       </div>
     </div>
+  );
+}
+
+export function WatchPage() {
+  const { config, watchingId, watchingTitle } = usePageStore();
+  const { suggestions, currentVideo } = useWatchVideos();
+  const brand = getSiteBrand(config.slug);
+
+  if (!watchingId) return null;
+
+  if (brand === 'amazon') {
+    return (
+      <AmazonProductView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingTitle={watchingTitle}
+        watchingId={watchingId}
+      />
+    );
+  }
+
+  if (brand === 'instagram') {
+    return (
+      <InstagramPostView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingId={watchingId}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  return (
+    <YoutubeWatchView
+      currentVideo={currentVideo}
+      suggestions={suggestions}
+      watchingId={watchingId}
+      watchingTitle={watchingTitle}
+    />
   );
 }

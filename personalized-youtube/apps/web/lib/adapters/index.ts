@@ -1,38 +1,75 @@
 import type { Video, Short } from '@showcase/shared';
-import { mockAdapter } from './mock';
+import { createMockAdapter, mockAdapter } from './mock';
 import { getFeed as getYoutubeFeed } from './youtube';
+import { amazonAdapter } from './amazon';
+import { instagramAdapter } from './instagram';
+import type { FeedSource } from './feed-source';
 import type { YtChip } from '../innertube/client';
 
+export type { FeedSource } from './feed-source';
+export { resolveFeedSource, isLiveFeedSource } from './feed-source';
+
 export interface FeedAdapter {
-  getFeed(): Promise<{ videos: Video[]; categories: string[]; shorts?: Short[]; chips?: YtChip[] }>;
+  getFeed(): Promise<{
+    videos: Video[];
+    categories: string[];
+    shorts?: Short[];
+    chips?: YtChip[];
+    continuation?: string | null;
+  }>;
   requestMoreContent?(category: string, count: number, style?: string): Promise<Video[]>;
 }
 
-type FeedSource = 'mock' | 'youtube';
-
-function resolveSource(): FeedSource {
-  // SHOWCASE_FEED_SOURCE is the canonical knob (per youtube-adapter brief).
-  // FEED_ADAPTER is honored as a legacy alias to avoid breaking existing envs.
-  const raw = process.env.SHOWCASE_FEED_SOURCE ?? process.env.FEED_ADAPTER ?? 'mock';
-  return raw === 'youtube' ? 'youtube' : 'mock';
+function mockAdapterForSite(siteSlug: string): FeedAdapter {
+  return createMockAdapter(siteSlug);
 }
 
-export function getAdapter(): FeedAdapter {
-  const source = resolveSource();
-  if (source === 'mock') return mockAdapter;
+export function getAdapter(source: FeedSource, siteSlug = 'youtube-clone'): FeedAdapter {
+  const fallback = mockAdapterForSite(siteSlug);
 
-  // Youtube source: try the youtubei.js + Chrome-cookies path; if it returns
-  // anything other than 'ok' (cookies missing, keychain blocked, network
-  // failure, parsed empty) fall back to mock so the web app never breaks
-  // during dev.
+  if (source === 'mock') return fallback;
+
+  if (source === 'amazon') {
+    return {
+      async getFeed() {
+        try {
+          return await amazonAdapter.getFeed();
+        } catch (err) {
+          console.warn(`[adapters] amazon fell back to mock: ${(err as Error).message}`);
+          return fallback.getFeed();
+        }
+      },
+    };
+  }
+
+  if (source === 'instagram') {
+    return {
+      async getFeed() {
+        try {
+          return await instagramAdapter.getFeed();
+        } catch (err) {
+          console.warn(`[adapters] instagram fell back to mock: ${(err as Error).message}`);
+          return fallback.getFeed();
+        }
+      },
+    };
+  }
+
+  // youtube
   return {
     async getFeed() {
       const result = await getYoutubeFeed();
       if (result.kind !== 'ok') {
         console.warn(`[adapters] youtube fell back to mock: ${result.reason}`);
-        return mockAdapter.getFeed();
+        return fallback.getFeed();
       }
-      return { videos: result.videos, categories: [], shorts: result.shorts, chips: result.chips };
+      return {
+        videos: result.videos,
+        categories: [],
+        shorts: result.shorts,
+        chips: result.chips,
+        continuation: result.continuation,
+      };
     },
     requestMoreContent: mockAdapter.requestMoreContent?.bind(mockAdapter),
   };

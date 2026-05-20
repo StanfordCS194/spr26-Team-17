@@ -1,14 +1,28 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { applyPatch, type PageConfig, type Patch } from '@showcase/shared';
+import { registerPageBridge, unregisterPageBridge } from '@/lib/page-bridge';
 
 export interface YtChipEntry {
   text: string;
   params: string | null;
 }
 
-export type NavKey = 'Home' | 'Shorts' | 'Subscriptions' | 'You' | 'Library' | 'History';
+export type NavKey =
+  | 'Home'
+  | 'Shorts'
+  | 'Subscriptions'
+  | 'You'
+  | 'Library'
+  | 'History'
+  | 'Deals'
+  | 'Lists'
+  | 'Account'
+  | 'Search'
+  | 'Reels'
+  | 'Shop'
+  | 'Profile';
 
 // Pre-search snapshot of the home page. We capture the whole config (not just
 // the videos) because search mutates several sections at once — grid videos,
@@ -30,14 +44,20 @@ interface PageStoreValue {
   setYtContinuation: (token: string | null) => void;
   // Real chip metadata extracted from the home browse response. Map text → params token.
   ytChips: YtChipEntry[];
-  // Whether the YouTube data adapter is active. Set once at page render time
-  // from the server (env var SHOWCASE_FEED_SOURCE). Components use this to
-  // decide whether to call /api/yt/* endpoints vs. local-only filtering.
+  // Whether the YouTube data adapter is active (legacy name; prefer liveFeedMode).
   youtubeMode: boolean;
+  // Live intercept feed for the current site (YouTube, Amazon, or Instagram).
+  liveFeedMode: boolean;
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
-  setWatching: (id: string | null, title?: string | null) => void;
+  watchingThumbnail: string | null;
+  watchingPrice: string | null;
+  setWatching: (
+    id: string | null,
+    title?: string | null,
+    meta?: { thumbnail?: string; price?: string },
+  ) => void;
   // Sidebar navigation: which top-level nav item is active and (when in
   // Subscriptions mode) which channel is selected. Local-only state, doesn't
   // round-trip through the patch system since it doesn't change PageConfig.
@@ -59,6 +79,7 @@ export function PageStoreProvider({
   initialYtContinuation = null,
   initialYtChips = [],
   initialYoutubeMode = false,
+  initialLiveFeedMode = false,
   initialWatchingId = null,
   pageSlug,
   children,
@@ -67,6 +88,7 @@ export function PageStoreProvider({
   initialYtContinuation?: string | null;
   initialYtChips?: YtChipEntry[];
   initialYoutubeMode?: boolean;
+  initialLiveFeedMode?: boolean;
   initialWatchingId?: string | null;
   pageSlug: string;
   children: ReactNode;
@@ -75,6 +97,8 @@ export function PageStoreProvider({
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
   const [watchingTitle, setWatchingTitle] = useState<string | null>(null);
+  const [watchingThumbnail, setWatchingThumbnail] = useState<string | null>(null);
+  const [watchingPrice, setWatchingPrice] = useState<string | null>(null);
   const [activeNav, setActiveNavState] = useState<NavKey>('Home');
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -99,11 +123,22 @@ export function PageStoreProvider({
     setActiveNavState(key);
     setSelectedChannel(typeof channel === 'string' ? channel : null);
   }, []);
-  const setWatching = useCallback((id: string | null, title?: string | null) => {
-    setWatchingId(id);
-    setWatchingTitle(typeof title === 'string' ? title : null);
-  }, []);
+  const setWatching = useCallback(
+    (id: string | null, title?: string | null, meta?: { thumbnail?: string; price?: string }) => {
+      setWatchingId(id);
+      setWatchingTitle(typeof title === 'string' ? title : null);
+      if (!id) {
+        setWatchingThumbnail(null);
+        setWatchingPrice(null);
+        return;
+      }
+      setWatchingThumbnail(meta?.thumbnail?.trim() || null);
+      setWatchingPrice(meta?.price?.trim() || null);
+    },
+    [],
+  );
   const youtubeMode = initialYoutubeMode;
+  const liveFeedMode = initialLiveFeedMode;
   const dispatch = useCallback(
     (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => {
       setConfig((current) => {
@@ -142,6 +177,24 @@ export function PageStoreProvider({
     [pageSlug],
   );
   const replace = useCallback((next: PageConfig) => setConfig(next), []);
+
+  // Keep the global chat bridge in sync every render (not only in useEffect).
+  // Chat lives outside PageStoreProvider; registering here ensures patches
+  // from SSE always reach the mounted page's dispatch.
+  registerPageBridge({
+    pageSlug,
+    config,
+    dispatch,
+    replace,
+    watchingId,
+    watchingTitle,
+    watchingThumbnail,
+    watchingPrice,
+    youtubeMode,
+    liveFeedMode,
+  });
+  useEffect(() => () => unregisterPageBridge(pageSlug), [pageSlug]);
+
   return (
     <PageStoreContext.Provider
       value={{
@@ -153,8 +206,11 @@ export function PageStoreProvider({
         setYtContinuation,
         ytChips: initialYtChips,
         youtubeMode,
+        liveFeedMode,
         watchingId,
         watchingTitle,
+        watchingThumbnail,
+        watchingPrice,
         setWatching,
         activeNav,
         selectedChannel,

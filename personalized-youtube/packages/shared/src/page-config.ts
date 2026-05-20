@@ -47,6 +47,9 @@ export const FilterStateSchema = z.object({
   hideLive: z.boolean().default(false),
   // onlyLive: inverse — only keep live/upcoming/premiere streams.
   onlyLive: z.boolean().default(false),
+  // Amazon / retail: prices are stored in Video.duration as "$12.99".
+  minPriceUsd: z.number().nonnegative().optional(),
+  maxPriceUsd: z.number().nonnegative().optional(),
 });
 export type FilterState = z.infer<typeof FilterStateSchema>;
 

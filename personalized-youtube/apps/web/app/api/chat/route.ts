@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { gemini, GEMINI_MODEL_PRO, GEMINI_MODEL_FLASH, appendGeminiLog, estimateGeminiCost, toGeminiTools, toolCallToPatch } from '@/lib/gemini';
 import { anthropic, MODEL_OPUS, appendLog, estimateCost } from '@/lib/anthropic';
 import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
-import { TOOL_DEFINITIONS, type Patch } from '@showcase/shared';
+import { TOOL_DEFINITIONS, siteById, siteBySlug, type Patch } from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
 
@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
 
   const visitorState = buildVisitorState(
     {
+      activeSite: siteBySlug(pageSlug)?.label ?? pageSlug,
+      activeSlug: pageSlug,
       sections: sectionSummaries,
       theme: config.theme,
       filter: config.filter,
@@ -194,6 +196,17 @@ export async function POST(req: NextRequest) {
                     send({ kind: 'request_more_content', input });
                   } else if (name === 'ask_user') {
                     send({ kind: 'ask_user', input });
+                  } else if (name === 'switch_site') {
+                    const target = siteById(String(input?.site ?? ''));
+                    if (target) {
+                      send({
+                        kind: 'switch_site',
+                        site: target.id,
+                        slug: target.slug,
+                        path: target.path,
+                        label: target.label,
+                      });
+                    }
                   }
                 }
               }
@@ -301,6 +314,17 @@ export async function POST(req: NextRequest) {
               send({ kind: 'request_more_content', input: tu.input });
             } else if (tu.name === 'ask_user') {
               send({ kind: 'ask_user', input: tu.input });
+            } else if (tu.name === 'switch_site') {
+              const target = siteById(String(tu.input?.site ?? ''));
+              if (target) {
+                send({
+                  kind: 'switch_site',
+                  site: target.id,
+                  slug: target.slug,
+                  path: target.path,
+                  label: target.label,
+                });
+              }
             }
           }
         } catch (err) {
@@ -377,5 +401,4 @@ export async function POST(req: NextRequest) {
     },
   });
 }
-
 

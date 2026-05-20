@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import type { Channel, PageConfig, Section } from '@showcase/shared';
+import { applyBrandSearch, AMAZON_CHIP_QUERIES } from '@/lib/feed-interaction';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore, type NavKey } from '@/lib/store';
 import { Avatar } from './Avatar';
 
@@ -36,9 +38,32 @@ const ICON: Record<string, React.ReactElement> = {
       <path d="M13 3a9 9 0 109 9h-2a7 7 0 11-7-7 6.9 6.9 0 014.95 2.05L15 11h7V4l-2.55 2.55A8.94 8.94 0 0013 3zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z" />
     </svg>
   ),
+  Deals: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+      <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
+    </svg>
+  ),
+  Lists: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
+    </svg>
+  ),
+  Account: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+      <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.31 0-10 1.66-10 5v3h20v-3c0-3.34-6.69-5-10-5z" />
+    </svg>
+  ),
 };
 
-const NAV_KEYS: ReadonlySet<string> = new Set(['Home', 'Shorts', 'Subscriptions', 'You', 'Library', 'History']);
+const YOUTUBE_NAV_KEYS: ReadonlySet<string> = new Set(['Home', 'Shorts', 'Subscriptions', 'You', 'Library', 'History']);
+const AMAZON_NAV_KEYS: ReadonlySet<string> = new Set(['Home', 'Deals', 'Lists', 'Account']);
+
+const AMAZON_NAV_QUERIES: Record<string, string> = {
+  Home: AMAZON_CHIP_QUERIES.All ?? 'best sellers',
+  Deals: AMAZON_CHIP_QUERIES.Deals ?? "today's deals",
+  Lists: 'wish list essentials',
+  Account: 'your orders',
+};
 
 function FallbackIcon() {
   return (
@@ -67,16 +92,49 @@ function uniqueChannels(config: PageConfig, limit = 12): Channel[] {
 }
 
 export function Sidebar({ section }: { section: Section; config: PageConfig }) {
-  const { config, activeNav, selectedChannel, setActiveNav, setWatching } = usePageStore();
+  const {
+    config,
+    activeNav,
+    selectedChannel,
+    setActiveNav,
+    setWatching,
+    liveFeedMode,
+    dispatch,
+    enterSearch,
+    exitSearch,
+    ytContinuation,
+    setYtContinuation,
+  } = usePageStore();
 
   const channels = useMemo(() => uniqueChannels(config), [config]);
 
   if (section.type !== 'Sidebar') return null;
+  const brand = getSiteBrand(config.slug);
   const { collapsed, pinnedItems, showSubscriptions } = section.props;
 
   function handleNavClick(item: string): void {
-    if (!NAV_KEYS.has(item)) return;
     setWatching(null);
+    if (brand === 'amazon') {
+      if (!AMAZON_NAV_KEYS.has(item)) return;
+      setActiveNav(item as NavKey, null);
+      if (item === 'Home') {
+        exitSearch();
+        return;
+      }
+      if (liveFeedMode) {
+        void applyBrandSearch({
+          brand: 'amazon',
+          query: AMAZON_NAV_QUERIES[item] ?? item,
+          config,
+          ytContinuation,
+          dispatch,
+          enterSearch,
+          setYtContinuation,
+        });
+      }
+      return;
+    }
+    if (!YOUTUBE_NAV_KEYS.has(item)) return;
     setActiveNav(item as NavKey, null);
   }
 
@@ -87,10 +145,10 @@ export function Sidebar({ section }: { section: Section; config: PageConfig }) {
 
   return (
     <aside
-      className={`hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface)] py-3 transition-all ${
-        collapsed ? 'w-20 px-2 items-center' : 'w-60 px-3'
-      }`}
-      style={{ backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` }}
+      className={`site-sidebar hidden lg:flex shrink-0 flex-col gap-1 overflow-y-auto border-r py-3 transition-all ${
+        brand === 'amazon' ? 'w-56 bg-white px-2 text-sm' : 'bg-[color:var(--surface)]'
+      } ${collapsed ? 'w-20 px-2 items-center' : brand === 'amazon' ? 'w-56 px-2' : 'w-60 px-3'}`}
+      style={brand === 'youtube' ? { backdropFilter: `blur(var(--surface-blur))`, WebkitBackdropFilter: `blur(var(--surface-blur))` } : undefined}
     >
       {pinnedItems.map((item) => {
         const isActive = activeNav === item;
