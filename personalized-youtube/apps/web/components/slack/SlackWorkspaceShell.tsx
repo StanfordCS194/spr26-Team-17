@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PageConfig, Video } from '@showcase/shared';
 import {
   filterVideosForSlackChannel,
@@ -58,6 +58,9 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
   const [loadingChannel, setLoadingChannel] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [clientMeta, setClientMeta] = useState<SlackBootstrapMeta | null>(slackMeta);
+  const [interceptLive, setInterceptLive] = useState<boolean>(Boolean(slackMeta));
+  const [loadingMore, setLoadingMore] = useState(false);
+  const paneRef = useRef<HTMLDivElement>(null);
 
   const workspaceName = clientMeta?.workspaceName ?? SLACK_WORKSPACE_NAME;
   const sidebarChannels = clientMeta?.channels ?? SLACK_SIDEBAR_CHANNELS.map((c) => ({ ...c }));
@@ -108,22 +111,71 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
     }
   }, [sidebarChannels, sidebarDms, dispatch, config, setYtContinuation]);
 
+  const loadMoreMessages = useCallback(async () => {
+    if (!ytContinuation || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/slack/more?token=${encodeURIComponent(ytContinuation)}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        ok?: boolean;
+        videos?: Video[];
+        continuation?: string | null;
+      };
+      if (!data.ok || !Array.isArray(data.videos) || data.videos.length === 0) return;
+
+      setLiveVideos((prev) => {
+        const base = prev ?? videosFromConfig(config);
+        const seen = new Set(base.map((v) => v.id));
+        const merged = [...base, ...data.videos!.filter((v) => !seen.has(v.id))];
+        applyVideosToGrid(dispatch, config, merged, 2);
+        return merged;
+      });
+      setYtContinuation(
+        typeof data.continuation === 'string' && data.continuation.length > 0 ? data.continuation : null,
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [ytContinuation, loadingMore, config, dispatch, setYtContinuation]);
+
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el || !ytContinuation) return;
+
+    function onScroll() {
+      if (loadingMore || loadingChannel) return;
+      const nearBottom = el!.scrollHeight - el!.scrollTop - el!.clientHeight < 160;
+      if (nearBottom) void loadMoreMessages();
+    }
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [ytContinuation, loadingMore, loadingChannel, loadMoreMessages]);
+
   useEffect(() => {
     if (slackMeta) {
       setClientMeta(slackMeta);
+      setInterceptLive(true);
       return;
     }
     fetch('/api/slack/bootstrap')
       .then(async (res) => {
-        if (!res.ok) return null;
+        if (!res.ok) {
+          setInterceptLive(false);
+          return null;
+        }
         return (await res.json()) as { ok?: boolean; meta?: SlackBootstrapMeta };
       })
       .then((data) => {
-        if (data?.ok && data.meta) setClientMeta(data.meta);
+        if (data?.ok && data.meta) {
+          setClientMeta(data.meta);
+          setInterceptLive(true);
+        } else {
+          setInterceptLive(false);
+        }
       })
-      .catch(() => {
-        // mock sidebar stays when intercept unavailable
-      });
+      .catch(() => setInterceptLive(false));
   }, [slackMeta]);
 
   useEffect(() => {
@@ -324,7 +376,15 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
               onMenuClick={() => setMobileSidebarOpen(true)}
             />
 
-            <div className="slack-message-pane min-h-0 flex-1 overflow-y-auto">
+            {!interceptLive && (
+              <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-950">
+                Showing mock data — connect your Slack account for full channels and messages. Run{' '}
+                <code className="rounded bg-amber-100 px-1">pnpm slack:setup</code> (log in at app.slack.com in Chrome Profile 1, add{' '}
+                <code className="rounded bg-amber-100 px-1">SLACK_XOXC</code> to .env).
+              </div>
+            )}
+
+            <div ref={paneRef} className="slack-message-pane min-h-0 flex-1 overflow-y-auto">
               {loadingChannel ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
                   <p className="text-[15px] font-medium text-[#1d1c1d]">Loading messages…</p>
@@ -339,6 +399,9 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
                   videos={messages}
                   onOpen={(v) => setWatching(v.id, v.title, { thumbnail: v.thumbnail })}
                 />
+              )}
+              {loadingMore && (
+                <p className="py-4 text-center text-sm text-[#616061]">Loading older messages…</p>
               )}
             </div>
 

@@ -15,6 +15,12 @@ import type { Video } from '@showcase/shared';
 import { composeCookieHeader, readSlackCookies } from '../innertube/chrome-cookies';
 import { cookieValue, fetchWithSession } from '../intercept/browser-fetch';
 import { logInterceptFailure } from '../intercept/security';
+import { readSlackXoxcFromChrome } from './chrome-xoxc';
+
+const HISTORY_PAGE_SIZE = 200;
+const LIST_PAGE_SIZE = 200;
+const MAX_LIST_PAGES = 25;
+const SEARCH_RESULT_CAP = 100;
 
 export type SlackSidebarItem = { id: string; label: string; unread: number };
 
@@ -95,9 +101,22 @@ function userAvatarUrl(user: SlackUser | undefined): string {
   return user?.profile?.image_48?.trim() ?? '';
 }
 
-function slackToken(): string | null {
-  const raw = process.env.SLACK_XOXC?.trim() || process.env.SLACK_XOXP?.trim();
-  return raw || null;
+let resolvedToken: string | null | undefined;
+
+async function resolveSlackToken(): Promise<string | null> {
+  if (resolvedToken !== undefined) return resolvedToken;
+  const env = process.env.SLACK_XOXC?.trim() || process.env.SLACK_XOXP?.trim();
+  if (env) {
+    resolvedToken = env;
+    return env;
+  }
+  resolvedToken = await readSlackXoxcFromChrome();
+  return resolvedToken;
+}
+
+function apiNextCursor(json: unknown): string | null {
+  const c = (json as { response_metadata?: { next_cursor?: string } }).response_metadata?.next_cursor?.trim();
+  return c || null;
 }
 
 function formatSlackTs(ts: string): string {
@@ -217,11 +236,12 @@ async function slackSession(): Promise<
   | { kind: 'ok'; token: string; cookieHeader: string }
   | { kind: 'unavailable'; reason: string }
 > {
-  const token = slackToken();
+  const token = await resolveSlackToken();
   if (!token) {
     return {
       kind: 'unavailable',
-      reason: 'SLACK_XOXC missing (copy xoxc- token from Slack DevTools localStorage)',
+      reason:
+        'Slack session missing — log in at app.slack.com in Chrome (Profile 1), then add SLACK_XOXC to .env or re-run pnpm slack:setup',
     };
   }
 
@@ -289,9 +309,19 @@ async function slackApi(
 }
 
 async function loadUsers(): Promise<Map<string, SlackUser>> {
-  const res = await slackApi('users.list', { limit: 200 });
-  if (!res.ok) return new Map();
-  return parseUsers(res.json);
+  const map = new Map<string, SlackUser>();
+  let cursor: string | undefined;
+
+  for (let page = 0; page < MAX_LIST_PAGES; page++) {
+    const res = await slackApi('users.list', { limit: LIST_PAGE_SIZE, cursor });
+    if (!res.ok) break;
+    for (const [id, user] of parseUsers(res.json)) map.set(id, user);
+    const next = apiNextCursor(res.json);
+    if (!next) break;
+    cursor = next;
+  }
+
+  return map;
 }
 
 async function loadWorkspaceName(): Promise<string> {
@@ -302,13 +332,24 @@ async function loadWorkspaceName(): Promise<string> {
 }
 
 async function loadChannels(): Promise<SlackChannel[]> {
-  const res = await slackApi('conversations.list', {
-    types: 'public_channel,private_channel,mpim,im',
-    exclude_archived: true,
-    limit: 200,
-  });
-  if (!res.ok) return [];
-  return parseChannels(res.json);
+  const out: SlackChannel[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < MAX_LIST_PAGES; page++) {
+    const res = await slackApi('conversations.list', {
+      types: 'public_channel,private_channel,mpim,im',
+      exclude_archived: true,
+      limit: LIST_PAGE_SIZE,
+      cursor,
+    });
+    if (!res.ok) break;
+    out.push(...parseChannels(res.json));
+    const next = apiNextCursor(res.json);
+    if (!next) break;
+    cursor = next;
+  }
+
+  return out;
 }
 
 function pickDefaultChannel(
@@ -417,7 +458,7 @@ export async function getSlackThreadReplies(
   const res = await slackApi('conversations.replies', {
     channel: id,
     ts,
-    limit: 50,
+    limit: HISTORY_PAGE_SIZE,
   });
   if (!res.ok) return { kind: 'unavailable', reason: res.reason };
 
@@ -477,7 +518,7 @@ export async function getSlackChannelHistory(
 
   const res = await slackApi('conversations.history', {
     channel: id,
-    limit: 50,
+    limit: HISTORY_PAGE_SIZE,
     cursor: cursor?.trim() || undefined,
   });
   if (!res.ok) return { kind: 'unavailable', reason: res.reason };
@@ -523,7 +564,7 @@ export async function getSlackSearchFeed(query: string): Promise<SlackFeedResult
 
   const res = await slackApi('search.messages', {
     query: q,
-    count: 50,
+    count: 100,
     sort: 'timestamp',
     sort_dir: 'desc',
   });
@@ -566,7 +607,7 @@ export async function getSlackSearchFeed(query: string): Promise<SlackFeedResult
     };
     const video = messageToVideo(match, channel, users);
     if (video) videos.push(video);
-    if (videos.length >= 48) break;
+    if (videos.length >= SEARCH_RESULT_CAP) break;
   }
 
   console.log(`[slack] search "${q}": ${videos.length} messages`);
