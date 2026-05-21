@@ -7,7 +7,10 @@ import {
   slackAuthor,
   slackAvatarSrc,
   slackBodyText,
+  slackDateDividerLabel,
+  slackDateKeyFromVideo,
   slackIsThread,
+  slackMessageTimeLabel,
 } from '@/lib/slack/message';
 import { Avatar } from '@/components/templates/Avatar';
 import { SlackMrkdwn } from './SlackMrkdwn';
@@ -21,35 +24,27 @@ type MessageGroup = {
   messages: Video[];
 };
 
-function dayBucket(video: Video): string {
-  const d = video.duration.trim();
-  if (/^\d{1,2}:\d{2}\s*[AP]M$/i.test(d)) return 'Today';
-  if (d === 'Yesterday') return 'Yesterday';
-  if (d) return d;
-  return 'Earlier';
-}
-
 function groupMessages(videos: Video[]): Array<DateDivider | MessageGroup> {
   const out: Array<DateDivider | MessageGroup> = [];
-  let lastDay = '';
+  let lastDayKey = '';
 
   for (const video of videos) {
-    const day = dayBucket(video);
-    if (day !== lastDay) {
-      out.push({ kind: 'date', label: day });
-      lastDay = day;
+    const dayKey = slackDateKeyFromVideo(video);
+    if (dayKey !== lastDayKey) {
+      out.push({ kind: 'date', label: slackDateDividerLabel(video) });
+      lastDayKey = dayKey;
     }
 
     const author = slackAuthor(video);
     const last = out[out.length - 1];
-    if (last?.kind === 'group' && last.author === author && dayBucket(video) === lastDay) {
+    if (last?.kind === 'group' && last.author === author && slackDateKeyFromVideo(video) === lastDayKey) {
       last.messages.push(video);
     } else {
       out.push({
         kind: 'group',
         author,
         avatar: video.thumbnail,
-        timestamp: video.duration,
+        timestamp: slackMessageTimeLabel(video),
         messages: [video],
       });
     }
@@ -68,7 +63,7 @@ export function SlackMessageList({
   const groups = groupMessages(videos);
 
   return (
-    <div className="slack-message-list">
+    <div className="slack-message-list min-w-0 max-w-full overflow-x-hidden">
       {groups.map((item, i) =>
         item.kind === 'date' ? (
           <div key={`date-${item.label}-${i}`} className="slack-date-divider" role="separator">
@@ -93,7 +88,7 @@ function MessageGroupRow({
 
   return (
     <div
-      className="slack-message-group group/msg relative px-5 py-0.5 hover:bg-[#f8f8f8]"
+      className="slack-message-group group/msg relative min-w-0 max-w-full overflow-hidden px-5 py-0.5 hover:bg-[#f8f8f8]"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -146,10 +141,21 @@ function MessageLines({
   const text = body || video.title;
 
   return (
-    <div className={compact ? 'mt-1' : 'mt-0.5'}>
-      <button type="button" onClick={onOpen} className="block w-full text-left">
+    <div className={compact ? 'mt-1 min-w-0' : 'mt-0.5 min-w-0'}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className="block w-full min-w-0 max-w-full cursor-pointer overflow-hidden text-left"
+      >
         <SlackMrkdwn text={text} />
-      </button>
+      </div>
 
       {isThread && replyCount > 0 && (
         <button

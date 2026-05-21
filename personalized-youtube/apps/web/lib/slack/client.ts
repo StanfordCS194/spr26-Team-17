@@ -374,17 +374,12 @@ async function loadUsers(): Promise<Map<string, SlackUser>> {
   return map;
 }
 
-/** Resolve IM peers missing from users.list (guests, Slack Connect, deactivated). */
-async function loadMissingUsers(channels: SlackChannel[], users: Map<string, SlackUser>): Promise<void> {
-  const missing: string[] = [];
-  for (const ch of channels) {
-    if (!ch.is_im || typeof ch.user !== 'string') continue;
-    const id = ch.user.trim();
-    if (!id || users.has(id) || missing.includes(id)) continue;
-    missing.push(id);
-  }
-
-  const toFetch = missing.filter(isSlackUserId).slice(0, MISSING_USER_CAP);
+/** Resolve user profiles missing from users.list (guests, Slack Connect, message authors). */
+async function loadMissingUserIds(userIds: string[], users: Map<string, SlackUser>): Promise<void> {
+  const toFetch = userIds
+    .filter((id) => isSlackUserId(id) && !users.has(id))
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+    .slice(0, MISSING_USER_CAP);
   if (toFetch.length === 0) return;
 
   const before = users.size;
@@ -402,7 +397,17 @@ async function loadMissingUsers(channels: SlackChannel[], users: Map<string, Sla
   const workers = Math.min(USER_INFO_CONCURRENCY, toFetch.length);
   await Promise.all(Array.from({ length: workers }, () => worker()));
   const resolved = users.size - before;
-  if (resolved > 0) console.log(`[slack] resolved ${resolved} missing DM user profiles`);
+  if (resolved > 0) console.log(`[slack] resolved ${resolved} missing user profiles`);
+}
+
+async function loadMissingUsers(channels: SlackChannel[], users: Map<string, SlackUser>): Promise<void> {
+  const missing: string[] = [];
+  for (const ch of channels) {
+    if (!ch.is_im || typeof ch.user !== 'string') continue;
+    const id = ch.user.trim();
+    if (id) missing.push(id);
+  }
+  await loadMissingUserIds(missing, users);
 }
 
 async function loadWorkspaceName(): Promise<string> {
@@ -615,6 +620,13 @@ export async function getSlackChannelHistory(
   if (!res.ok) return { kind: 'unavailable', reason: res.reason };
 
   const { messages, nextCursor } = parseMessages(res.json);
+
+  const authorIds: string[] = [];
+  for (const msg of messages) {
+    if (typeof msg.user === 'string') authorIds.push(msg.user);
+  }
+  await loadMissingUserIds(authorIds, cached.users);
+
   const videos: Video[] = [];
   for (const msg of messages) {
     const video = messageToVideo(msg, channel, cached.users);

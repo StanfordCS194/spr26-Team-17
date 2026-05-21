@@ -185,6 +185,12 @@
 
 [data-brand='slack'] .slack-message-pane {
   background: #ffffff;
+  overflow-x: hidden;
+}
+
+[data-brand='slack'] .slack-message-list {
+  width: 100%;
+  max-width: 100%;
 }
 
 [data-brand='slack'] .slack-date-divider {

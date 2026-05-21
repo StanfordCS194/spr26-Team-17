@@ -110,7 +110,7 @@ function parseInlineFormatting(text: string, keyPrefix: string): ReactNode[] {
       nodes.push(
         <code
           key={`${keyPrefix}-c${i++}`}
-          className="rounded bg-[#f8f8f8] px-1 py-0.5 font-mono text-[13px] text-[#e01e5a] ring-1 ring-[#ebebeb]"
+          className="rounded bg-[#f8f8f8] px-1 py-0.5 font-mono text-[13px] text-[#e01e5a] ring-1 ring-[#ebebeb] [overflow-wrap:anywhere]"
         >
           {inner}
         </code>,
@@ -171,7 +171,7 @@ export function SlackMrkdwn({
   if (!text.trim()) return null;
 
   return (
-    <div className={`slack-mrkdwn whitespace-pre-wrap break-words text-[15px] leading-[22px] text-[#1d1c1d] ${className}`}>
+    <div className={`slack-mrkdwn max-w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-[22px] text-[#1d1c1d] ${className}`}>
       {parseText(text)}
     </div>
   );

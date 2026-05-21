@@ -24,6 +24,47 @@ export function slackMessageTsFromVideo(video: Video): string | null {
   return `${raw.slice(0, 10)}.${raw.slice(10)}`;
 }
 
+export function slackMessageDateFromVideo(video: Video): Date | null {
+  const ts = slackMessageTsFromVideo(video);
+  if (!ts) return null;
+  const ms = Math.floor(parseFloat(ts) * 1000);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms);
+}
+
+/** Stable day bucket key for grouping (ISO date in local tz). */
+export function slackDateKeyFromVideo(video: Video): string {
+  const d = slackMessageDateFromVideo(video);
+  return d ? d.toDateString() : video.duration.trim() || 'unknown';
+}
+
+/** Human label for date dividers (Today, Yesterday, or full date). */
+export function slackDateDividerLabel(video: Video, now = new Date()): string {
+  const d = slackMessageDateFromVideo(video);
+  if (!d) return video.duration.trim() || 'Earlier';
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+/** Clock time for a message (e.g. 9:42 AM). */
+export function slackMessageTimeLabel(video: Video): string {
+  const d = slackMessageDateFromVideo(video);
+  if (!d) return video.duration;
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
 /** Only use avatar URLs from Slack (or other real sources) — never pravatar placeholders. */
 export function slackAvatarSrc(url: string | undefined | null): string | undefined {
   if (!url?.trim()) return undefined;
