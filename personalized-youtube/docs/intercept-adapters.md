@@ -9,13 +9,15 @@ No third-party SDKs. We replay browser requests with Chrome cookies (same patter
 | `/` | `youtube-clone` | `SHOWCASE_FEED_SOURCE=youtube` |
 | `/amazon` | `amazon-storefront` | Always `amazon` unless `FEED_ADAPTER=mock` |
 | `/instagram` | `instagram-feed` | Always `instagram` unless `FEED_ADAPTER=mock` |
+| `/slack` | `slack-workspace` | Always `slack` unless `FEED_ADAPTER=mock` |
 
 ## Setup
 
-1. Log in on **amazon.com** and **instagram.com** in Chrome (same profile as `CHROME_COOKIE_PATH`).
-2. `pnpm seed:sites` — upsert base configs for the two new slugs.
-3. `pnpm check:feeds` — smoke-test cookie + fetch + parse.
-4. `pnpm --filter @showcase/web dev` → open `/amazon` and `/instagram`.
+1. Log in on **amazon.com**, **instagram.com**, and **app.slack.com** in Chrome (same profile as `CHROME_COOKIE_PATH`).
+2. `pnpm seed:sites` — upsert base configs for the new slugs.
+3. Set `SLACK_XOXC` in `.env` (see [`slack.md`](./slack.md)).
+4. `pnpm check:feeds` — smoke-test cookie + fetch + parse.
+5. `pnpm --filter @showcase/web dev` → open `/amazon`, `/instagram`, and `/slack`.
 
 ## What we intercept
 
@@ -31,13 +33,19 @@ No third-party SDKs. We replay browser requests with Chrome cookies (same patter
 - **Code:** `lib/instagram/client.ts` → `GET /api/v1/feed/timeline/` with `sessionid`, `csrftoken`, `X-IG-App-ID`.
 - **Requires:** `sessionid` + `csrftoken` cookies.
 
+### Slack
+
+- **Capture:** DevTools → Network → any `slack.com/api/…` request → copy `Authorization: Bearer xoxc-…` and `d` cookie.
+- **Code:** `lib/slack/client.ts` → `conversations.list`, `conversations.history`, `search.messages`.
+- **Requires:** `SLACK_XOXC` in `.env` + Chrome `d` cookie from app.slack.com.
+
 ## Chat site switcher
 
-The personalize panel has **YouTube | Amazon | Instagram** pills, or ask in chat (e.g. “open Amazon”) — Claude can call `switch_site`.
+The personalize panel has **YouTube | Amazon | Instagram | Slack** pills, or ask in chat (e.g. “open Amazon”) — Claude can call `switch_site`.
 
 ## Fallback
 
-If cookies or parsing fail, adapters fall back to `lib/mock-data/amazon-products.json` / `instagram-feed.json`.
+If cookies or parsing fail, adapters fall back to `lib/mock-data/amazon-products.json`, `instagram-feed.json`, or `slack-feed.json`.
 
 ## Security (matches InnerTube)
 
@@ -46,7 +54,7 @@ All intercept adapters share `lib/innertube/chrome-cookies.ts`:
 - **Read-only** snapshot of Chrome’s cookie DB; never write back.
 - **Never log cookie values** — count-only lines (`loaded N cookies for amazon.com`).
 - **Cookies are the server operator’s**, not the website visitor’s. Visitors cannot inject their own Amazon/IG session.
-- **No upstream bodies in API errors** — `/api/amazon/*` and `/api/instagram/*` sanitize reasons via `lib/intercept/security.ts` (Instagram used to leak HTML snippets; fixed).
+- **No upstream bodies in API errors** — `/api/amazon/*`, `/api/instagram/*`, and `/api/slack/*` sanitize reasons via `lib/intercept/security.ts`.
 - **Input bounds** — search queries ≤256 chars, continuation tokens ≤4096 chars (same as `/api/yt/more`).
 
 TOS posture: same as YouTube intercept — educational showcase on the operator’s machine with their own logged-in Chrome profile; not a production multi-tenant service.

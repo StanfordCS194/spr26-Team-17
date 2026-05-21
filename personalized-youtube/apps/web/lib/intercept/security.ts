@@ -55,6 +55,9 @@ export function isAllowedOutboundImageUrl(raw: string): boolean {
       '.media-amazon.com',
       '.cdninstagram.com',
       '.fbcdn.net',
+      '.slack-edge.com',
+      '.slack.com',
+      '.gravatar.com',
       '.pravatar.cc',
     ];
     return allowedSuffixes.some((s) => host.endsWith(s) || host === s.slice(1));

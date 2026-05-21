@@ -131,7 +131,9 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
           ? ({ ...themeStyle, ['--chrome-dim' as string]: String(chromeDim) } as React.CSSProperties)
           : themeStyle
       }
-      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}${brand === 'instagram' ? ' pb-16 md:pb-0' : ''}`}
+      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}${
+        brand === 'instagram' ? ' pb-16 md:pb-0' : brand === 'slack' ? ' slack-page-root pb-14 md:pb-0' : ''
+      }`}
     >
       {/* AmbientBackground sections render at the page-root level so they
           stay visible across both Home and Watch views — they're full-bleed

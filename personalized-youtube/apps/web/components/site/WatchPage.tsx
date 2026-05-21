@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
 import { AmazonProductView } from '@/components/amazon/AmazonProductView';
+import { SlackThreadView } from '@/components/slack/SlackThreadView';
 import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
@@ -590,6 +591,17 @@ export function WatchPage() {
   if (brand === 'instagram') {
     return (
       <InstagramPostView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingId={watchingId}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  if (brand === 'slack') {
+    return (
+      <SlackThreadView
         currentVideo={currentVideo}
         suggestions={suggestions}
         watchingId={watchingId}

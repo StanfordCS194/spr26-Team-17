@@ -33,6 +33,8 @@ export interface HomeSnapshot {
   ytContinuation: string | null;
 }
 
+import type { SlackBootstrapMeta } from '@/lib/slack/client';
+
 interface PageStoreValue {
   config: PageConfig;
   pageSlug: string;
@@ -46,8 +48,9 @@ interface PageStoreValue {
   ytChips: YtChipEntry[];
   // Whether the YouTube data adapter is active (legacy name; prefer liveFeedMode).
   youtubeMode: boolean;
-  // Live intercept feed for the current site (YouTube, Amazon, or Instagram).
+  // Live intercept feed for the current site (YouTube, Amazon, Instagram, or Slack).
   liveFeedMode: boolean;
+  slackMeta: SlackBootstrapMeta | null;
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
@@ -80,6 +83,7 @@ export function PageStoreProvider({
   initialYtChips = [],
   initialYoutubeMode = false,
   initialLiveFeedMode = false,
+  initialSlackMeta = null,
   initialWatchingId = null,
   pageSlug,
   children,
@@ -89,6 +93,7 @@ export function PageStoreProvider({
   initialYtChips?: YtChipEntry[];
   initialYoutubeMode?: boolean;
   initialLiveFeedMode?: boolean;
+  initialSlackMeta?: SlackBootstrapMeta | null;
   initialWatchingId?: string | null;
   pageSlug: string;
   children: ReactNode;
@@ -207,6 +212,7 @@ export function PageStoreProvider({
         ytChips: initialYtChips,
         youtubeMode,
         liveFeedMode,
+        slackMeta: initialSlackMeta,
         watchingId,
         watchingTitle,
         watchingThumbnail,

@@ -336,6 +336,10 @@ export async function readInstagramCookies(): Promise<CookiesResult> {
   return readChromeCookies(['instagram.com']);
 }
 
+export async function readSlackCookies(): Promise<CookiesResult> {
+  return readChromeCookies(['slack.com', 'app.slack.com']);
+}
+
 // Build a `Cookie:` header from cookies, optionally restricted to domains
 // containing `domainIncludes` (when omitted, all passed cookies are used).
 export function composeCookieHeader(cookies: Cookie[], domainIncludes?: string): string {

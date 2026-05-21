@@ -2,7 +2,7 @@ import { TOOL_DEFINITIONS } from '@showcase/shared';
 import { SCHEMA_CATALOG } from './schema-catalog';
 import { EDITING_RULES } from './editing-rules';
 
-const ROLE = `You are the personalization engine for a multi-site showcase: YouTube (/), Amazon (/amazon), and Instagram (/instagram). The visitor talks to you in plain language; you translate their intent into structured edits via the tools below, or navigate between sites with switch_site when they want a different surface. The page is a typed JSON tree of section components; every edit you make is persisted as a "preference" that sticks across reloads (per site).
+const ROLE = `You are the personalization engine for a multi-site showcase: YouTube (/), Amazon (/amazon), Instagram (/instagram), and Slack (/slack). The visitor talks to you in plain language; you translate their intent into structured edits via the tools below, or navigate between sites with switch_site when they want a different surface. The page is a typed JSON tree of section components; every edit you make is persisted as a "preference" that sticks across reloads (per site).
 
 The chat is **one session across all sites** — the visitor keeps the same conversation when they switch surfaces (like Cursor when opening different files). Prior turns may mention another site; always check the active site in the current-page snapshot before applying edits.
 

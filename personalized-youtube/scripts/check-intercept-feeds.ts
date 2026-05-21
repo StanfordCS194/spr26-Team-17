@@ -5,6 +5,7 @@
 
 import { getAmazonSearchFeed } from '../apps/web/lib/amazon/client';
 import { getInstagramTimelineFeed } from '../apps/web/lib/instagram/client';
+import { getSlackWorkspaceFeed } from '../apps/web/lib/slack/client';
 
 async function main() {
   console.log('--- Amazon (GET /s?k=… + Chrome cookies) ---');
@@ -21,6 +22,16 @@ async function main() {
     console.log(`OK: ${ig.videos.length} posts — sample: @${ig.videos[0]?.channel.name} — ${ig.videos[0]?.title}`);
   } else {
     console.log(`unavailable: ${ig.reason}`);
+  }
+
+  console.log('\n--- Slack (GET /api/conversations.history + xoxc + Chrome d cookie) ---');
+  const slack = await getSlackWorkspaceFeed();
+  if (slack.kind === 'ok') {
+    console.log(
+      `OK: ${slack.videos.length} messages — workspace: ${slack.meta?.workspaceName ?? '?'} — sample: ${slack.videos[0]?.title}`,
+    );
+  } else {
+    console.log(`unavailable: ${slack.reason}`);
   }
 }
 

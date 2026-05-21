@@ -3,6 +3,7 @@ export const SHOWCASE_SITES = [
   { id: 'youtube', slug: 'youtube-clone', label: 'YouTube', path: '/' },
   { id: 'amazon', slug: 'amazon-storefront', label: 'Amazon', path: '/amazon' },
   { id: 'instagram', slug: 'instagram-feed', label: 'Instagram', path: '/instagram' },
+  { id: 'slack', slug: 'slack-workspace', label: 'Slack', path: '/slack' },
 ] as const;
 
 export type ShowcaseSiteId = (typeof SHOWCASE_SITES)[number]['id'];

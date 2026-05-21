@@ -35,8 +35,9 @@ export function CategoryChips({ section, config }: { section: Section; config: P
     exitSearch,
   } = usePageStore();
   if (section.type !== 'CategoryChips') return null;
-  const { active, chips } = section.props;
   const brand = getSiteBrand(config.slug);
+  if (brand === 'slack') return null;
+  const { active, chips } = section.props;
   const chipParamsByText = new Map(ytChips.map((c) => [c.text, c.params] as const));
 
   function setRowsVisible(visible: boolean): void {

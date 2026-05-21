@@ -7,6 +7,7 @@ const catalogFiles: Record<string, string> = {
   'youtube-clone': 'videos.json',
   'amazon-storefront': 'amazon-products.json',
   'instagram-feed': 'instagram-feed.json',
+  'slack-workspace': 'slack-feed.json',
 };
 
 const cache = new Map<string, { videos: Video[]; categories: string[] }>();

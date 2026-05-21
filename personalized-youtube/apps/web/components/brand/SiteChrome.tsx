@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Section } from '@showcase/shared';
-import { applyBrandSearch } from '@/lib/feed-interaction';
+import { applyBrandSearch, applyVideosToGrid, filterVideosForSlackSearch, SLACK_CATALOG } from '@/lib/feed-interaction';
 import { useAmazonCartOptional } from '@/lib/amazon-cart';
 import { getSiteBrand } from '@/lib/site-brand';
+import { SLACK_DEFAULT_CHANNEL } from '@/lib/slack/message';
 import { usePageStore, type NavKey } from '@/lib/store';
 
 function AmazonLogo() {
@@ -36,6 +37,20 @@ function InstagramLogo() {
   );
 }
 
+function SlackLogo() {
+  return (
+    <span className="flex items-center gap-2 text-white">
+      <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
+        <path fill="#e01e5a" d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z" />
+        <path fill="#36c5f0" d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z" />
+        <path fill="#2eb67d" d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.528 2.528 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312z" />
+        <path fill="#ecb22e" d="M15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.528 2.528 0 0 1 2.52-2.52h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.521h-6.313z" />
+      </svg>
+      <span className="text-lg font-bold tracking-tight">Slack</span>
+    </span>
+  );
+}
+
 function useBrandSearch(config: PageConfig) {
   const brand = getSiteBrand(config.slug);
   const {
@@ -62,7 +77,28 @@ function useBrandSearch(config: PageConfig) {
     if (!q || searching) return false;
     if (!liveFeedMode && brand === 'youtube') return false;
     if (!liveFeedMode && brand !== 'youtube') {
-      // Mock: filter locally via search query in enterSearch + client filter handled elsewhere
+      if (brand === 'slack') {
+        setSearching(true);
+        try {
+          const ok = await applyBrandSearch({
+            brand: 'slack',
+            query: q,
+            config,
+            ytContinuation,
+            dispatch,
+            enterSearch,
+            setYtContinuation,
+            hideRows: false,
+          });
+          if (ok) return true;
+        } finally {
+          setSearching(false);
+        }
+        enterSearch(q, { config, ytContinuation });
+        const filtered = filterVideosForSlackSearch(SLACK_CATALOG.slice(0, 24), q);
+        applyVideosToGrid(dispatch, config, filtered.length > 0 ? filtered : [], 2);
+        return true;
+      }
       enterSearch(q, { config, ytContinuation });
       return true;
     }
@@ -97,6 +133,8 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
 
   if (section.type !== 'TopBar') return null;
   const { searchPlaceholder, showProfileChip } = section.props;
+
+  if (brand === 'slack') return null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -281,8 +319,77 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
 
 export function BrandBottomNav({ config }: { config: PageConfig }) {
   const brand = getSiteBrand(config.slug);
-  const { activeNav, setActiveNav, setWatching, exitSearch } = usePageStore();
+  const { activeNav, setActiveNav, setWatching, exitSearch, selectedChannel } = usePageStore();
   const { runSearch, goHome } = useBrandSearch(config);
+
+  if (brand === 'slack') {
+    const items = [
+      {
+        label: 'Home',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8h5z" /></svg>
+        ),
+        onClick: () => {
+          setWatching(null);
+          exitSearch();
+          setActiveNav('Home', SLACK_DEFAULT_CHANNEL);
+        },
+        active: selectedChannel === SLACK_DEFAULT_CHANNEL || (!selectedChannel && activeNav === 'Home'),
+      },
+      {
+        label: 'DMs',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+        ),
+        onClick: () => {
+          setWatching(null);
+          exitSearch();
+          setActiveNav('Home', 'Akira Tran');
+        },
+        active: selectedChannel === 'Akira Tran' || selectedChannel === 'Ein Jun' || selectedChannel === 'Umut Eren',
+      },
+      {
+        label: 'Activity',
+        icon: (
+          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+        ),
+        onClick: () => {
+          setWatching(null);
+          exitSearch();
+          setActiveNav('Home', 'Threads');
+        },
+        active: selectedChannel === 'Threads',
+      },
+      {
+        label: 'You',
+        icon: (
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-[#611f69] text-[10px] font-bold">A</span>
+        ),
+        onClick: () => {},
+        active: false,
+      },
+    ];
+    return (
+      <nav
+        aria-label="Slack navigation"
+        className="brand-slack-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#522653] bg-[#350d36] md:hidden"
+      >
+        <div className="flex items-center justify-around px-2 py-1.5">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 ${item.active ? 'text-white' : 'text-white/60'}`}
+            >
+              {item.icon}
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    );
+  }
 
   if (brand !== 'instagram') return null;
 

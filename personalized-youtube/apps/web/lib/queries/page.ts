@@ -1,6 +1,7 @@
 import { applyPatches, PageConfigSchema, type PageConfig, type Patch, type Short, type Video } from '@showcase/shared';
 import { supabaseAdmin } from '../supabase';
 import { getAdapter, isLiveFeedSource, resolveFeedSource } from '../adapters';
+import type { SlackBootstrapMeta } from '../slack/client';
 
 interface GetRenderedConfigArgs {
   slug: string;
@@ -81,7 +82,12 @@ export interface YtChipMeta {
 
 export async function getRenderedPage(
   { slug, visitorId }: GetRenderedConfigArgs,
-): Promise<{ config: PageConfig; ytContinuation: string | null; ytChips: YtChipMeta[] }> {
+): Promise<{
+  config: PageConfig;
+  ytContinuation: string | null;
+  ytChips: YtChipMeta[];
+  slackMeta: SlackBootstrapMeta | null;
+}> {
   const db = supabaseAdmin();
 
   const { data: site, error: siteErr } = await db
@@ -96,6 +102,7 @@ export async function getRenderedPage(
   let config = PageConfigSchema.parse(site.base_config) as PageConfig;
   let ytContinuation: string | null = null;
   let ytChips: YtChipMeta[] = [];
+  let slackMeta: SlackBootstrapMeta | null = null;
 
   const source = resolveFeedSource(slug);
   console.log('[page] slug=', slug, 'feed source =', source);
@@ -109,6 +116,7 @@ export async function getRenderedPage(
         if (Array.isArray(feed.chips)) {
           ytChips = feed.chips.map((c) => ({ text: c.text, params: c.params }));
         }
+        if (feed.slackMeta) slackMeta = feed.slackMeta;
       }
     } catch (err) {
       console.warn(`[page] ${source} adapter threw; using db catalog`, err);
@@ -122,7 +130,7 @@ export async function getRenderedPage(
     config = mergeGeneratedVideos(config, (generated ?? []).map((r) => r.data as Video));
   }
 
-  if (!visitorId) return { config, ytContinuation, ytChips };
+  if (!visitorId) return { config, ytContinuation, ytChips, slackMeta };
 
   await db.from('visitors').upsert(
     { id: visitorId, last_seen: new Date().toISOString() },
@@ -137,7 +145,7 @@ export async function getRenderedPage(
     .order('created_at', { ascending: true });
 
   const patches = (prefs ?? []).map((p) => p.patch as Patch);
-  return { config: applyPatches(config, patches), ytContinuation, ytChips };
+  return { config: applyPatches(config, patches), ytContinuation, ytChips, slackMeta };
 }
 
 // Backward-compat shim: existing callers (api/page, api/chat) only need the

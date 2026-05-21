@@ -25,10 +25,18 @@ export const INSTAGRAM_CHIP_FILTERS: Record<string, { tags?: string[]; media?: '
   Following: {},
 };
 
+export {
+  filterVideosForSlackChip,
+  filterVideosForSlackChannel,
+  filterVideosForSlackSearch,
+  SLACK_CATALOG,
+} from '@/lib/slack/message';
+
 export function searchApiPath(brand: SiteBrand, query: string): string {
   const q = encodeURIComponent(query);
   if (brand === 'amazon') return `/api/amazon/search?q=${q}`;
   if (brand === 'instagram') return `/api/instagram/search?q=${q}`;
+  if (brand === 'slack') return `/api/slack/search?q=${q}`;
   return `/api/yt/search?q=${q}`;
 }
 
@@ -56,6 +64,7 @@ export async function fetchBrandSearch(
 export function feedMoreApiPath(brand: SiteBrand): string {
   if (brand === 'amazon') return '/api/amazon/more';
   if (brand === 'instagram') return '/api/instagram/more';
+  if (brand === 'slack') return '/api/slack/more';
   return '/api/yt/more';
 }
 
@@ -129,7 +138,7 @@ export async function applyBrandSearch({
 
   enterSearch(query, { config, ytContinuation });
   const columns =
-    brand === 'amazon' ? 5 : brand === 'instagram' ? 3 : 4;
+    brand === 'amazon' ? 5 : brand === 'instagram' ? 3 : brand === 'slack' ? 2 : 4;
   applyVideosToGrid(dispatch, config, videos, columns);
   setYtContinuation(continuation);
   dispatch({ op: 'set_filter', filter: { requireTags: [] } });

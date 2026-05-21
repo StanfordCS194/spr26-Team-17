@@ -46,7 +46,7 @@ export const AskUserInput = z.object({
 });
 
 export const SwitchSiteInput = z.object({
-  site: z.enum(['youtube', 'amazon', 'instagram']),
+  site: z.enum(['youtube', 'amazon', 'instagram', 'slack']),
   rationale: z.string().optional(),
 });
 
@@ -102,7 +102,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'switch_site',
     description:
-      'Navigate the visitor to another showcase surface (YouTube, Amazon, or Instagram). Use when they ask to open/switch/go to another site, or when personalization only makes sense on a different surface (e.g. "show me Amazon deals" while on YouTube). Does not change the current page layout — it loads that site\'s clone.',
+      'Navigate the visitor to another showcase surface (YouTube, Amazon, Instagram, or Slack). Use when they ask to open/switch/go to another site, or when personalization only makes sense on a different surface (e.g. "show me Amazon deals" while on YouTube). Does not change the current page layout — it loads that site\'s clone.',
     input_schema: toJsonSchema(SwitchSiteInput),
   },
 ] as const;

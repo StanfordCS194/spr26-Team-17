@@ -3,8 +3,10 @@ import { createMockAdapter, mockAdapter } from './mock';
 import { getFeed as getYoutubeFeed } from './youtube';
 import { amazonAdapter } from './amazon';
 import { instagramAdapter } from './instagram';
+import { slackAdapter } from './slack';
 import type { FeedSource } from './feed-source';
 import type { YtChip } from '../innertube/client';
+import type { SlackBootstrapMeta } from '../slack/client';
 
 export type { FeedSource } from './feed-source';
 export { resolveFeedSource, isLiveFeedSource } from './feed-source';
@@ -16,6 +18,7 @@ export interface FeedAdapter {
     shorts?: Short[];
     chips?: YtChip[];
     continuation?: string | null;
+    slackMeta?: SlackBootstrapMeta;
   }>;
   requestMoreContent?(category: string, count: number, style?: string): Promise<Video[]>;
 }
@@ -49,6 +52,19 @@ export function getAdapter(source: FeedSource, siteSlug = 'youtube-clone'): Feed
           return await instagramAdapter.getFeed();
         } catch (err) {
           console.warn(`[adapters] instagram fell back to mock: ${(err as Error).message}`);
+          return fallback.getFeed();
+        }
+      },
+    };
+  }
+
+  if (source === 'slack') {
+    return {
+      async getFeed() {
+        try {
+          return await slackAdapter.getFeed();
+        } catch (err) {
+          console.warn(`[adapters] slack fell back to mock: ${(err as Error).message}`);
           return fallback.getFeed();
         }
       },
