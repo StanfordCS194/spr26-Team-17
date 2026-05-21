@@ -14,10 +14,26 @@
 import type { Video } from '@showcase/shared';
 import { composeCookieHeader, readSlackCookies } from '../innertube/chrome-cookies';
 import { cookieValue, fetchWithSession } from '../intercept/browser-fetch';
+import { INTERCEPT_QUERY_MAX_LEN } from '../intercept/api-response';
+import {
+  isSlackChannelId,
+  isSlackListCursor,
+  isSlackThreadTs,
+  parseSlackHistoryContinuation,
+} from '../intercept/slack-input';
+import { isSlackInterceptRuntimeAllowed, slackInterceptBlockedReason } from '../intercept/slack-guard';
 import { logInterceptFailure } from '../intercept/security';
 import { readSlackXoxcFromChrome } from './chrome-xoxc';
 
 const HISTORY_PAGE_SIZE = 200;
+const SLACK_API_METHODS = new Set([
+  'auth.test',
+  'users.list',
+  'conversations.list',
+  'conversations.history',
+  'conversations.replies',
+  'search.messages',
+]);
 const LIST_PAGE_SIZE = 200;
 const MAX_LIST_PAGES = 25;
 const SEARCH_RESULT_CAP = 100;
@@ -70,6 +86,15 @@ type SessionCache = {
 
 let workspaceCache: SessionCache | null = null;
 const CACHE_MS = 30_000;
+
+function guardSlackRuntime():
+  | { kind: 'unavailable'; reason: string }
+  | null {
+  if (!isSlackInterceptRuntimeAllowed()) {
+    return { kind: 'unavailable', reason: slackInterceptBlockedReason() };
+  }
+  return null;
+}
 
 async function ensureWorkspaceCache(): Promise<
   | { kind: 'ok'; workspaceName: string; users: Map<string, SlackUser>; channels: SlackChannel[] }
@@ -267,8 +292,18 @@ async function slackApi(
   method: string,
   params: Record<string, string | number | boolean | undefined> = {},
 ): Promise<{ ok: true; json: unknown } | { ok: false; reason: string }> {
+  if (!SLACK_API_METHODS.has(method)) {
+    logInterceptFailure('slack', `blocked api method: ${method}`);
+    return { ok: false, reason: 'slack api method not allowed' };
+  }
+
   const session = await slackSession();
   if (session.kind !== 'ok') return { ok: false, reason: session.reason };
+
+  const cursor = params.cursor;
+  if (cursor !== undefined && cursor !== '' && !isSlackListCursor(String(cursor))) {
+    return { ok: false, reason: 'invalid slack cursor' };
+  }
 
   const url = new URL(`https://slack.com/api/${method}`);
   for (const [key, value] of Object.entries(params)) {
@@ -304,7 +339,8 @@ async function slackApi(
     }
     return { ok: true, json };
   } catch (err) {
-    return { ok: false, reason: `slack fetch failed: ${(err as Error).message}` };
+    logInterceptFailure('slack', `fetch failed: ${(err as Error).message}`);
+    return { ok: false, reason: 'slack fetch failed' };
   }
 }
 
@@ -359,7 +395,7 @@ function pickDefaultChannel(
   const envId = process.env.SLACK_DEFAULT_CHANNEL_ID?.trim();
   const envName = process.env.SLACK_DEFAULT_CHANNEL?.trim()?.replace(/^#\s*/, '').toLowerCase();
 
-  if (envId) {
+  if (envId && isSlackChannelId(envId)) {
     const hit = channels.find((c) => c.id === envId);
     if (hit) return { channel: hit, label: channelLabel(hit, users) };
   }
@@ -415,6 +451,9 @@ export async function getSlackBootstrap(): Promise<
   | { kind: 'ok'; meta: SlackBootstrapMeta }
   | { kind: 'unavailable'; reason: string }
 > {
+  const blocked = guardSlackRuntime();
+  if (blocked) return blocked;
+
   const cached = await ensureWorkspaceCache();
   if (cached.kind !== 'ok') return cached;
 
@@ -443,12 +482,15 @@ export async function getSlackThreadReplies(
   channelId: string,
   threadTs: string,
 ): Promise<SlackRepliesResult> {
+  const blocked = guardSlackRuntime();
+  if (blocked) return blocked;
+
   const id = channelId.trim();
   const ts = threadTs.trim();
-  if (!id || !isSlackApiChannelId(id)) {
+  if (!isSlackChannelId(id)) {
     return { kind: 'unavailable', reason: 'invalid slack channel id' };
   }
-  if (!ts || ts.length > 32) {
+  if (!isSlackThreadTs(ts)) {
     return { kind: 'unavailable', reason: 'invalid slack thread timestamp' };
   }
 
@@ -491,21 +533,25 @@ export async function getSlackThreadReplies(
     if (replies.length >= 40) break;
   }
 
-  console.log(`[slack] thread ${id}/${ts}: ${replies.length} replies`);
+  console.log(`[slack] thread: ${replies.length} replies`);
   return { kind: 'ok', replies };
-}
-
-function isSlackApiChannelId(id: string): boolean {
-  return /^[CDGW][A-Z0-9]{8,11}$/.test(id.trim());
 }
 
 export async function getSlackChannelHistory(
   channelId: string,
   cursor?: string,
 ): Promise<SlackFeedResult> {
+  const blocked = guardSlackRuntime();
+  if (blocked) return blocked;
+
   const id = channelId.trim();
-  if (!id || id.length > 32) {
+  if (!isSlackChannelId(id)) {
     return { kind: 'unavailable', reason: 'invalid slack channel id' };
+  }
+
+  const pageCursor = cursor?.trim();
+  if (pageCursor && !isSlackListCursor(pageCursor)) {
+    return { kind: 'unavailable', reason: 'invalid slack cursor' };
   }
 
   const cached = await ensureWorkspaceCache();
@@ -519,7 +565,7 @@ export async function getSlackChannelHistory(
   const res = await slackApi('conversations.history', {
     channel: id,
     limit: HISTORY_PAGE_SIZE,
-    cursor: cursor?.trim() || undefined,
+    cursor: pageCursor || undefined,
   });
   if (!res.ok) return { kind: 'unavailable', reason: res.reason };
 
@@ -539,7 +585,7 @@ export async function getSlackChannelHistory(
     ? Buffer.from(JSON.stringify({ channel: id, cursor: nextCursor }), 'utf8').toString('base64url')
     : null;
 
-  console.log(`[slack] #${channel.name ?? id}: ${videos.length} messages${cursor ? ' (page)' : ''}`);
+  console.log(`[slack] history: ${videos.length} messages${pageCursor ? ' (page)' : ''}`);
   return { kind: 'ok', videos, continuation };
 }
 
@@ -559,8 +605,14 @@ export async function getSlackWorkspaceFeed(): Promise<SlackFeedResult> {
 }
 
 export async function getSlackSearchFeed(query: string): Promise<SlackFeedResult> {
+  const blocked = guardSlackRuntime();
+  if (blocked) return blocked;
+
   const q = query.trim();
   if (!q) return getSlackWorkspaceFeed();
+  if (q.length > INTERCEPT_QUERY_MAX_LEN) {
+    return { kind: 'unavailable', reason: 'invalid query' };
+  }
 
   const res = await slackApi('search.messages', {
     query: q,
@@ -569,22 +621,14 @@ export async function getSlackSearchFeed(query: string): Promise<SlackFeedResult
     sort_dir: 'desc',
   });
   if (!res.ok) {
-    const fallback = await getSlackWorkspaceFeed();
-    if (fallback.kind !== 'ok') return { kind: 'unavailable', reason: res.reason };
-    const needle = q.toLowerCase();
-    const filtered = fallback.videos.filter((v) =>
-      [v.title, v.description, v.channel.name, ...v.tags].join(' ').toLowerCase().includes(needle),
-    );
-    if (filtered.length === 0) return { kind: 'unavailable', reason: `slack search "${q}" returned no matches` };
-    console.log(`[slack] search "${q}" (local filter): ${filtered.length} messages`);
-    return { kind: 'ok', videos: filtered, continuation: null, meta: fallback.meta };
+    return { kind: 'unavailable', reason: res.reason };
   }
 
   const cached = await ensureWorkspaceCache();
   const users = cached.kind === 'ok' ? cached.users : await loadUsers();
   const matches = (res.json as { messages?: { matches?: Record<string, unknown>[] } }).messages?.matches;
   if (!Array.isArray(matches) || matches.length === 0) {
-    return { kind: 'unavailable', reason: `slack search "${q}" returned no matches` };
+    return { kind: 'unavailable', reason: 'slack search returned no matches' };
   }
 
   const videos: Video[] = [];
@@ -610,24 +654,21 @@ export async function getSlackSearchFeed(query: string): Promise<SlackFeedResult
     if (videos.length >= SEARCH_RESULT_CAP) break;
   }
 
-  console.log(`[slack] search "${q}": ${videos.length} messages`);
+  console.log(`[slack] search: ${videos.length} messages`);
   return { kind: 'ok', videos, continuation: null };
 }
 
 export async function getSlackHistoryMore(token: string): Promise<SlackFeedResult> {
+  const blocked = guardSlackRuntime();
+  if (blocked) return blocked;
+
   if (!token.trim() || token.length > 4096) {
     return { kind: 'unavailable', reason: 'invalid slack continuation token' };
   }
-  try {
-    const parsed = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as {
-      channel?: string;
-      cursor?: string;
-    };
-    if (!parsed.channel || !parsed.cursor) {
-      return { kind: 'unavailable', reason: 'invalid slack continuation token' };
-    }
-    return getSlackChannelHistory(parsed.channel, parsed.cursor);
-  } catch {
+
+  const parsed = parseSlackHistoryContinuation(token);
+  if (!parsed) {
     return { kind: 'unavailable', reason: 'invalid slack continuation token' };
   }
+  return getSlackChannelHistory(parsed.channel, parsed.cursor);
 }

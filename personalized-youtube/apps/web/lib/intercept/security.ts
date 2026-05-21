@@ -1,4 +1,4 @@
-// Shared security helpers for intercept adapters (Amazon, Instagram, YouTube).
+// Shared security helpers for intercept adapters (Amazon, Instagram, YouTube, Slack).
 //
 // Matches the innertube tolerance contract:
 //   - Cookie values are never logged or returned to clients.
@@ -32,6 +32,7 @@ function looksSensitive(s: string): boolean {
   if (/<[a-z!/]/i.test(s)) return true;
   if (/sessionid|csrftoken|set-cookie|cookie:/i.test(s)) return true;
   if (/Bearer\s+\S/i.test(s)) return true;
+  if (/xox[cdbp]-/i.test(s)) return true;
   return false;
 }
 

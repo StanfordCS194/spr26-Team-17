@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getSlackHistoryMore } from '@/lib/slack/client';
 import { INTERCEPT_TOKEN_MAX_LEN, interceptUnavailable } from '@/lib/intercept/api-response';
+import { slackRouteBlocked } from '@/lib/intercept/slack-api-route';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
+  const blocked = slackRouteBlocked();
+  if (blocked) return blocked;
+
   const url = new URL(req.url);
   const token = url.searchParams.get('token')?.trim() ?? '';
   if (!token || token.length > INTERCEPT_TOKEN_MAX_LEN) {

@@ -65,7 +65,19 @@ pnpm --filter @showcase/web dev
 
 Open `/slack` — you should see your real workspace name, channel list, and messages from the default channel (`general` unless `SLACK_DEFAULT_CHANNEL` is set).
 
-**Deploy:** keep `FEED_ADAPTER=mock` on Vercel. Live Slack stays local-only (operator session).
+**Deploy:** keep `FEED_ADAPTER=mock` on Vercel. Live Slack stays local-only (operator session). `/api/slack/*` returns 403 in production unless `SLACK_INTERCEPT_ENABLED=true` (do not enable on public deploy).
+
+## Security
+
+Slack intercept uses **your** Chrome cookies and xoxc token on the server — same threat model as Amazon/Instagram. Hardening:
+
+- Token/cookie values never logged; xoxc patterns stripped from public errors
+- Strict channel ID + thread timestamp validation on all API routes
+- Slack API method allowlist (no arbitrary proxy)
+- No mock fallback when auth fails — empty feed + setup banner only
+- Blocked when `FEED_ADAPTER=mock` or production without `SLACK_INTERCEPT_ENABLED=true`
+
+Full checklist: [`security.md`](./security.md).
 
 ## Data model
 

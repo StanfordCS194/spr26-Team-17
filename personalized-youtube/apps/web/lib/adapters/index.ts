@@ -59,16 +59,7 @@ export function getAdapter(source: FeedSource, siteSlug = 'youtube-clone'): Feed
   }
 
   if (source === 'slack') {
-    return {
-      async getFeed() {
-        try {
-          return await slackAdapter.getFeed();
-        } catch (err) {
-          console.warn(`[adapters] slack fell back to mock: ${(err as Error).message}`);
-          return fallback.getFeed();
-        }
-      },
-    };
+    return slackAdapter;
   }
 
   // youtube

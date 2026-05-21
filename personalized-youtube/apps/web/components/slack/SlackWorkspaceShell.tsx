@@ -378,7 +378,7 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
 
             {!interceptLive && (
               <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-950">
-                Showing mock data — connect your Slack account for full channels and messages. Run{' '}
+                Live Slack not connected — connect your account to load channels and messages. Run{' '}
                 <code className="rounded bg-amber-100 px-1">pnpm slack:setup</code> (log in at app.slack.com in Chrome Profile 1, add{' '}
                 <code className="rounded bg-amber-100 px-1">SLACK_XOXC</code> to .env).
               </div>

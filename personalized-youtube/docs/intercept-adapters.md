@@ -45,7 +45,9 @@ The personalize panel has **YouTube | Amazon | Instagram | Slack** pills, or ask
 
 ## Fallback
 
-If cookies or parsing fail, adapters fall back to `lib/mock-data/amazon-products.json`, `instagram-feed.json`, or `slack-feed.json`.
+If cookies or parsing fail, Amazon and Instagram adapters fall back to `lib/mock-data/amazon-products.json` and `instagram-feed.json`.
+
+**Slack does not fall back to mock data.** When intercept auth is missing or fails, the UI shows an empty feed and a setup banner — run `pnpm slack:setup` locally with your Chrome profile and `SLACK_XOXC`.
 
 ## Security (matches InnerTube)
 

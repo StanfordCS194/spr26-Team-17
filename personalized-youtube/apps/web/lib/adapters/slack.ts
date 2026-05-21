@@ -5,7 +5,12 @@ export const slackAdapter: FeedAdapter = {
   async getFeed() {
     const result = await getSlackWorkspaceFeed();
     if (result.kind !== 'ok') {
-      throw new Error(`slack adapter unavailable: ${result.reason}`);
+      console.warn(`[adapters] slack unavailable: ${result.reason}`);
+      return {
+        videos: [],
+        categories: ['All', 'Unreads', 'Channels', 'DMs', 'Threads'],
+        continuation: null,
+      };
     }
     return {
       videos: result.videos,

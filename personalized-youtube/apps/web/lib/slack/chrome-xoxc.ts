@@ -78,7 +78,7 @@ export async function readSlackXoxcFromChrome(): Promise<string | null> {
   for (const root of roots) {
     const hit = await walkForLeveldb(root, 5);
     if (hit) {
-      console.log('[slack] loaded xoxc token from Chrome profile storage');
+      console.log('[slack] loaded xoxc token from Chrome profile storage (count-only)');
       return hit;
     }
   }

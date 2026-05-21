@@ -1,10 +1,12 @@
 import type { Video } from '@showcase/shared';
+import { isSlackChannelId } from '@/lib/intercept/slack-input';
 import slackFeed from '@/lib/mock-data/slack-feed.json';
 
 export type SlackReply = { author: string; time: string; text: string; avatar?: string };
 
+/** @deprecated import from `@/lib/intercept/slack-input` */
 export function isSlackApiChannelId(id: string): boolean {
-  return /^[CDGW][A-Z0-9]{8,11}$/.test(id.trim());
+  return isSlackChannelId(id);
 }
 
 export function slackChannelIdFromVideo(video: Video): string | null {

@@ -15,7 +15,7 @@ This is an **operator-run educational showcase**, not multi-tenant production Sa
 **Safe deployments:** local dev, Vercel with `FEED_ADAPTER=mock`.  
 **Unsafe:** public URL + live intercept feeds (all visitors share operator session for upstream fetches).
 
-## Intercept adapters (YouTube, Amazon, Instagram)
+## Intercept adapters (YouTube, Amazon, Instagram, Slack)
 
 Shared implementation: `apps/web/lib/innertube/chrome-cookies.ts`, `apps/web/lib/intercept/`.
 
@@ -26,7 +26,10 @@ Shared implementation: `apps/web/lib/innertube/chrome-cookies.ts`, `apps/web/lib
 | Visitor cannot supply cookies | `fetchWithSession` uses disk cookies only |
 | API error sanitization | `lib/intercept/security.ts` → `sanitizePublicReason()` |
 | Input bounds | Query ≤256 chars; continuation token ≤4096 chars |
-| ID validation | ASIN `^[A-Z0-9]{10}$`; Instagram media id ≤64 chars |
+| ID validation | ASIN `^[A-Z0-9]{10}$`; Instagram media id ≤64 chars; Slack channel `^[CDGW][A-Z0-9]{8,11}$`; thread ts `^\d{10,16}\.\d{6,9}$` |
+| Slack API allowlist | Only `auth.test`, `users.list`, `conversations.*`, `search.messages` — no arbitrary method proxy |
+| Slack production guard | `/api/slack/*` returns 403 unless `SLACK_INTERCEPT_ENABLED=true`; blocked when `FEED_ADAPTER=mock` |
+| Slack mock fallback | **None** — failed auth shows empty feed + setup banner (no fake workspace data) |
 
 See also [`intercept-adapters.md`](./intercept-adapters.md).
 
@@ -58,7 +61,8 @@ Next.js is pinned to ≥15.5.18 (2026-05 security patches for Server Components 
 
 ## Production checklist
 
-- [ ] `FEED_ADAPTER=mock` and `SHOWCASE_FEED_SOURCE=mock` on Vercel
+- [ ] `FEED_ADAPTER=mock` and `SHOWCASE_FEED_SOURCE=mock` on Vercel (blocks `/api/slack/*` automatically)
+- [ ] Do **not** set `SLACK_INTERCEPT_ENABLED=true` on public deploy unless you accept operator-session risk
 - [ ] `NEXT_PUBLIC_DEVTOOLS_ENABLED=false` (or unset) in production
 - [ ] `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` in env only, not repo
 - [ ] Supabase service role never exposed to client
