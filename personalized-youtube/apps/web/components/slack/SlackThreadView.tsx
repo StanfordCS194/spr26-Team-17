@@ -19,6 +19,7 @@ import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
 import { SlackChannelHeader } from './SlackChannelHeader';
 import { SlackComposer } from './SlackComposer';
+import { SlackMrkdwn } from './SlackMrkdwn';
 
 export function SlackThreadView({
   currentVideo,
@@ -103,10 +104,8 @@ export function SlackThreadView({
               <span className="text-[15px] font-bold text-[#1d1c1d]">{author}</span>
               <span className="text-xs text-[#616061]">{currentVideo?.duration ?? ''}</span>
             </div>
-            <p className="mt-1 whitespace-pre-wrap text-[15px] leading-[22px] text-[#1d1c1d]">{title}</p>
-            {body && body !== title && (
-              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-[22px] text-[#616061]">{body}</p>
-            )}
+            <SlackMrkdwn text={title} className="mt-1" />
+            {body && body !== title && <SlackMrkdwn text={body} className="mt-2 text-[#616061]" />}
           </div>
         </article>
 
@@ -131,7 +130,7 @@ export function SlackThreadView({
                       <span className="text-[15px] font-bold text-[#1d1c1d]">{reply.author}</span>
                       <span className="text-xs text-[#616061]">{reply.time}</span>
                     </div>
-                    <p className="mt-0.5 text-[15px] leading-[22px] text-[#1d1c1d]">{reply.text}</p>
+                    <SlackMrkdwn text={reply.text} className="mt-0.5" />
                   </div>
                 </div>
               ))}

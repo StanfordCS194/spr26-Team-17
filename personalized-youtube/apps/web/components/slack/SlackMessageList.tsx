@@ -10,6 +10,7 @@ import {
   slackIsThread,
 } from '@/lib/slack/message';
 import { Avatar } from '@/components/templates/Avatar';
+import { SlackMrkdwn } from './SlackMrkdwn';
 
 type DateDivider = { kind: 'date'; label: string };
 type MessageGroup = {
@@ -147,7 +148,7 @@ function MessageLines({
   return (
     <div className={compact ? 'mt-1' : 'mt-0.5'}>
       <button type="button" onClick={onOpen} className="block w-full text-left">
-        <p className="whitespace-pre-wrap text-[15px] leading-[22px] text-[#1d1c1d]">{text}</p>
+        <SlackMrkdwn text={text} />
       </button>
 
       {isThread && replyCount > 0 && (

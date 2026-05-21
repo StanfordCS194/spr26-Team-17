@@ -8,6 +8,7 @@ import {
   slackIsThread,
 } from '@/lib/slack/message';
 import { Avatar } from '@/components/templates/Avatar';
+import { SlackMrkdwn } from './SlackMrkdwn';
 
 /** Single message in a Slack channel timeline (not inbox-style). */
 export function SlackTimelineMessage({
@@ -36,10 +37,8 @@ export function SlackTimelineMessage({
             {video.duration}
           </span>
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-[22px] text-[#1d1c1d]">{video.title}</p>
-        {body && body !== video.title && (
-          <p className="mt-1 whitespace-pre-wrap text-[15px] leading-[22px] text-[#1d1c1d]">{body}</p>
-        )}
+        <SlackMrkdwn text={video.title} />
+        {body && body !== video.title && <SlackMrkdwn text={body} className="mt-1" />}
         {isThread && replies.length > 0 && (
           <span className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-[#1264a3]/30 bg-[#f0f7fc] px-2 py-1 text-[13px] font-medium text-[#1264a3]">
             <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden>
