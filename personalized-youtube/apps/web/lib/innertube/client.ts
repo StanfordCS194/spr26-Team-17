@@ -21,11 +21,17 @@ import {
 
 interface InnertubeCacheEntry {
   instance: Innertube;
+  authenticated: boolean;
   createdAt: number;
 }
 
 const INNERTUBE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 let innertubeCache: InnertubeCacheEntry | null = null;
+
+export interface InnertubeSession {
+  instance: Innertube;
+  authenticated: boolean;
+}
 
 export interface HomeFeedOk {
   kind: 'ok';
@@ -44,40 +50,37 @@ export type HomeFeedResult = HomeFeedOk | HomeFeedUnavailable;
 
 // ---------- Innertube instance management ----------
 
-export async function createInnertube(): Promise<Innertube | null> {
+export async function createInnertube(): Promise<InnertubeSession | null> {
   const now = Date.now();
   if (innertubeCache !== null && now - innertubeCache.createdAt < INNERTUBE_TTL_MS) {
-    return innertubeCache.instance;
+    return { instance: innertubeCache.instance, authenticated: innertubeCache.authenticated };
   }
 
-  const result = await readYoutubeCookies();
-  if (result.kind !== 'ok') {
-    console.warn(`[innertube] cookies unavailable: ${result.reason}`);
-    return null;
+  // Try authenticated mode first (local Chrome cookies). If unavailable
+  // (no Chrome / no cookies / on Vercel / cookies expired), fall back to
+  // anonymous mode — works for search, video info, comments, browse, and
+  // sidebar suggestions. Only personalized endpoints (home feed, subs)
+  // require authentication.
+  let cookieHeader = '';
+  const cookieResult = await readYoutubeCookies();
+  if (cookieResult.kind === 'ok') {
+    cookieHeader = composeCookieHeader(cookieResult.cookies);
+  } else {
+    console.warn(`[innertube] cookies unavailable: ${cookieResult.reason} — falling back to anonymous`);
   }
 
-  const cookieHeader = composeCookieHeader(result.cookies);
-  if (cookieHeader.length === 0) {
-    console.warn('[innertube] cookie header empty after compose');
-    return null;
-  }
+  const authenticated = cookieHeader.length > 0;
 
   try {
     const instance = await Innertube.create({
-      cookie: cookieHeader,
-      // Don't fetch the JS player — we don't decipher streams in the
-      // showcase, and skipping it makes session creation noticeably faster.
+      ...(authenticated ? { cookie: cookieHeader } : {}),
       retrieve_player: false,
       generate_session_locally: true,
-      // Locale + region. Drives source-side language filtering: with
-      // lang='en'/location='US' YouTube biases the home feed / search /
-      // chips toward English content for US viewers. The set_filter
-      // requireLanguage is the client-side backstop for stragglers.
       lang: 'en',
       location: 'US',
     });
-    innertubeCache = { instance, createdAt: now };
-    return instance;
+    innertubeCache = { instance, authenticated, createdAt: now };
+    return { instance, authenticated };
   } catch (err) {
     console.warn(`[innertube] Innertube.create failed: ${(err as Error).message}`);
     return null;
@@ -716,14 +719,15 @@ export async function getHomeFeed(): Promise<HomeFeedResult> {
 }
 
 async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  // Anonymous mode still works for /browse FEwhat_to_watch — YouTube serves
+  // a generic trending/popular feed to logged-out clients. Not personalized,
+  // but real YouTube videos with real IDs, which is what the demo needs.
+  const innertube = session.instance;
 
-  // Bypass the library's high-level parser entirely (it crashes on YouTube's
-  // newer node types like FlowStep / TalkToRecsView / ChipsShelfView). Use
-  // the raw actions.execute API and run our own lockupViewModel walker.
   let raw: unknown;
   try {
     const resp = await innertube.actions.execute('/browse', {
@@ -760,6 +764,103 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
     }
   }
 
+  // Anonymous /browse FEwhat_to_watch returns 0 videos — YouTube only serves
+  // the personalized home feed to authenticated clients. Synthesize a home
+  // feed from a handful of popular searches so the deployed (no-cookie) demo
+  // shows real YouTube videos instead of falling back to the mock catalog.
+  // Each search query becomes a chip; the chip label is sent back as the
+  // search query when the visitor clicks it (`params` carries the literal
+  // query string, prefixed with 'q:' to disambiguate from real chip tokens).
+  const anonChips: YtChip[] = [];
+  if (videos.length === 0 && !session.authenticated) {
+    const queries: Array<{ label: string; query: string }> = [
+      { label: 'Popular',   query: 'popular this week' },
+      { label: 'Music',     query: 'music' },
+      { label: 'Tutorials', query: 'tutorial' },
+      { label: 'Gaming',    query: 'gaming highlights' },
+      { label: 'News',      query: 'news today' },
+      { label: 'Comedy',    query: 'comedy sketch' },
+      { label: 'Science',   query: 'science explained' },
+    ];
+    const seen = new Set<string>();
+    const PER_CATEGORY = 18;
+    let lastSearchContinuation: string | null = null;
+    for (const { label, query } of queries) {
+      try {
+        const resp = await innertube.actions.execute('/search', { query });
+        const raw2 = (resp as { data?: unknown })?.data ?? resp;
+        const more = extractLockupVideos(raw2);
+        let added = 0;
+        for (const v of more.videos) {
+          if (added >= PER_CATEGORY) break;
+          if (!seen.has(v.id)) {
+            seen.add(v.id);
+            videos.push(v);
+            added++;
+          }
+        }
+        if (added > 0) {
+          anonChips.push({ text: label, params: `q:${query}`, isSelected: false });
+          if (more.continuation) lastSearchContinuation = more.continuation;
+        }
+      } catch (err) {
+        console.warn(`[innertube] anon-feed search "${query}" failed: ${(err as Error).message}`);
+      }
+    }
+    // Carry the last search's continuation as the synthetic feed's pagination
+    // anchor. The scroll handler hits getMoreVideos(token); for anon synthetic
+    // feeds we tag it with `anon:<token>` so getMoreVideos knows to keep
+    // pulling search pages instead of calling /browse.
+    if (lastSearchContinuation !== null) {
+      token = `anon:${lastSearchContinuation}`;
+    } else {
+      token = 'anon:';
+    }
+
+    // Synthesize a shorts row by searching short-form content. Search results
+    // include shorts (videos with sub-60s durations); we keep the short ones
+    // and reshape them as `Short` entries.
+    try {
+      const resp = await innertube.actions.execute('/search', {
+        query: 'viral shorts',
+      });
+      const raw2 = (resp as { data?: unknown })?.data ?? resp;
+      const more = extractLockupVideos(raw2);
+      const shortsSeen = new Set<string>();
+      // Prefer items extracted as shorts (shortsLockupViewModel) first; fall
+      // back to short-duration regular videos.
+      for (const s of more.shorts) {
+        if (shorts.length >= 10) break;
+        if (!shortsSeen.has(s.id)) {
+          shortsSeen.add(s.id);
+          shorts.push(s);
+        }
+      }
+      if (shorts.length < 10) {
+        for (const v of more.videos) {
+          if (shorts.length >= 10) break;
+          if (shortsSeen.has(v.id)) continue;
+          // Duration string like "0:42" → seconds; keep <= 60s.
+          const m = /^(\d+):(\d{2})$/.exec(v.duration);
+          if (!m) continue;
+          const secs = parseInt(m[1]!, 10) * 60 + parseInt(m[2]!, 10);
+          if (secs > 0 && secs <= 60) {
+            shortsSeen.add(v.id);
+            shorts.push({
+              id: v.id,
+              title: v.title,
+              thumbnail: v.thumbnail,
+              views: v.views,
+              channel: v.channel,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[innertube] anon-shorts search failed: ${(err as Error).message}`);
+    }
+  }
+
   if (videos.length === 0) {
     return {
       kind: 'unavailable',
@@ -767,8 +868,9 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
     };
   }
 
-  console.log(`[innertube] home feed: ${videos.length} videos, ${shorts.length} shorts, ${initial.chips.length} chips`);
-  return { kind: 'ok', videos, shorts, continuation: token ?? null, chips: initial.chips };
+  const chips = initial.chips.length > 0 ? initial.chips : anonChips;
+  console.log(`[innertube] home feed: ${videos.length} videos, ${shorts.length} shorts, ${chips.length} chips (auth=${session.authenticated})`);
+  return { kind: 'ok', videos, shorts, continuation: token ?? null, chips };
 }
 
 // ---------- Dynamic API: continuation, browse-by-id, search ----------
@@ -782,12 +884,49 @@ export interface DynamicResult {
   reason?: string;
 }
 
+// Rotating pool of secondary queries used to paginate the synthetic anon feed.
+// Each scroll page picks a fresh slice so the feed feels "endless" without
+// repeating the home-feed seeds.
+const ANON_MORE_QUERIES = [
+  'documentary', 'review', 'cooking recipe', 'fitness workout',
+  'travel vlog', 'live performance', 'history explained', 'tech deep dive',
+  'art tutorial', 'animation short', 'podcast clip', 'standup comedy',
+  'space exploration', 'nature footage', 'sports highlights', 'film analysis',
+];
+let anonMoreCursor = 0;
+
 // Fetches the next page of videos given a continuation token. Used by the
 // VideoGrid's IntersectionObserver for infinite scroll.
 export async function getMoreVideos(token: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
+  }
+  const innertube = session.instance;
+  // Anon synthetic-feed pagination: run two queries from the rotating pool
+  // and return their combined videos. Always returns a fresh `anon:` token
+  // so the scroll handler keeps requesting more.
+  if (token.startsWith('anon:')) {
+    const out: Video[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < 2; i++) {
+      const q = ANON_MORE_QUERIES[anonMoreCursor % ANON_MORE_QUERIES.length] ?? 'popular';
+      anonMoreCursor++;
+      try {
+        const resp = await innertube.actions.execute('/search', { query: q });
+        const raw = (resp as { data?: unknown })?.data ?? resp;
+        const parsed = extractLockupVideos(raw);
+        for (const v of parsed.videos) {
+          if (!seen.has(v.id) && out.length < 24) {
+            seen.add(v.id);
+            out.push(v);
+          }
+        }
+      } catch (err) {
+        console.warn(`[innertube] anon-more search "${q}" failed: ${(err as Error).message}`);
+      }
+    }
+    return { kind: 'ok', videos: out, shorts: [], continuation: 'anon:' };
   }
   try {
     const resp = await innertube.actions.execute('/browse', { token });
@@ -809,9 +948,23 @@ export async function getMoreVideos(token: string): Promise<DynamicResult> {
 //   - Legacy browse params get sent as `params` (kept for safety; legacy is
 //     defensive — YouTube may resurrect this path).
 export async function getBrowse(browseId: string, params?: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
+  }
+  const innertube = session.instance;
+  // Synthetic anon chips carry their query as `q:<query>`. Route them to
+  // search instead of /browse so the chip click refetches that category.
+  if (typeof params === 'string' && params.startsWith('q:')) {
+    const query = params.slice(2);
+    try {
+      const resp = await innertube.actions.execute('/search', { query });
+      const raw = (resp as { data?: unknown })?.data ?? resp;
+      const out = extractLockupVideos(raw);
+      return { kind: 'ok', videos: out.videos, shorts: out.shorts, continuation: out.continuation };
+    } catch (err) {
+      return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: (err as Error).message };
+    }
   }
   try {
     const body: Record<string, unknown> = {};
@@ -848,10 +1001,11 @@ export async function getBrowse(browseId: string, params?: string): Promise<Dyna
 // Search runs against the user's logged-in account so personalized suggestions
 // surface. Same lockup walker handles the response shape.
 export async function searchVideos(query: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const resp = await innertube.actions.execute('/search', { query });
     const raw = (resp as { data?: unknown })?.data ?? resp;
@@ -866,10 +1020,14 @@ export async function searchVideos(query: string): Promise<DynamicResult> {
 // stable browseId 'FEsubscriptions'. Falls through to unavailable when the
 // Innertube session is anonymous (no cookies).
 export async function getSubscriptionsFeed(): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
   }
+  if (!session.authenticated) {
+    return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'subscriptions require authentication' };
+  }
+  const innertube = session.instance;
   try {
     const resp = await innertube.actions.execute('/browse', { browseId: 'FEsubscriptions' });
     const raw = (resp as { data?: unknown })?.data ?? resp;
@@ -925,10 +1083,11 @@ export async function getVideoComments(videoId: string): Promise<CommentsResult>
   if (typeof videoId !== 'string' || videoId.length === 0) {
     return { kind: 'unavailable', reason: 'invalid videoId' };
   }
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const result = await innertube.getComments(videoId, 'TOP_COMMENTS');
     const total = typeof (result as { header?: { comments_count?: { text?: string } } }).header?.comments_count?.text === 'string'
@@ -998,10 +1157,11 @@ export async function getVideoInfo(videoId: string): Promise<VideoInfoResult> {
   if (typeof videoId !== 'string' || videoId.length === 0) {
     return { kind: 'unavailable', reason: 'invalid videoId' };
   }
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const info = await innertube.getInfo(videoId);
     const basic = info.basic_info;
