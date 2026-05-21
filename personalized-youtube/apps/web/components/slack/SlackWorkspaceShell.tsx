@@ -20,6 +20,7 @@ import { Avatar } from '@/components/templates/Avatar';
 import { SlackChannelHeader } from './SlackChannelHeader';
 import { SlackComposer } from './SlackComposer';
 import { SlackMessageList } from './SlackMessageList';
+import { SlackRenderProvider } from './SlackRenderContext';
 import { SlackThreadView } from './SlackThreadView';
 
 function videosFromConfig(config: PageConfig): Video[] {
@@ -66,6 +67,14 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
   const sidebarChannels = clientMeta?.channels ?? SLACK_SIDEBAR_CHANNELS.map((c) => ({ ...c }));
   const sidebarDms = clientMeta?.dms ?? SLACK_SIDEBAR_DMS.map((d) => ({ ...d }));
   const defaultChannel = clientMeta?.defaultChannelLabel ?? SLACK_DEFAULT_CHANNEL;
+
+  const channelNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const ch of sidebarChannels) {
+      map[ch.id] = ch.label.replace(/^#\s*/, '');
+    }
+    return map;
+  }, [sidebarChannels]);
 
   const catalog = liveVideos ?? videosFromConfig(config);
   const activeChannel = selectedChannel ?? defaultChannel;
@@ -312,6 +321,7 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
   );
 
   return (
+    <SlackRenderProvider channelNames={channelNames}>
     <div className="slack-shell flex min-h-0 flex-1">
       {/* Workspace rail — Slack desktop left strip */}
       <aside className="slack-workspace-rail hidden w-[70px] shrink-0 flex-col items-center border-r border-[#522653] py-3 md:flex">
@@ -409,6 +419,7 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
         )}
       </div>
     </div>
+    </SlackRenderProvider>
   );
 }
 

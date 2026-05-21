@@ -169,6 +169,13 @@
   flex-direction: column;
 }
 
+/* Keep messages from sliding under the floating Personalize panel */
+@media (min-width: 1024px) {
+  [data-brand='slack'] .slack-app-shell {
+    max-width: calc(100vw - 22rem);
+  }
+}
+
 [data-brand='slack'] .slack-shell {
   min-height: 0;
   flex: 1;
@@ -212,12 +219,14 @@
 }
 
 [data-brand='slack'] .slack-date-divider span {
+  flex-shrink: 0;
   padding: 0 4px;
   border: 1px solid #e8e8e8;
   border-radius: 999px;
   background: #fff;
   line-height: 1.6;
   padding-inline: 12px;
+  white-space: nowrap;
 }
 
 [data-brand='slack'] .slack-message-toolbar {
