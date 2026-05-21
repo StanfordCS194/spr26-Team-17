@@ -3,21 +3,17 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { composeCookieHeader, readSlackCookies } from '../innertube/chrome-cookies';
+import { cookieValue, fetchWithSession } from '../intercept/browser-fetch';
 
 const XOXC_RE = /xoxc-[A-Za-z0-9\-_]+/g;
 /** Real Slack xoxc tokens are much longer than partial leveldb fragments. */
 const XOXC_MIN_LEN = 80;
 
-function pickBestToken(candidates: Iterable<string>): string | null {
-  let best: string | null = null;
-  for (const raw of candidates) {
-    const m = raw.match(/^xoxc-[A-Za-z0-9\-_]+$/);
-    if (!m) continue;
-    const token = m[0];
-    if (token.length < XOXC_MIN_LEN) continue;
-    if (!best || token.length > best.length) best = token;
-  }
-  return best;
+function normalizeToken(raw: string): string | null {
+  const m = raw.match(/^xoxc-[A-Za-z0-9\-_]+$/);
+  if (!m) return null;
+  return m[0].length >= XOXC_MIN_LEN ? m[0] : null;
 }
 
 /** Parse team tokens from Chrome localStorage localConfig_v2 blobs in leveldb shards. */
@@ -30,7 +26,8 @@ function tokensFromLocalConfig(text: string): string[] {
     if (hit === -1) break;
     const slice = text.slice(hit, hit + 120_000);
     for (const m of slice.match(XOXC_RE) ?? []) {
-      if (m.length >= XOXC_MIN_LEN) out.push(m);
+      const t = normalizeToken(m);
+      if (t) out.push(t);
     }
     idx = hit + marker.length;
   }
@@ -43,42 +40,38 @@ function chromeProfileDir(): string | null {
   return dirname(cookiePath);
 }
 
-async function scanLeveldbDir(dir: string): Promise<string | null> {
+async function scanLeveldbDir(dir: string, candidates: Set<string>): Promise<void> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
-    return null;
+    return;
   }
 
-  let best: string | null = null;
-  const candidates: string[] = [];
   for (const name of entries) {
     if (!name.endsWith('.ldb') && !name.endsWith('.log')) continue;
     try {
-      const buf = await readFile(join(dir, name));
-      const text = buf.toString('latin1');
-      candidates.push(...tokensFromLocalConfig(text));
-      const matches = text.match(XOXC_RE);
-      if (matches) candidates.push(...matches);
+      const text = (await readFile(join(dir, name))).toString('latin1');
+      for (const t of tokensFromLocalConfig(text)) candidates.add(t);
+      for (const m of text.match(XOXC_RE) ?? []) {
+        const t = normalizeToken(m);
+        if (t) candidates.add(t);
+      }
     } catch {
       // skip unreadable leveldb shards
     }
   }
-  best = pickBestToken(candidates);
-  return best;
 }
 
-async function walkForLeveldb(dir: string, depth: number): Promise<string | null> {
-  if (depth <= 0) return null;
-  const direct = await scanLeveldbDir(dir);
-  if (direct) return direct;
+async function walkForLeveldb(dir: string, depth: number, candidates: Set<string>): Promise<void> {
+  if (depth <= 0) return;
+  await scanLeveldbDir(dir, candidates);
 
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
-    return null;
+    return;
   }
 
   for (const name of entries) {
@@ -86,20 +79,18 @@ async function walkForLeveldb(dir: string, depth: number): Promise<string | null
     try {
       const info = await stat(full);
       if (!info.isDirectory()) continue;
-      const hit = await walkForLeveldb(full, depth - 1);
-      if (hit) return hit;
+      await walkForLeveldb(full, depth - 1, candidates);
     } catch {
       // skip
     }
   }
-  return null;
 }
 
-/** Scan Chrome profile storage for a Slack xoxc- session token. */
-export async function readSlackXoxcFromChrome(): Promise<string | null> {
+async function collectAllXoxcTokens(): Promise<string[]> {
   const profile = chromeProfileDir();
-  if (!profile) return null;
+  if (!profile) return [];
 
+  const candidates = new Set<string>();
   const roots = [
     join(profile, 'Local Storage', 'leveldb'),
     join(profile, 'IndexedDB'),
@@ -107,11 +98,76 @@ export async function readSlackXoxcFromChrome(): Promise<string | null> {
   ];
 
   for (const root of roots) {
-    const hit = await walkForLeveldb(root, 5);
-    if (hit) {
-      console.log('[slack] loaded xoxc token from Chrome profile storage (count-only)');
-      return hit;
+    await walkForLeveldb(root, 5, candidates);
+  }
+
+  return [...candidates];
+}
+
+async function testXoxcToken(
+  token: string,
+  cookieHeader: string,
+): Promise<{ ok: boolean; team?: string }> {
+  try {
+    const res = await fetchWithSession('https://slack.com/api/auth.test', {
+      method: 'GET',
+      cookieHeader,
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    });
+    const json = (await res.json()) as { ok?: boolean; team?: string; error?: string };
+    if (json.ok) return { ok: true, team: json.team };
+    return { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Pick a working xoxc token (auth.test ok). Prefers SLACK_WORKSPACE name match. */
+async function pickWorkingToken(tokens: string[]): Promise<string | null> {
+  if (tokens.length === 0) return null;
+
+  const cookieResult = await readSlackCookies();
+  if (cookieResult.kind !== 'ok') {
+    return tokens.sort((a, b) => b.length - a.length)[0] ?? null;
+  }
+
+  const cookies = cookieResult.cookies;
+  const cookieHeader = composeCookieHeader(cookies, 'slack.com');
+  if (tokenNeedsCookie(tokens[0]) && !cookieValue(cookies, 'd')) {
+    return null;
+  }
+
+  const preferred = process.env.SLACK_WORKSPACE?.trim().toLowerCase();
+  let fallback: string | null = null;
+
+  for (const token of tokens) {
+    const result = await testXoxcToken(token, cookieHeader);
+    if (!result.ok) continue;
+    if (preferred && result.team?.toLowerCase().includes(preferred)) {
+      console.log(`[slack] loaded xoxc for workspace "${result.team}" (count-only)`);
+      return token;
+    }
+    if (!fallback) {
+      fallback = token;
+      if (!preferred) {
+        console.log(`[slack] loaded xoxc for workspace "${result.team}" (count-only)`);
+        return token;
+      }
     }
   }
-  return null;
+
+  if (fallback) {
+    console.log('[slack] loaded xoxc token from Chrome profile storage (count-only)');
+  }
+  return fallback;
+}
+
+function tokenNeedsCookie(token: string): boolean {
+  return token.startsWith('xoxc-');
+}
+
+/** Scan Chrome profile storage for a working Slack xoxc- session token. */
+export async function readSlackXoxcFromChrome(): Promise<string | null> {
+  const tokens = await collectAllXoxcTokens();
+  return pickWorkingToken(tokens);
 }
