@@ -128,13 +128,19 @@ function userAvatarUrl(user: SlackUser | undefined): string {
 
 let resolvedToken: string | null | undefined;
 
+/** Reset in-memory session cache (setup scripts when switching Chrome profiles). */
+export function resetSlackClientCache(): void {
+  resolvedToken = undefined;
+  workspaceCache = null;
+}
+
 async function resolveSlackToken(): Promise<string | null> {
-  if (resolvedToken !== undefined) return resolvedToken;
   const env = process.env.SLACK_XOXC?.trim() || process.env.SLACK_XOXP?.trim();
   if (env) {
     resolvedToken = env;
     return env;
   }
+  if (resolvedToken !== undefined) return resolvedToken;
   resolvedToken = await readSlackXoxcFromChrome();
   return resolvedToken;
 }
