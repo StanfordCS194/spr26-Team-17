@@ -11,6 +11,7 @@ import {
   slackDateKeyFromVideo,
   slackIsThread,
   slackMessageTimeLabel,
+  slackMessagesInSameGroup,
 } from '@/lib/slack/message';
 import { Avatar } from '@/components/templates/Avatar';
 import { SlackMrkdwn } from './SlackMrkdwn';
@@ -37,7 +38,13 @@ function groupMessages(videos: Video[]): Array<DateDivider | MessageGroup> {
 
     const author = slackAuthor(video);
     const last = out[out.length - 1];
-    if (last?.kind === 'group' && last.author === author && slackDateKeyFromVideo(video) === lastDayKey) {
+    const prevMsg = last?.kind === 'group' ? last.messages[last.messages.length - 1] : null;
+
+    if (
+      last?.kind === 'group' &&
+      prevMsg &&
+      slackMessagesInSameGroup(prevMsg, video)
+    ) {
       last.messages.push(video);
     } else {
       out.push({
@@ -63,7 +70,7 @@ export function SlackMessageList({
   const groups = groupMessages(videos);
 
   return (
-    <div className="slack-message-list min-w-0 max-w-full overflow-x-hidden">
+    <div className="slack-message-list min-w-0 max-w-full overflow-x-hidden pb-4">
       {groups.map((item, i) =>
         item.kind === 'date' ? (
           <div key={`date-${item.label}-${i}`} className="slack-date-divider" role="separator">
@@ -88,36 +95,53 @@ function MessageGroupRow({
 
   return (
     <div
-      className="slack-message-group group/msg relative min-w-0 max-w-full overflow-hidden px-5 py-0.5 hover:bg-[#f8f8f8]"
+      className="slack-message-group group/msg relative min-w-0 max-w-full px-5 py-0.5 hover:bg-[#f8f8f8]"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {hovered && (
         <div className="slack-message-toolbar" aria-hidden>
-          <ToolbarBtn label="Add reaction">😊</ToolbarBtn>
+          <ToolbarBtn label="Add reaction">
+            <span className="text-base leading-none">😊</span>
+          </ToolbarBtn>
           <ToolbarBtn label="Reply in thread">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M7.5 4.5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h9a3 3 0 0 0 3-3v-3.75H16.5V16.5a1.5 1.5 0 0 1-1.5 1.5h-9a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5H12V3H7.5z" /></svg>
+            <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current" aria-hidden>
+              <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6A1.5 1.5 0 0 1 12 3.5V5h2.5A1.5 1.5 0 0 1 16 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 7 14.5V13H4.5A1.5 1.5 0 0 1 3 11.5v-8z" />
+            </svg>
           </ToolbarBtn>
-          <ToolbarBtn label="Share">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" /></svg>
+          <ToolbarBtn label="Share message">
+            <svg viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-[1.5]" aria-hidden>
+              <path d="M14 3h3v3M10 10l7-7M6 17H3v-3" />
+            </svg>
           </ToolbarBtn>
-          <ToolbarBtn label="Save">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+          <ToolbarBtn label="Save for later">
+            <svg viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-[1.5]" aria-hidden>
+              <path d="M5 3h10v14l-5-3-5 3V3z" />
+            </svg>
           </ToolbarBtn>
-          <ToolbarBtn label="More">⋯</ToolbarBtn>
+          <ToolbarBtn label="More actions">⋯</ToolbarBtn>
         </div>
       )}
 
       <div className="flex gap-2">
-        <Avatar name={group.author} src={slackAvatarSrc(group.avatar)} size="lg" className="mt-0.5 shrink-0" />
-        <div className="min-w-0 flex-1 pb-2 pt-0.5">
-          <div className="flex items-baseline gap-2 leading-none">
+        <div className="mt-0.5 w-9 shrink-0">
+          <Avatar name={group.author} src={slackAvatarSrc(group.avatar)} size="lg" />
+        </div>
+        <div className="min-w-0 flex-1 pb-1 pt-0.5">
+          <div className="mb-0.5 flex items-baseline gap-2 leading-none">
             <span className="text-[15px] font-bold text-[#1d1c1d]">{group.author}</span>
             <span className="text-xs text-[#616061]">{group.timestamp}</span>
           </div>
 
           {group.messages.map((video, idx) => (
-            <MessageLines key={video.id} video={video} compact={idx > 0} onOpen={() => onOpen(video)} />
+            <div key={video.id} className={`group/line relative ${idx > 0 ? 'slack-msg-compact' : ''}`}>
+              {idx > 0 && (
+                <span className="slack-msg-compact-time" aria-hidden>
+                  {slackMessageTimeLabel(video)}
+                </span>
+              )}
+              <MessageLines video={video} compact={idx > 0} onOpen={() => onOpen(video)} />
+            </div>
           ))}
         </div>
       </div>
@@ -141,7 +165,7 @@ function MessageLines({
   const text = body || video.title;
 
   return (
-    <div className={compact ? 'mt-1 min-w-0' : 'mt-0.5 min-w-0'}>
+    <div className={compact ? 'mt-0.5 min-w-0' : 'min-w-0'}>
       <div
         role="button"
         tabIndex={0}
@@ -152,7 +176,7 @@ function MessageLines({
             onOpen();
           }
         }}
-        className="block w-full min-w-0 max-w-full cursor-pointer overflow-hidden text-left"
+        className="block w-full min-w-0 max-w-full cursor-pointer text-left"
       >
         <SlackMrkdwn text={text} />
       </div>
@@ -161,7 +185,7 @@ function MessageLines({
         <button
           type="button"
           onClick={onOpen}
-          className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-[#d1d2d3] hover:bg-white"
+          className="slack-thread-pill mt-1"
         >
           <span className="flex -space-x-1">
             {replies.slice(0, 3).map((r, i) => (
@@ -174,11 +198,11 @@ function MessageLines({
               />
             ))}
           </span>
-          <span className="text-[13px] font-bold text-[#1264a3]">
+          <span className="font-bold text-[#1264a3]">
             {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
           </span>
           {replies.length > 0 && replies[replies.length - 1]?.time && (
-            <span className="text-[13px] text-[#616061]">Last reply {replies[replies.length - 1]!.time}</span>
+            <span className="text-[#616061]">Last reply {replies[replies.length - 1]!.time}</span>
           )}
         </button>
       )}
@@ -188,11 +212,13 @@ function MessageLines({
 
 function ToolbarBtn({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <span
+    <button
+      type="button"
       title={label}
+      aria-label={label}
       className="grid h-7 min-w-[1.75rem] place-items-center rounded px-1 text-[#1d1c1d] hover:bg-[#f0f0f0]"
     >
       {children}
-    </span>
+    </button>
   );
 }

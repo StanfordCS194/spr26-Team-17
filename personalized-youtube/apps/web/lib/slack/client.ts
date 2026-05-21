@@ -50,6 +50,8 @@ export type SlackBootstrapMeta = {
   dms: SlackSidebarItem[];
   defaultChannelId: string;
   defaultChannelLabel: string;
+  /** Channel label (# name) → topic/purpose text */
+  channelTopics: Record<string, string>;
 };
 
 export type SlackFeedResult =
@@ -473,9 +475,12 @@ function buildBootstrapMeta(
 ): SlackBootstrapMeta {
   const sidebarChannels: SlackSidebarItem[] = [];
   const dms: SlackSidebarItem[] = [];
+  const channelTopics: Record<string, string> = {};
 
   for (const ch of channels) {
     const label = channelLabel(ch, users);
+    const topicText = ch.topic?.value?.trim() || ch.purpose?.value?.trim() || '';
+    if (topicText) channelTopics[label] = topicText;
     const item = {
       id: ch.id,
       label,
@@ -494,6 +499,7 @@ function buildBootstrapMeta(
     dms,
     defaultChannelId: defaultChannel.id,
     defaultChannelLabel: defaultLabel,
+    channelTopics,
   };
 }
 

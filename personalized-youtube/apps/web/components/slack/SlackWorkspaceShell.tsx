@@ -238,9 +238,9 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
   const topic =
     searchQuery
       ? `${messages.length} results`
-      : activeChannel.startsWith('#')
-        ? SLACK_CHANNEL_TOPICS[activeChannel] ?? null
-        : null;
+      : clientMeta?.channelTopics?.[activeChannel] ??
+        SLACK_CHANNEL_TOPICS[activeChannel] ??
+        null;
   const isDm = !activeChannel.startsWith('#') && activeChannel !== 'Threads' && !searchQuery;
 
   const sidebar = (
@@ -278,11 +278,16 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
         </div>
       </div>
 
-      <div className="flex gap-1 px-3 pb-2">
-        <QuickNavBtn label="Threads" active={activeChannel === 'Threads'} onClick={() => void selectChannel('Threads')} />
-        <QuickNavBtn label="Huddles" />
-        <QuickNavBtn label="Drafts" />
-      </div>
+      <nav className="flex gap-0.5 px-2 pb-1 flex-col">
+        <SidebarUtilityItem
+          label="Threads"
+          active={activeChannel === 'Threads'}
+          onClick={() => void selectChannel('Threads')}
+          icon="threads"
+        />
+        <SidebarUtilityItem label="Huddles" icon="huddles" />
+        <SidebarUtilityItem label="Drafts & sent" icon="drafts" />
+      </nav>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4 text-[15px]">
         <SectionLabel>Channels</SectionLabel>
@@ -423,25 +428,50 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
   );
 }
 
-function QuickNavBtn({
+function SidebarUtilityItem({
   label,
   active,
   onClick,
+  icon,
 }: {
   label: string;
   active?: boolean;
   onClick?: () => void;
+  icon: 'threads' | 'huddles' | 'drafts';
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-md px-2 py-1.5 text-center text-[11px] font-medium ${
-        active ? 'bg-[#1164a3] text-white' : 'bg-white/10 text-white/80 hover:bg-white/15'
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${
+        active ? 'bg-[#1164a3] text-white' : 'text-white/90 hover:bg-white/10'
       }`}
     >
-      {label}
+      <UtilityIcon kind={icon} />
+      <span className="truncate text-[15px]">{label}</span>
     </button>
+  );
+}
+
+function UtilityIcon({ kind }: { kind: 'threads' | 'huddles' | 'drafts' }) {
+  if (kind === 'threads') {
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 fill-current opacity-80" aria-hidden>
+        <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6A1.5 1.5 0 0 1 12 3.5V5h2.5A1.5 1.5 0 0 1 16 6.5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 7 14.5V13H4.5A1.5 1.5 0 0 1 3 11.5v-8z" />
+      </svg>
+    );
+  }
+  if (kind === 'huddles') {
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.5] opacity-80" aria-hidden>
+        <path d="M12 1a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M16 10v1a5 5 0 0 1-10 0v-1" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.5] opacity-80" aria-hidden>
+      <path d="M5 3h10v14l-5-3-5 3V3z" />
+    </svg>
   );
 }
 
@@ -474,18 +504,27 @@ function SidebarNavItem({
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex w-full items-center gap-2 rounded-md px-3 py-[3px] text-left transition-colors ${
-        active ? 'bg-[#1164a3] text-white' : 'text-white/90 hover:bg-[#350d36]/80'
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-[3px] text-left transition-colors ${
+        active
+          ? 'bg-[#1164a3] font-bold text-white'
+          : unread && unread > 0
+            ? 'font-bold text-white hover:bg-white/10'
+            : 'font-normal text-white/90 hover:bg-white/10'
       }`}
     >
       {avatar ? (
-        <Avatar name={avatar} size="xs" />
+        <span className="relative shrink-0">
+          <Avatar name={avatar} size="xs" />
+          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#3f0e40] bg-[#2bac76]" aria-hidden />
+        </span>
       ) : (
-        prefix && <span className="w-4 shrink-0 text-center text-[15px] text-white/50">{prefix}</span>
+        prefix && <span className="w-[18px] shrink-0 text-center text-[15px] opacity-70">{prefix}</span>
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {unread != null && unread > 0 && (
-        <span className="rounded-full bg-white px-1.5 text-[11px] font-bold text-[#350d36]">{unread}</span>
+        <span className="min-w-[1.125rem] rounded-full bg-white px-1.5 text-center text-[11px] font-bold leading-[18px] text-[#350d36]">
+          {unread}
+        </span>
       )}
     </button>
   );

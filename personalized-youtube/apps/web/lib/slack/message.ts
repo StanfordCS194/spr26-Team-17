@@ -49,6 +49,22 @@ export function slackDateDividerLabel(video: Video, now = new Date()): string {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+/** Ms since epoch for message ordering/grouping. */
+export function slackMessageTimeMs(video: Video): number | null {
+  const d = slackMessageDateFromVideo(video);
+  return d ? d.getTime() : null;
+}
+
+/** Same author within 5 minutes on the same day → one Slack message group. */
+export function slackMessagesInSameGroup(prev: Video, next: Video): boolean {
+  if (slackAuthor(prev) !== slackAuthor(next)) return false;
+  if (slackDateKeyFromVideo(prev) !== slackDateKeyFromVideo(next)) return false;
+  const t1 = slackMessageTimeMs(prev);
+  const t2 = slackMessageTimeMs(next);
+  if (t1 == null || t2 == null) return true;
+  return Math.abs(t2 - t1) < 5 * 60 * 1000;
+}
+
 /** Clock time for a message (e.g. 9:42 AM). */
 export function slackMessageTimeLabel(video: Video): string {
   const d = slackMessageDateFromVideo(video);
