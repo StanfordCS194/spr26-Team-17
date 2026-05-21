@@ -15,9 +15,9 @@ No third-party SDKs. We replay browser requests with Chrome cookies (same patter
 
 1. Log in on **amazon.com**, **instagram.com**, and **app.slack.com** in Chrome (same profile as `CHROME_COOKIE_PATH`).
 2. `pnpm seed:sites` — upsert base configs for the new slugs.
-3. Set `SLACK_XOXC` in `.env` (see [`slack.md`](./slack.md)).
+3. Set `SLACK_XOXC` in `.env` (see [`slack.md`](./slack.md)), or run `pnpm launch:slack` to auto-detect from Chrome.
 4. `pnpm check:feeds` — smoke-test cookie + fetch + parse.
-5. `pnpm --filter @showcase/web dev` → open `/amazon`, `/instagram`, and `/slack`.
+5. `pnpm launch:slack` → opens `/slack` in **your** Chrome profile (recommended for teammates).
 
 ## What we intercept
 

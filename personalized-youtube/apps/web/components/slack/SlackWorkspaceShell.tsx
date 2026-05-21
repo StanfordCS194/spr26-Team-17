@@ -378,9 +378,8 @@ export function SlackWorkspaceShell({ config }: { config: PageConfig }) {
 
             {!interceptLive && (
               <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-950">
-                Live Slack not connected — connect your account to load channels and messages. Run{' '}
-                <code className="rounded bg-amber-100 px-1">pnpm slack:setup</code> (log in at app.slack.com in Chrome Profile 1, add{' '}
-                <code className="rounded bg-amber-100 px-1">SLACK_XOXC</code> to .env).
+                Live Slack not connected — each teammate uses their own Chrome session locally. Run{' '}
+                <code className="rounded bg-amber-100 px-1">pnpm launch:slack</code> (opens Chrome, auto-detects your profile and cookies).
               </div>
             )}
 

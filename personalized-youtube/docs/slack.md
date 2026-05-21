@@ -40,7 +40,28 @@ pnpm seed:sites
 
 Visit http://localhost:3000/slack (with dev server running).
 
-## Live intercept setup
+## Quick start (each teammate)
+
+Everyone runs locally with **their own** Chrome profile and `.env` (gitignored — never commit tokens):
+
+```bash
+cd personalized-youtube
+pnpm install
+cp .env.example .env   # add shared API keys; Slack fields are auto-filled
+pnpm launch:slack      # scans Chrome → writes your cookies/token → opens /slack in Chrome
+```
+
+`launch:slack` will:
+1. Scan **your** Chrome profiles for Slack cookies + xoxc token
+2. Write `CHROME_COOKIE_PATH` and `SLACK_XOXC` to your local `.env`
+3. Start the dev server if needed
+4. Open **Chrome** (same profile as your cookies) to http://localhost:3000/slack
+
+If Slack needs a re-login, it also opens app.slack.com in that profile — sign in, then re-run `pnpm launch:slack`.
+
+Manual alternative: `pnpm slack:configure` after logging in at app.slack.com.
+
+## Live intercept setup (manual)
 
 1. Log in to **app.slack.com** in Chrome (same profile as `CHROME_COOKIE_PATH`).
 2. Copy your **xoxc** token (DevTools → Console):

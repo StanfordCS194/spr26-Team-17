@@ -4,13 +4,13 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { readSlackCookies } from '../apps/web/lib/innertube/chrome-cookies';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readSlackXoxcFromChrome } from '../apps/web/lib/slack/chrome-xoxc';
 import { getSlackBootstrap, resetSlackClientCache } from '../apps/web/lib/slack/client';
+import { cookiePathForProfile, listChromeProfiles } from './lib/chrome-profile';
 
-const chromeBase = join(process.env.HOME!, 'Library/Application Support/Google/Chrome');
-const profiles = ['Profile 9', 'Profile 5', 'Profile 6', 'Profile 1', 'Default'];
+const ENV_PATH = join(dirname(fileURLToPath(import.meta.url)), '../.env');
 
 async function tryBootstrap(cookiePath: string): Promise<
   | { kind: 'ok'; workspaceName: string; channels: number; defaultLabel: string }
@@ -36,8 +36,8 @@ async function tryBootstrap(cookiePath: string): Promise<
 }
 
 async function pickProfile(): Promise<{ profile: string; cookiePath: string } | null> {
-  for (const profile of profiles) {
-    const cookiePath = join(chromeBase, profile, 'Cookies');
+  for (const profile of listChromeProfiles()) {
+    const cookiePath = cookiePathForProfile(profile);
     if (!existsSync(cookiePath)) continue;
 
     const result = await tryBootstrap(cookiePath);
@@ -82,7 +82,7 @@ async function main() {
     process.exit(1);
   }
 
-  upsertEnv('.env', picked.cookiePath, token);
+  upsertEnv(ENV_PATH, picked.cookiePath, token);
   console.log(`\n✓ Updated .env — CHROME_COOKIE_PATH → ${picked.profile}`);
   console.log('✓ Added SLACK_XOXC (not printed)');
 
