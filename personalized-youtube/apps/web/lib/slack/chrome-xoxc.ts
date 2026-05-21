@@ -133,7 +133,7 @@ async function pickWorkingToken(tokens: string[]): Promise<string | null> {
 
   const cookies = cookieResult.cookies;
   const cookieHeader = composeCookieHeader(cookies, 'slack.com');
-  if (tokenNeedsCookie(tokens[0]) && !cookieValue(cookies, 'd')) {
+  if (tokens[0] && tokenNeedsCookie(tokens[0]) && !cookieValue(cookies, 'd')) {
     return null;
   }
 

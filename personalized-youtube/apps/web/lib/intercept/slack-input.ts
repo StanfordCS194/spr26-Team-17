@@ -5,6 +5,11 @@ export function isSlackChannelId(id: string): boolean {
   return /^[CDGW][A-Z0-9]{8,11}$/.test(id.trim());
 }
 
+/** Slack user / member id (U…, W… for Slack Connect guests). */
+export function isSlackUserId(id: string): boolean {
+  return /^[UW][A-Z0-9]{8,15}$/.test(id.trim());
+}
+
 /** Thread root timestamp from Slack (e.g. 1715628123.456789). */
 export function isSlackThreadTs(ts: string): boolean {
   return /^\d{10,16}\.\d{6,9}$/.test(ts.trim());

@@ -19,6 +19,7 @@ import {
   isSlackChannelId,
   isSlackListCursor,
   isSlackThreadTs,
+  isSlackUserId,
   parseSlackHistoryContinuation,
 } from '../intercept/slack-input';
 import { isSlackInterceptRuntimeAllowed, slackInterceptBlockedReason } from '../intercept/slack-guard';
@@ -29,6 +30,7 @@ const HISTORY_PAGE_SIZE = 200;
 const SLACK_API_METHODS = new Set([
   'auth.test',
   'users.list',
+  'users.info',
   'conversations.list',
   'conversations.history',
   'conversations.replies',
@@ -37,6 +39,8 @@ const SLACK_API_METHODS = new Set([
 const LIST_PAGE_SIZE = 200;
 const MAX_LIST_PAGES = 25;
 const SEARCH_RESULT_CAP = 100;
+const MISSING_USER_CAP = 80;
+const USER_INFO_CONCURRENCY = 6;
 
 export type SlackSidebarItem = { id: string; label: string; unread: number };
 
@@ -118,6 +122,8 @@ async function ensureWorkspaceCache(): Promise<
     loadUsers(),
   ]);
 
+  await loadMissingUsers(channels, users);
+
   workspaceCache = { loadedAt: Date.now(), workspaceName, users, channels };
   return { kind: 'ok', workspaceName, users, channels };
 }
@@ -165,7 +171,9 @@ function formatSlackTs(ts: string): string {
 }
 
 function userDisplayName(user: SlackUser | undefined, fallback = 'Member'): string {
-  if (!user) return fallback;
+  if (!user) {
+    return isSlackUserId(fallback) ? 'Direct message' : fallback;
+  }
   return user.profile?.display_name?.trim() || user.real_name?.trim() || user.name || fallback;
 }
 
@@ -364,6 +372,37 @@ async function loadUsers(): Promise<Map<string, SlackUser>> {
   }
 
   return map;
+}
+
+/** Resolve IM peers missing from users.list (guests, Slack Connect, deactivated). */
+async function loadMissingUsers(channels: SlackChannel[], users: Map<string, SlackUser>): Promise<void> {
+  const missing: string[] = [];
+  for (const ch of channels) {
+    if (!ch.is_im || typeof ch.user !== 'string') continue;
+    const id = ch.user.trim();
+    if (!id || users.has(id) || missing.includes(id)) continue;
+    missing.push(id);
+  }
+
+  const toFetch = missing.filter(isSlackUserId).slice(0, MISSING_USER_CAP);
+  if (toFetch.length === 0) return;
+
+  const before = users.size;
+  let idx = 0;
+  async function worker(): Promise<void> {
+    while (idx < toFetch.length) {
+      const userId = toFetch[idx++]!;
+      const res = await slackApi('users.info', { user: userId });
+      if (!res.ok) continue;
+      const user = (res.json as { user?: SlackUser }).user;
+      if (user && typeof user.id === 'string') users.set(user.id, user);
+    }
+  }
+
+  const workers = Math.min(USER_INFO_CONCURRENCY, toFetch.length);
+  await Promise.all(Array.from({ length: workers }, () => worker()));
+  const resolved = users.size - before;
+  if (resolved > 0) console.log(`[slack] resolved ${resolved} missing DM user profiles`);
 }
 
 async function loadWorkspaceName(): Promise<string> {
