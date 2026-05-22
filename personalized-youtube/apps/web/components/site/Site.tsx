@@ -1,8 +1,27 @@
 'use client';
 
+import type { Section } from '@showcase/shared';
 import { renderSection } from '../templates/registry';
 import { usePageStore } from '@/lib/store';
 import { WatchPage } from './WatchPage';
+
+function sectionStyleVars(section: Section): React.CSSProperties | undefined {
+  const style = section.props.style;
+  if (!style) return undefined;
+  const css: Record<string, string> = {};
+  if (style.background) {
+    css.background = style.background;
+    css['--bg'] = style.background;
+    css['--surface'] = style.background;
+  }
+  if (style.accent) css['--accent'] = style.accent;
+  if (style.textColor) {
+    css.color = style.textColor;
+    css['--fg'] = style.textColor;
+  }
+  if (style.borderRadius) css.borderRadius = style.borderRadius;
+  return css as React.CSSProperties;
+}
 
 const HEADER_TYPES = new Set(['TopBar']);
 const SIDEBAR_TYPES = new Set(['Sidebar']);
@@ -33,7 +52,7 @@ export function Site() {
           key={section.id}
           data-section-id={section.id}
           data-section-type={section.type}
-          style={chromeStyle}
+          style={{ ...sectionStyleVars(section), ...chromeStyle }}
         >{renderSection(section, config)}</div>
       ))}
       <div className="flex">
@@ -42,7 +61,7 @@ export function Site() {
             key={section.id}
             data-section-id={section.id}
             data-section-type={section.type}
-            style={chromeStyle}
+            style={{ ...sectionStyleVars(section), ...chromeStyle }}
           >{renderSection(section, config)}</div>
         ))}
         <main className="min-w-0 flex-1 relative z-10">
@@ -50,7 +69,12 @@ export function Site() {
             <WatchPage />
           ) : (
             main.map((section) => (
-              <div key={section.id} data-section-id={section.id} data-section-type={section.type}>{renderSection(section, config)}</div>
+              <div
+                key={section.id}
+                data-section-id={section.id}
+                data-section-type={section.type}
+                style={sectionStyleVars(section)}
+              >{renderSection(section, config)}</div>
             ))
           )}
         </main>
@@ -59,7 +83,7 @@ export function Site() {
             key={section.id}
             data-section-id={section.id}
             data-section-type={section.type}
-            style={chromeStyle}
+            style={{ ...sectionStyleVars(section), ...chromeStyle }}
           >{renderSection(section, config)}</div>
         ))}
       </div>

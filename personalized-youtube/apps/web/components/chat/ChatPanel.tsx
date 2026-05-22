@@ -77,7 +77,7 @@ function defaultWindowState(): WindowState {
 }
 
 export function ChatPanel({ pageSlug }: { pageSlug: string }) {
-  const { config, dispatch, replace, watchingId, watchingTitle } = usePageStore();
+  const { config, dispatch, replace, watchingId, watchingTitle, magicPointerActive, setMagicPointerActive } = usePageStore();
   const [open, setOpen] = useState(true);
   const [minimized, setMinimized] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -324,6 +324,17 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMagicPointerActive(!magicPointerActive)}
+              aria-label={magicPointerActive ? 'Deactivate magic pointer' : 'Activate magic pointer'}
+              title={magicPointerActive ? 'Click sections to edit (active)' : 'Click sections to edit'}
+              className={`rounded p-1 transition ${magicPointerActive ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]' : 'hover:bg-[color:var(--muted)]'}`}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                <path d="M5 3l4 11 3-3 4 4 1.5-1.5-4-4 3-3L5 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+            </button>
             <button
               onClick={toggleMinimize}
               aria-label={minimized ? 'Expand' : 'Minimize'}

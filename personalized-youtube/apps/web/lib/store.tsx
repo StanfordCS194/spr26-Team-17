@@ -15,6 +15,8 @@ interface PageStoreValue {
   pageSlug: string;
   dispatch: (patch: Patch, options?: { persist?: boolean; rationale?: string }) => void;
   replace: (config: PageConfig) => void;
+  magicPointerActive: boolean;
+  setMagicPointerActive: (active: boolean) => void;
   // YouTube-source extras: continuation token for infinite scroll, mutable
   // so the grid can update it after each /api/yt/more page lands.
   ytContinuation: string | null;
@@ -57,6 +59,7 @@ export function PageStoreProvider({
   children: ReactNode;
 }) {
   const [config, setConfig] = useState<PageConfig>(initialConfig);
+  const [magicPointerActive, setMagicPointerActive] = useState(false);
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
   const [watchingTitle, setWatchingTitle] = useState<string | null>(null);
@@ -95,6 +98,8 @@ export function PageStoreProvider({
         pageSlug,
         dispatch,
         replace,
+        magicPointerActive,
+        setMagicPointerActive,
         ytContinuation,
         setYtContinuation,
         ytChips: initialYtChips,

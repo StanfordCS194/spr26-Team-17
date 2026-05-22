@@ -5,6 +5,7 @@ import { usePageStore } from '@/lib/store';
 import { Site } from './Site';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
+import { MagicPointerController } from '@/components/magic-pointer/MagicPointerController';
 
 const FONT_CLASS = {
   sans: 'font-sans',
@@ -112,6 +113,7 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
       )}
       <Site />
       <ChatPanel pageSlug={pageSlug} />
+      <MagicPointerController />
     </div>
   );
 }

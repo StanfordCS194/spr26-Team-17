@@ -18,6 +18,11 @@ interface ChatRequest {
   // multimodal image so prompts like "adapt the theme to the playing video"
   // can actually reason about the visuals.
   watching?: { id: string; title: string; thumbnail: string | null } | null;
+  // Magic pointer mode: when set, only this section's structure is sent to
+  // Claude and the tool list is narrowed to update_section + update_theme.
+  // This makes pointer edits ~5x cheaper and prevents accidental page restructuring.
+  focusedSectionId?: string;
+  focusedSectionType?: string;
 }
 
 // Fetch a thumbnail URL and convert to a base64 image block for Claude.
@@ -47,7 +52,7 @@ async function fetchAsImageBlock(
 }
 
 export async function POST(req: NextRequest) {
-  const { pageSlug, message, history = [], watching = null } = (await req.json()) as ChatRequest;
+  const { pageSlug, message, history = [], watching = null, focusedSectionId, focusedSectionType } = (await req.json()) as ChatRequest;
   const cookieStore = await cookies();
   const visitorId = cookieStore.get('visitor_id')?.value;
   if (!visitorId) {
@@ -57,12 +62,35 @@ export async function POST(req: NextRequest) {
   const config = await getRenderedConfig({ slug: pageSlug, visitorId });
   const sys = buildSystemBlocks();
 
+  // Per-type hint: tells Claude exactly what props a section accepts and their valid values.
+  // Injected into the focused message so Claude never guesses wrong props.
+  // style prop is available on every section for per-section visual overrides.
+  const STYLE_HINT = 'per-section visuals via style object: { "style": { "background": "<CSS color or gradient>", "accent": "<hex>", "textColor": "<CSS color>", "borderRadius": "<e.g. 12px>" } }';
+  const SECTION_EDIT_HINTS: Record<string, string> = {
+    TopBar:              `logoText (string), searchPlaceholder (string), compactSearch (bool), showProfileChip (bool) | ${STYLE_HINT}`,
+    Sidebar:             `collapsed (bool), position ("left"|"right"), pinnedItems (string[]), showSubscriptions (bool) | ${STYLE_HINT}`,
+    CategoryChips:       `chips (string[]), active (string) | ${STYLE_HINT}`,
+    VideoGrid:           `columns (2|3|4|5), density ("compact"|"cozy"|"comfortable"), layout ("grid"|"shelves"|"list") | ${STYLE_HINT}`,
+    RecommendedRow:      `headline (string) | ${STYLE_HINT}`,
+    ShortsRow:           `visible (bool), headline (string) | ${STYLE_HINT}`,
+    ContinueWatchingRow: `visible (bool), headline (string) | ${STYLE_HINT}`,
+    FilterSummary:       `visible (bool) | ${STYLE_HINT}`,
+    CustomNote:          `text (string), visible (bool) | ${STYLE_HINT}`,
+    MoodBoard:           `moods (array of {id,label,emoji,description,tags[]}) | ${STYLE_HINT}`,
+    SubtitleTrack:       `visible (bool), position ("overlay"|"docked"), hoverDefine (bool), vocabPin (bool) | ${STYLE_HINT}`,
+    AmbientBackground:   `visible (bool), source ("playingVideo"|"topVideo"), intensity (0-1), particles ("none"|"mood"|"snow"|"embers"|"clouds"|"leaves"|"rain"|"stars") | ${STYLE_HINT}`,
+    WatchHistoryToggle:  `visible (bool), position ("sidebar"|"topbar"|"inline") | ${STYLE_HINT}`,
+    TimeSavedTally:      `visible (bool), position ("sidebar"|"topbar"|"inline") | ${STYLE_HINT}`,
+  };
+
   // Compact section summary — id + type + a 1-line summary of the most useful props.
-  // Crucially: drop heavy fields like videos[] from the prompt. The LLM only needs ids
-  // and types to call update_section; it does NOT need to see the catalog.
+  // In focused mode, send ALL sections but mark the focused one so Claude has full context.
   const sectionSummaries = config.sections.map((s) => {
     const props = s.props as Record<string, unknown>;
     const summary: Record<string, unknown> = { id: s.id, type: s.type };
+    if (focusedSectionId && s.id === focusedSectionId) {
+      summary['_focus'] = '★ FOCUSED — edit this section';
+    }
     for (const [k, v] of Object.entries(props)) {
       if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
         summary[k] = `[${v.length} ${k}]`; // e.g. [60 videos]
@@ -74,6 +102,11 @@ export async function POST(req: NextRequest) {
     }
     return summary;
   });
+
+  // Always pass the full tool set — focused context steers Claude via the message, not by
+  // restricting tools. Filtering to 2 tools contradicts the cached system prompt (which lists
+  // all 9) and removes legitimately useful tools like set_filter / request_more_content.
+  const activeTools = TOOL_DEFINITIONS;
 
   const visitorState = buildVisitorState(
     {
@@ -117,7 +150,25 @@ export async function POST(req: NextRequest) {
       if (img) userBlocks.push(img);
     }
   }
-  userBlocks.push({ type: 'text', text: '\n\nVisitor: ' + message });
+  const sectionHint = focusedSectionType ? (SECTION_EDIT_HINTS[focusedSectionType] ?? null) : null;
+  const userText = focusedSectionId
+    ? `\n\n<magic_pointer_edit>
+The visitor clicked on the **${focusedSectionType ?? 'section'}** section (id: "${focusedSectionId}") using the magic pointer.
+
+Editable props for this section: ${sectionHint ?? 'see schema catalog above'}
+
+Decision rules:
+- "change the background / color / theme of THIS section" → update_section with a style patch: { "sectionId": "${focusedSectionId}", "patch": { "style": { "background": "<value>" } } }
+- "change the whole page / global accent / font / dark mode" → update_theme
+- "more/less of X, hide channel" → set_filter / request_more_content
+- Structural props (columns, layout, visible, etc.) → update_section directly
+
+Visitor instruction: "${message}"
+
+Apply the change to section "${focusedSectionId}" immediately. Do not ask for clarification.
+</magic_pointer_edit>`
+    : '\n\nVisitor: ' + message;
+  userBlocks.push({ type: 'text', text: userText });
 
   const messages: Array<{ role: 'user' | 'assistant'; content: string | ContentBlock[] }> = [
     ...history.map((h) => ({ role: h.role, content: h.content })),
@@ -142,7 +193,7 @@ export async function POST(req: NextRequest) {
           model: MODEL_OPUS,
           max_tokens: 1024,
           system: [sys.role, sys.schemaCatalog, sys.editingRules],
-          tools: TOOL_DEFINITIONS as any,
+          tools: activeTools as any,
           messages,
         });
 
