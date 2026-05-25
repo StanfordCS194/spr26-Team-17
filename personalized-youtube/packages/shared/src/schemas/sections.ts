@@ -1,11 +1,21 @@
 import { z } from 'zod';
 import { Video, Short, Chapter } from './video';
 
+// Per-section style overrides. Applied as CSS on the section's wrapper div;
+// CSS variables cascade into children so component internals pick them up.
+export const SectionStyle = z.object({
+  background: z.string().optional(),  // any CSS color or gradient
+  accent: z.string().optional(),      // hex — overrides --accent for this section only
+  textColor: z.string().optional(),   // any CSS color — overrides --fg
+  borderRadius: z.string().optional(), // e.g. '12px' or '0'
+}).optional();
+export type SectionStyle = z.infer<typeof SectionStyle>;
+
 const baseSection = <T extends string, P extends z.ZodRawShape>(type: T, props: P) =>
   z.object({
     id: z.string(),
     type: z.literal(type),
-    props: z.object(props),
+    props: z.object({ ...props, style: SectionStyle }),
   });
 
 export const TopBar = baseSection('TopBar', {

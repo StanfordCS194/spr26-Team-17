@@ -1,215 +1,167 @@
-# Demo Day 2 feedback (voice session → themes & quotes)
+# Demo Day 2 — User Feedback Report
 
-**What this is:** A synthesis of **Demo Day 2** internal discussion captured in **`New Recording 8`** — verbatim excerpts with timestamps, grouped into themes that inform **product direction** and can **inform** the formal user-testing plan.
+**Team 17 · Spring 2026 · CS194**
+**Session:** New Recording 8 · **Transcript:** `new-recording-8-transcript-whisper-small.txt`
 
-**What this is not:** The course **user testing test plan** deliverable (*Planning To Learn From User Testing*). That is documented separately in **[`user-testing-plan.md`](./user-testing-plan.md)** (team-owned; link from the [Wiki hub](https://github.com/StanfordCS194/spr26-Team-17/wiki/User-Testing-Plan)).
-
-**Related:** Draft moderator script from the same voice memo — [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md) (working prep, **not** a substitute for completing `user-testing-plan.md`).
-
-This document translates the recording into **measurable themes** that overlap with common test-plan sections (welcome, setup, feedback, interventions, tasks) for traceability only.
-
-**Citation rule:** Quotations below are **verbatim strings** taken from [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) (machine transcription, **OpenAI Whisper `small`**, VAD enabled). Speakers are **not diarized**; attribute only to *“participant(s), Demo Day 2 transcript”* unless your team assigns names afterward. Timestamps **`[MM:SS.xx]`** point to segment starts in that file.
+> This document captures direct user feedback from Demo Day 2 plus transcript-sourced themes. It is a product feedback artifact — see [`user-testing-plan.md`](./user-testing-plan.md) for the formal course test plan assignment.
 
 ---
 
-## 1. Scope: Demo Day 2 feedback vs. course test plan
+## Summary
 
-| Artifact | Role |
-|----------|------|
-| **This file + audio + transcripts** | **Demo Day 2 feedback** — evidence and interpretation from the Demo Day 2 session (`New Recording 8`). |
-| **`user-testing-plan.md`** | **Assignment test plan** — complete facilitator-facing plan for **external testers**, per course outline (Wiki-indexed, printable at midpoint, etc.). |
-
-Work completed here **does not** check off the test plan deliverable by itself; use it as input when writing `user-testing-plan.md`.
-
----
-
-## 2. Product thesis & realism (welcome / tester orientation helpers)
-
-Tell testers plainly that the chrome is **YouTube-shaped** but may be **demo / mock**:
-
-> "It's not YouTube." / "It's not real." / "Yeah."  
-> — Transcript **`[05:44.52]`–`[05:52.52]`**
-
-Contrast **one-shot flashy updates** vs **smooth, sequential personalization**—this emerged as desired polish:
-
-> "I think also like making the transitions kind of smoother. So it looks more like ... More modern rather than just like a flash and everything."  
-> — **`[05:23.52]`–`[05:30.52]`**
-
-> "I think it's more like a ... Maybe a sequential changing."  
-> — **`[05:34.52]`–`[05:35.52]`**
-
-**Tester-facing angle:** Ask whether redesigns felt **immediate “flash cuts”** or **coherent unfolding** across prompts.
+| Priority  | Count |
+| --------- | ----- |
+| 🔴 High   | 4     |
+| 🟡 Medium | 3     |
+| 🟢 Low    | 2     |
+| **Total** | **9** |
 
 ---
 
-## 3. Demographics & tailoring (core benefit / exploratory tasks)
+## Feedback Log
 
-Hypothesis surfaced: **different people need different densities and UX emphasis**, not “one layout”:
-
-> "So we have different demographics ... Like an old person engaging with ... lots of information versus a young person ... There are ... different kind of aspects that we want to focus ... we kind of ask ... a user ... How you wanna see the website ... And ... it's not only the algorithm ... It's also ... the UX design of the website ..."  
-> — **`[06:34.52]`–`[07:04.68]`**
-
-**Suggested task:** Rotate two **persona primes** verbally (minimal vs maximal information density before opening chat) → observe **first prompts** testers type.
+### 🔴 High Priority
 
 ---
 
-## 4. Value beyond video grid (comparison / extrapolation prompts)
+#### FB-01 · Reels-only filter
 
-Discussants imagine **catalog / narrative / archival** contexts—usable as **bonus exploration** tasks after core YouTube-shell tasks.
+| Field      | Detail                          |
+| ---------- | ------------------------------- |
+| **User**   | User 1                          |
+| **Quote**  | _"Can we only show the reels."_ |
+| **Theme**  | Content Filtering               |
+| **Source** | Demo Day 2 — direct             |
 
-**Wikipedia / reading-style layouts**
-
-> "For example like Wikipedia ... It's the same in facts but ... If you want to scroll the information in a different way ... it can ... Present the information to you as you want to consume it."  
-> — **`[08:20.10]`–`[08:44.10]`**
-
-**E-commerce narrative**
-
-> "... any e-commerce basically if you are buying something ... prepares all of the website and the narrative of the website ... For a tennis player viewing the website Not like ... just normal runner ... It's fine tuned to the user."  
-> — **`[08:44.10]`–`[09:10.10]`**
-
-**Other surfaces (Instagram)—expect pushback feasibility**
-
-> "I feel like Instagram is one of the most ... Instagram is a bunch of stuff that I just don't want to see."  
-> — **`[07:49.10]`–`[07:51.10]`**
-
-**Interpretation:** keep **comparison questions optional** (“Where else would you want this wrapper?”)—note **confidence & ethical comfort**, not only feature requests.
+Users want a mode or toggle that restricts the video grid to short-form / Reels content only, removing long-form videos entirely from view.
 
 ---
 
-## 5. Data pipeline & ethics (observe & probe without leading)
+#### FB-02 · Vertical scroll feed
 
-Discussants contrast **silent tracking vs explicit chat**:
+| Field      | Detail                                                 |
+| ---------- | ------------------------------------------------------ |
+| **User**   | User 2                                                 |
+| **Quote**  | _"Can I scroll the videos instead of original setup."_ |
+| **Theme**  | Navigation / Layout                                    |
+| **Source** | Demo Day 2 — direct                                    |
 
-> "But I think it depends on what is the pipeline of data is flowing ... we initially thought ... we are tracking the user's information ... Or and then we realize maybe we have to chat with the user ... And get that information ... And then change the website based on that."  
-> — **`[09:13.10]`–`[09:28.10]`**
-
-Concern about **commercial “echo chamber” pressure**:
-
-> "So ... it's ... an echo chamber ... I'm not ... In favor of just guiding that project to that direction"  
-> — **`[10:02.61]`–`[10:08.61]`**
-
-**Interview probes:** *“When did personalization feel helpful versus creepy?”* *“What would you forbid the assistant from optimizing?”*
+Users expect a TikTok / Reels-style vertical scroll feed as an alternative to the current grid layout. The original grid felt unfamiliar and counter-intuitive for short-form content consumption.
 
 ---
 
-## 6. Memory, persistence & multi-session (functional + long-horizon)
+#### FB-03 · Real-time personalization lag — theme & color changes
 
-Persistence & versioning expectations:
+| Field           | Detail                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| **User**        | Multiple                                                                                           |
+| **Quote**       | _"Change the color of the website and theme of the videos — it made changes but it took a while."_ |
+| **Observed at** | ~1:06 PM, Demo Day 2                                                                               |
+| **Theme**       | Edge Cases / Performance                                                                           |
+| **Source**      | Demo Day 2 — direct                                                                                |
 
-> "We ... save ... Preferences in a database ... when I ... Reload the page ... I can ... quit ... reopen ... And then it'll ... Load this ... Reference ... a previous version ... Like it'll do that."  
-> — **`[04:44.52]`–`[05:00.52]`**
-
-> "If you're able to keep user personalization ... Whenever someone reloads that page It brings back"  
-> — **`[12:25.61]`–`[12:30.61]`**
-
-**Suggested tasks:**
-
-| # | Instruction to tester |
-|---|------------------------|
-| T1 | Send **two materially different prompts** → confirm visible layout/theme shift |
-| T2 | **Hard refresh** → does prior personalization **persist**? |
-| T3 | (Stretch) Mention **prior state** verbally—does tester expect time-travel / revert? Capture gap vs product |
+Users triggered a prompt to change the site's color scheme and video theme. The changes did eventually apply but with a noticeable delay. Users noticed and flagged it — this breaks the perception of a "live" personalization assistant. Needs a loading indicator at minimum, and a performance investigation for why core UI changes are slower than expected.
 
 ---
 
-## 7. Context & conversation design (interaction pattern)
+#### FB-04 · Core feature changes feel unreliable (edge case behaviour)
 
-Discussants reaffirm explicit chat over silent inference:
+| Field      | Detail                   |
+| ---------- | ------------------------ |
+| **User**   | Multiple                 |
+| **Theme**  | Edge Cases / Reliability |
+| **Source** | Demo Day 2 — direct      |
 
-> "... how does it know I'm changing The UX ... Because user tells it ... You ... have to ... Chat type it."  
-> — **`[12:11.61]`–`[12:20.61]`**
-
-> "It lifts the ... burden ... from ... us."  
-> — **`[11:55.61]`**
-
-**Observe:** hesitation (“maybe”, “probably”) versus certainty after visual confirmation—markers of **trust calibration**.
+Alongside the color/theme lag (FB-03), users surfaced a broader concern: prompts that touch core features (layout structure, theme, color system) do not always fully apply or do not apply at the same speed as lighter changes. Edge case handling for these deeper personalization requests needs explicit testing and scoping.
 
 ---
 
-## 8. Midpoint runbook (setup → intervention → scripted flow)
-
-*Optional structure to reuse in **`user-testing-plan.md`** for external testers; not a substitute for completing that document.*
-
-### 8.1 Tester setup & environment (rubric **setup**)
-
-Cover this in **welcome**, before testers touch UI:
-
-| Item | Decide / state aloud |
-|------|----------------------|
-| URL & entry | Stable demo link; bookmark or QR if allowed |
-| Browser / device | One supported combo (avoid “doesn’t work on Safari” drift) |
-| Demo vs prod | Explicit: **not real YouTube**; what is mocked vs live (see Section 2 quotes) |
-| Accounts / deps | OAuth, `.env`, or seed—pre-flight so testers don’t unblock you |
-| Data reset | Fresh session vs persisted state for this run (tie to Tasks T2–T3) |
-
-Print or pin this mini-table beside the midpoint station.
-
-### 8.2 When to intervene
-
-Moderator norms—adapt to midpoint chaos:
-
-| Intervene | Example |
-|-----------|---------|
-| **Prototype limits** | “This part is mocked; ignore auth errors beyond …” |
-| **Stuck \> ~90 s same screen** | One nudge (“try saying X in chat”) then pause |
-| **Scope creep** | Defer—“note for backlog”—return to scripted flow (**8.3**) |
-| **Leading** | Don’t propose solutions until tester names friction first |
-
-Stay otherwise **silent during think-aloud** unless safety or deadlock.
-
-### 8.3 Pre-baked flow (5–12 minute backbone)
-
-| Phase | Tester action |
-|-------|----------------|
-| 0 | Silent **30 s** skim home—think-aloud expectation |
-| 1 | Prompt A: **pure aesthetic/theme** tweak |
-| 2 | Prompt B: **differentiated content/category** cue (example “Only tech”; transcript **`[02:54.10]`–`[02:57.10]`**) |
-| 3 | Reload → verbal rating **persistence clarity** (motifs at **`[04:48.52]`–`[05:00.52]`**) |
-| 4 | Open-ended: name **another surface** besides YouTube (ties themes in Section 4) |
+### 🟡 Medium Priority
 
 ---
 
-## 9. Feedback capture (pick **one** channel for study integrity)
+#### FB-05 · Transition animations feel like a hard flash
 
-*Same as above: idea fodder for the formal plan.*
+| Field      | Detail                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **User**   | Multiple                                                                                                                              |
+| **Quote**  | _"Making the transitions kind of smoother — more modern rather than just a flash and everything."_ / _"Maybe a sequential changing."_ |
+| **Theme**  | UI Polish                                                                                                                             |
+| **Source** | Demo Day 2 transcript `[05:23–05:35]`                                                                                                 |
 
-| Mechanism | When to choose |
-|-----------|----------------|
-| Silent observer sheet | Busy midpoint; minimizes context switching |
-| GitHub Issues template post-session | If engineering triage wins |
-
-Minimal **observer fields:** time | verbatim utterance | screen state | `{bug, UX friction, expectation gap, ethics flag}` severity.
-
----
-
-## 10. After testing → actionable backlog
-
-*Example labels when you normalize Demo Day / user-test findings into Issues.*
-
-Normalize notes into Issues with labels **`user-test`**, **`priority`**, **`transcript-quote-id`** (timestamp) for traceability to sections above.
-
-| Issue title | Supporting quote anchors |
-|-------------|---------------------------|
-| Transitions feel like single flash reload | **`[05:23.52]`**, **`[05:35.52]`** |
-| Unclear persistence after hard refresh *(if observed)* | **`[04:48.52]`–`[05:00.52]`**, **`[12:25.61]`–`[12:30.61]`** |
-| Tester unease—“echo chamber” framing | **`[09:13.10]`**, **`[10:02.61]`** |
+When personalization updates apply, the entire page re-renders instantly ("flash"). Users want sequential, animated transitions that feel deliberate and modern rather than a sudden swap.
 
 ---
 
-## 11. Limits of source material
+#### FB-06 · Preferences not obviously restored after reload
 
-Automated transcripts may garble jargon (**“SDK”** heard as **“STK”** around **`[06:04.52]`** / **`[06:16.52]`**) or mis-hear uncommon words (**“neurodiverny”** ~ **`[10:14.61]`**—verify against raw audio).
+| Field      | Detail                                                    |
+| ---------- | --------------------------------------------------------- |
+| **User**   | Multiple                                                  |
+| **Quote**  | _"When I reload the page it brings back my preferences."_ |
+| **Theme**  | Persistence                                               |
+| **Source** | Demo Day 2 transcript `[04:44–05:00]`, `[12:25–12:30]`    |
 
-**Responsible quoting:** use **`[…]`** only for omissions that **do not change sense** of the anchored segment.
+Persistence works in the backend but users are uncertain whether their layout survived a reload. No visible confirmation or indicator is shown. Needs either a toast / banner ("Your preferences were restored") or a visible version stamp.
 
 ---
 
-## Source files
+#### FB-07 · Inspiration reference — Google Magic Pointer / AI cursor
 
-**Formal test plan (assignment; complete this):** [`user-testing-plan.md`](./user-testing-plan.md)
+| Field      | Detail                             |
+| ---------- | ---------------------------------- |
+| **User**   | Multiple                           |
+| **Theme**  | Product Direction / Inspiration    |
+| **Source** | Demo Day 2 — direct recommendation |
 
-- Original audio (**M4A**): [`new-recording-8.m4a`](./new-recording-8.m4a)
-- Timestamped: [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt)
-- Plain stitched: [`new-recording-8-transcript-whisper-small-plain.txt`](./new-recording-8-transcript-whisper-small-plain.txt)
+Users highlighted Google DeepMind's recently unveiled **Magic Pointer** (announced May 12 2026) as a potential source of inspiration. The project integrates Gemini AI directly into the mouse cursor, allowing users to point at on-screen elements and issue natural-language voice commands without switching to a separate chat window — the AI follows the cursor across all apps.
 
-**Draft script from the same voice memo (prep only):** [test-plan-midpoint-team17.md](./test-plan-midpoint-team17.md).
+**Relevance to our product:** our current model requires users to type into a chat box to trigger personalization. Magic Pointer's "point-and-speak" paradigm (and its core design principle of eliminating app-switching between tools and AI) directly challenges whether a chat interface is the right interaction model long-term. Worth examining for the next design iteration.
+
+**Try it:** experimental demos are live in [Google AI Studio](https://aistudio.google.com). Magic Pointer is rolling out in Gemini in Chrome and will be a headline feature of Googlebook laptops (due Fall 2026, via Acer, ASUS, Dell, HP, Lenovo).
+
+---
+
+### 🟢 Low Priority
+
+---
+
+#### FB-08 · Demo vs. real YouTube unclear to testers
+
+| Field      | Detail                                |
+| ---------- | ------------------------------------- |
+| **User**   | Multiple                              |
+| **Quote**  | _"It's not YouTube. It's not real."_  |
+| **Theme**  | Onboarding Clarity                    |
+| **Source** | Demo Day 2 transcript `[05:44–05:52]` |
+
+Testers were confused about whether they were interacting with real YouTube or a demo shell. A first-load banner or onboarding tooltip should make this explicit.
+
+---
+
+#### FB-09 · Echo chamber / personalization ethics concern
+
+| Field      | Detail                                                                                |
+| ---------- | ------------------------------------------------------------------------------------- |
+| **User**   | Multiple                                                                              |
+| **Quote**  | _"It's an echo chamber — I'm not in favor of guiding the project in that direction."_ |
+| **Theme**  | Ethics / Trust                                                                        |
+| **Source** | Demo Day 2 transcript `[10:02–10:08]`                                                 |
+
+Some testers raised discomfort that aggressive personalization could narrow content exposure. Consider documenting and surfacing the personalization boundaries (what the assistant will not optimize for) and adding opt-out or diversity controls.
+
+---
+
+## Themes Overview
+
+| Theme                                  | Feedback Items |
+| -------------------------------------- | -------------- |
+| Edge Cases / Performance & Reliability | FB-03, FB-04   |
+| Navigation / Layout                    | FB-01, FB-02   |
+| UI Polish                              | FB-05          |
+| Persistence                            | FB-06          |
+| Product Direction / Inspiration        | FB-07          |
+| Onboarding Clarity                     | FB-08          |
+| Ethics / Trust                         | FB-09          |
+
+_Source audio: [`new-recording-8.m4a`](./new-recording-8.m4a) · Transcript: [`new-recording-8-transcript-whisper-small.txt`](./new-recording-8-transcript-whisper-small.txt) · Speakers not diarized — attribute to "participant(s), Demo Day 2 transcript" unless names are assigned later._

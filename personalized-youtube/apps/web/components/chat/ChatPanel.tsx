@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { pickRotatingChips, type RecommendedPrompt } from '@/lib/recommended-prompts';
 import { getPageBridge } from '@/lib/page-bridge';
 import { TOOL_VERBS, useChatStore, type ChatMessage } from '@/lib/chat-store';
+import { usePageStore } from '@/lib/store';
 import { SHOWCASE_SITES, siteByPath } from '@showcase/shared';
 
 function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
@@ -100,6 +101,8 @@ export function ChatPanel() {
   const activeSiteId = SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.id ?? 'youtube';
   const { messages, isStreaming, generatingCategory, send, resetSitePreferences, goToSite } =
     useChatStore();
+  const { magicPointerActive, setMagicPointerActive } = usePageStore();
+
 
   const [open, setOpen] = useState(true);
   const [minimized, setMinimized] = useState(false);
@@ -317,6 +320,17 @@ export function ChatPanel() {
                 </button>
               </div>
             )}
+            <button
+              onClick={() => setMagicPointerActive(!magicPointerActive)}
+              aria-label={magicPointerActive ? 'Deactivate magic pointer' : 'Activate magic pointer'}
+              title={magicPointerActive ? 'Click sections to edit (active)' : 'Click sections to edit'}
+              className={`rounded p-1 transition ${magicPointerActive ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]' : 'hover:bg-[color:var(--muted)]'}`}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                <path d="M5 3l4 11 3-3 4 4 1.5-1.5-4-4 3-3L5 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+            </button>
             <button
               onClick={toggleMinimize}
               aria-label={minimized ? 'Expand' : 'Minimize'}

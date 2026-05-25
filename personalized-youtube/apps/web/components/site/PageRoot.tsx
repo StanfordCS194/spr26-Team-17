@@ -6,6 +6,8 @@ import { Site } from './Site';
 import { getSiteBrand } from '@/lib/site-brand';
 import { BrandBottomNav } from '@/components/brand/SiteChrome';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
+import { MagicPointerController } from '@/components/magic-pointer/MagicPointerController';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import { AmazonCartProvider } from '@/lib/amazon-cart';
 
 // Keeps the URL's ?v= (watching) and ?q= (search) params in sync with the
@@ -185,6 +187,8 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
         </>
       )}
       <Site />
+      <ChatPanel />
+      <MagicPointerController />
       <BrandBottomNav config={config} />
     </div>
   );
