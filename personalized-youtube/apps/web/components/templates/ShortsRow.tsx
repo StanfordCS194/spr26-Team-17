@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Section } from '@showcase/shared';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
 function formatViews(n: number): string {
@@ -28,7 +29,7 @@ function ShortCard({ id, title, thumbnail, views }: { id: string; title: string;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         if (!youtubeMode) return;
         e.preventDefault();
-        setWatching(id, title);
+        setWatching(id, title, { thumbnail });
       }}
       className="w-44 shrink-0 cursor-pointer"
     >
@@ -50,10 +51,42 @@ function ShortCard({ id, title, thumbnail, views }: { id: string; title: string;
   );
 }
 
-export function ShortsRow({ section }: { section: Section; config: PageConfig }) {
+export function ShortsRow({ section, config }: { section: Section; config: PageConfig }) {
+  const { setWatching, youtubeMode } = usePageStore();
   if (section.type !== 'ShortsRow') return null;
+  const brand = getSiteBrand(config.slug);
   const { visible, headline, shorts } = section.props;
   if (!visible || shorts.length === 0) return null;
+
+  if (brand === 'instagram') {
+    return (
+      <section className="site-main-feed border-b border-[color:var(--border)] px-4 py-4">
+        <div className="-mx-1 overflow-x-auto no-scrollbar">
+          <div className="flex gap-4">
+            {shorts.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setWatching(s.id, s.title)}
+                className="flex w-16 shrink-0 flex-col items-center gap-1"
+              >
+                <div className="rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px]">
+                  <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-[color:var(--muted)]">
+                    {s.thumbnail && (
+                      <img src={s.thumbnail} alt={s.title} className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                </div>
+                <span className="max-w-[4rem] truncate text-[10px] text-[color:var(--fg)]">
+                  {s.channel?.name ?? s.title.slice(0, 8)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="px-6 py-3">

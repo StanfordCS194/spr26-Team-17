@@ -1,29 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Rnd } from 'react-rnd';
+import { usePathname } from 'next/navigation';
 import { pickRotatingChips, type RecommendedPrompt } from '@/lib/recommended-prompts';
+import { getPageBridge } from '@/lib/page-bridge';
+import { TOOL_VERBS, useChatStore, type ChatMessage } from '@/lib/chat-store';
 import { usePageStore } from '@/lib/store';
-import type { Patch, Video } from '@showcase/shared';
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  toolUses?: Array<{ name: string; rationale?: string }>;
-}
-
-const TOOL_VERBS: Record<string, string> = {
-  update_theme: 'tweaked the look',
-  update_section: 'updated a section',
-  set_filter: 'filtered the feed',
-  set_sort: 'changed sort order',
-  add_section: 'added a section',
-  remove_section: 'hid a section',
-  reorder_sections: 'reordered the page',
-  request_more_content: 'pulling fresh videos',
-  ask_user: 'has a quick question',
-};
+import { SHOWCASE_SITES, siteByPath } from '@showcase/shared';
 
 function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
   if (toolUses.length === 0) return '';
@@ -35,16 +19,39 @@ function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
   return `Got it. ${verbs.join(', ')}.`;
 }
 
-const STORAGE_KEY = 'chatPanel:window:v2';
+const STORAGE_KEY = 'chatPanel:window:v3';
 const DEFAULT_W = 420;
 const DEFAULT_H = 620;
 const MIN_W = 320;
 const MIN_H = 200;
 const MINIMIZED_H = 48;
+const VIEWPORT_MARGIN = 16;
 
 type WindowState = { x: number; y: number; width: number; height: number };
 
-function loadWindowState(): WindowState | null {
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function normalizeWindowState(state: WindowState, minimized: boolean): WindowState {
+  if (typeof window === 'undefined') return state;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const maxW = Math.max(MIN_W, vw - VIEWPORT_MARGIN * 2);
+  const maxH = Math.max(MIN_H, vh - VIEWPORT_MARGIN * 2);
+  const width = clamp(state.width, MIN_W, maxW);
+  const height = minimized ? MINIMIZED_H : clamp(state.height, MIN_H, maxH);
+  const maxX = Math.max(0, vw - width);
+  const maxY = Math.max(0, vh - height);
+  return {
+    width,
+    height,
+    x: clamp(state.x, 0, maxX),
+    y: clamp(state.y, 0, maxY),
+  };
+}
+
+function loadWindowState(): { state: WindowState; minimized: boolean } | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -56,7 +63,11 @@ function loadWindowState(): WindowState | null {
       typeof parsed.width === 'number' &&
       typeof parsed.height === 'number'
     ) {
-      return parsed;
+      const minimized = parsed.height <= MINIMIZED_H;
+      return {
+        state: normalizeWindowState(parsed, minimized),
+        minimized,
+      };
     }
   } catch {
     /* ignore */
@@ -68,24 +79,38 @@ function defaultWindowState(): WindowState {
   if (typeof window === 'undefined') {
     return { x: 0, y: 0, width: DEFAULT_W, height: DEFAULT_H };
   }
-  return {
-    x: Math.max(16, window.innerWidth - DEFAULT_W - 24),
-    y: Math.max(16, window.innerHeight - DEFAULT_H - 24),
-    width: DEFAULT_W,
-    height: DEFAULT_H,
-  };
+  return normalizeWindowState(
+    {
+      x: Math.max(VIEWPORT_MARGIN, window.innerWidth - DEFAULT_W - 24),
+      y: Math.max(VIEWPORT_MARGIN, window.innerHeight - DEFAULT_H - 24),
+      width: DEFAULT_W,
+      height: DEFAULT_H,
+    },
+    false,
+  );
 }
 
-export function ChatPanel({ pageSlug }: { pageSlug: string }) {
-  const { config, dispatch, replace, watchingId, watchingTitle, magicPointerActive, setMagicPointerActive } = usePageStore();
+function useActivePageSlug(): string {
+  const pathname = usePathname() ?? '/';
+  return siteByPath(pathname)?.slug ?? getPageBridge()?.pageSlug ?? 'youtube-clone';
+}
+
+export function ChatPanel() {
+  const pathname = usePathname() ?? '/';
+  const pageSlug = useActivePageSlug();
+  const activeSiteId = SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.id ?? 'youtube';
+  const { messages, isStreaming, generatingCategory, send, resetSitePreferences, goToSite } =
+    useChatStore();
+  const { magicPointerActive, setMagicPointerActive } = usePageStore();
+
+
   const [open, setOpen] = useState(true);
   const [minimized, setMinimized] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [provider, setProvider] = useState<'gemini' | 'anthropic'>('gemini');
   const [windowState, setWindowState] = useState<WindowState | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [generatingCategory, setGeneratingCategory] = useState<string | null>(null);
   const [chips, setChips] = useState<RecommendedPrompt[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const heightBeforeMinimize = useRef<number>(DEFAULT_H);
@@ -93,19 +118,28 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
   useEffect(() => {
     setMounted(true);
     setChips(pickRotatingChips(Math.floor(Date.now() / 1000), 3));
-    setWindowState(loadWindowState() ?? defaultWindowState());
-    // Hydrate chat transcript from server-side history on first mount.
-    fetch(`/api/chat/history?slug=${encodeURIComponent(pageSlug)}`)
-      .then((r) => (r.ok ? r.json() : { messages: [] }))
-      .then((d: { messages?: ChatMessage[] }) => {
-        if (Array.isArray(d.messages) && d.messages.length > 0) setMessages(d.messages);
-      })
-      .catch(() => {});
-  }, [pageSlug]);
+    const loaded = loadWindowState();
+    if (loaded) {
+      setMinimized(loaded.minimized);
+      setWindowState(loaded.state);
+    } else {
+      setWindowState(defaultWindowState());
+    }
+  }, []);
+
+  useEffect(() => {
+    function onResize() {
+      setWindowState((current) =>
+        current ? normalizeWindowState(current, minimized) : current,
+      );
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [minimized]);
 
   useEffect(() => {
     if (open && !minimized) inputRef.current?.focus();
-  }, [open, minimized]);
+  }, [open, minimized, pathname]);
 
   useEffect(() => {
     if (!windowState) return;
@@ -116,7 +150,6 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
     }
   }, [windowState]);
 
-  // "/" focuses chat; Escape closes
   useEffect(() => {
     function onKeydown(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
@@ -136,125 +169,6 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
     return () => window.removeEventListener('keydown', onKeydown);
   }, [open, minimized]);
 
-  async function send(text: string) {
-    if (!text.trim() || isStreaming) return;
-    const next = [...messages, { role: 'user' as const, content: text }];
-    setMessages(next);
-    setInput('');
-    setIsStreaming(true);
-
-    // Look up the watching video's thumbnail + channel so the API can pass
-    // them to Claude (thumbnail as a multimodal image, channel as text). Lets
-    // prompts like "adapt the theme to the playing video" actually see the
-    // visuals AND know who made it (channels are a strong vibe signal).
-    let watchingThumbnail: string | null = null;
-    let watchingChannel: string | null = null;
-    if (watchingId) {
-      for (const s of config.sections) {
-        const props = s.props as { videos?: Video[]; shorts?: Array<{ id: string; thumbnail: string; channel?: { name?: string } }> };
-        const fromVideos = props.videos?.find((v) => v.id === watchingId);
-        if (fromVideos) {
-          watchingThumbnail = fromVideos.thumbnail || watchingThumbnail;
-          watchingChannel = fromVideos.channel?.name || watchingChannel;
-          if (watchingThumbnail) break;
-        }
-        const fromShorts = props.shorts?.find((sh) => sh.id === watchingId);
-        if (fromShorts) {
-          watchingThumbnail = fromShorts.thumbnail || watchingThumbnail;
-          watchingChannel = fromShorts.channel?.name || watchingChannel;
-          if (watchingThumbnail) break;
-        }
-      }
-    }
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pageSlug,
-          message: text,
-          history: messages,
-          watching: watchingId
-            ? { id: watchingId, title: watchingTitle ?? '', thumbnail: watchingThumbnail, channel: watchingChannel }
-            : null,
-        }),
-      });
-      if (!res.body) throw new Error('No response stream');
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = '';
-      const toolUses: ChatMessage['toolUses'] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') break;
-          try {
-            const ev = JSON.parse(data);
-            if (ev.kind === 'text') assistantContent += ev.text;
-            if (ev.kind === 'tool_use') toolUses.push({ name: ev.name, rationale: ev.rationale });
-            if (ev.kind === 'patch') dispatch(ev.patch as Patch);
-            if (ev.kind === 'request_more_content') fetchMoreContent(ev.input);
-          } catch {
-            /* ignore malformed line */
-          }
-        }
-      }
-
-      setMessages([...next, { role: 'assistant', content: assistantContent, toolUses }]);
-    } catch (err) {
-      setMessages([...next, { role: 'assistant', content: `Error: ${(err as Error).message}` }]);
-    } finally {
-      setIsStreaming(false);
-    }
-  }
-
-  async function fetchMoreContent(input: { category: string; count?: number; style?: string }) {
-    setGeneratingCategory(input.category);
-    try {
-      const res = await fetch('/api/generate-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: pageSlug, ...input }),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { videos?: Video[] };
-      const newVideos = data.videos ?? [];
-      if (newVideos.length === 0) return;
-
-      const grid = config.sections.find((s) => s.type === 'VideoGrid');
-      if (!grid) return;
-      const currentVideos = (grid.props as { videos?: Video[] }).videos ?? [];
-      dispatch({
-        op: 'update_section',
-        sectionId: grid.id,
-        patch: { videos: [...currentVideos, ...newVideos] },
-      });
-    } catch {
-      /* best-effort */
-    } finally {
-      setGeneratingCategory(null);
-    }
-  }
-
-  async function reset() {
-    setIsStreaming(true);
-    try {
-      await fetch(`/api/reset?slug=${encodeURIComponent(pageSlug)}`, { method: 'POST' });
-      const res = await fetch(`/api/page?slug=${encodeURIComponent(pageSlug)}`);
-      const data = await res.json();
-      if (data.config) replace(data.config);
-      setMessages([]);
-    } finally {
-      setIsStreaming(false);
-    }
-  }
-
   function toggleMinimize() {
     if (!windowState) return;
     if (minimized) {
@@ -266,6 +180,74 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
       setMinimized(true);
     }
   }
+
+  const onHeaderMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    setWindowState((current) => {
+      if (!current) return current;
+      const startWX = current.x;
+      const startWY = current.y;
+      function onMove(ev: MouseEvent) {
+        setWindowState((s) => {
+          if (!s) return s;
+          const maxX = Math.max(0, window.innerWidth - s.width);
+          const maxY = Math.max(0, window.innerHeight - s.height);
+          return {
+            ...s,
+            x: clamp(startWX + (ev.clientX - startX), 0, maxX),
+            y: clamp(startWY + (ev.clientY - startY), 0, maxY),
+          };
+        });
+      }
+      function onUp() {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        setDragging(false);
+      }
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      setDragging(true);
+      return current;
+    });
+  }, []);
+
+  const onResizeMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (e.button !== 0 || minimized) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    setWindowState((current) => {
+      if (!current) return current;
+      const startW = current.width;
+      const startH = current.height;
+      const startWX = current.x;
+      const startWY = current.y;
+      function onMove(ev: MouseEvent) {
+        setWindowState((s) => {
+          if (!s) return s;
+          const maxW = Math.max(MIN_W, window.innerWidth - startWX);
+          const maxH = Math.max(MIN_H, window.innerHeight - startWY);
+          return {
+            ...s,
+            width: clamp(startW + (ev.clientX - startX), MIN_W, maxW),
+            height: clamp(startH + (ev.clientY - startY), MIN_H, maxH),
+          };
+        });
+      }
+      function onUp() {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      }
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      return current;
+    });
+  }, [minimized]);
 
   if (!mounted) return null;
 
@@ -287,29 +269,25 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
 
   if (!windowState) return null;
 
+  const currentSiteLabel = SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.label ?? 'Showcase';
+
   return createPortal(
-    <Rnd
-      size={{ width: windowState.width, height: windowState.height }}
-      position={{ x: windowState.x, y: windowState.y }}
-      minWidth={MIN_W}
-      minHeight={minimized ? MINIMIZED_H : MIN_H}
-      maxHeight={minimized ? MINIMIZED_H : undefined}
-      bounds="window"
-      dragHandleClassName="chat-drag-handle"
-      enableResizing={!minimized}
-      onDragStop={(_, d) => setWindowState((s) => (s ? { ...s, x: d.x, y: d.y } : s))}
-      onResizeStop={(_, __, ref, ___, position) =>
-        setWindowState({
-          width: parseInt(ref.style.width, 10),
-          height: parseInt(ref.style.height, 10),
-          x: position.x,
-          y: position.y,
-        })
-      }
-      style={{ position: 'fixed', zIndex: 40 }}
+    <div
+      style={{
+        position: 'fixed',
+        left: windowState.x,
+        top: windowState.y,
+        width: windowState.width,
+        height: windowState.height,
+        zIndex: 40,
+        userSelect: dragging ? 'none' : undefined,
+      }}
     >
-      <aside className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] shadow-2xl">
-        <header className="chat-drag-handle flex shrink-0 cursor-grab items-center justify-between border-b border-[color:var(--border)] px-4 py-2 active:cursor-grabbing">
+      <aside className="relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] shadow-2xl">
+        <header
+          onMouseDown={onHeaderMouseDown}
+          className={`flex shrink-0 items-center justify-between border-b border-[color:var(--border)] px-4 py-2 ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
           <div className="flex items-center gap-2 select-none">
             <span aria-hidden className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--accent)] text-[10px] text-[color:var(--accent-fg)]">
               ✨
@@ -318,12 +296,30 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
               <h2 className="text-sm font-medium leading-tight">Personalize</h2>
               {!minimized && (
                 <p className="text-[11px] text-[color:var(--muted-fg)] leading-tight">
-                  Tell us how you want to see things. It sticks.
+                  Editing <span className="font-medium text-[color:var(--fg)]">{currentSiteLabel}</span>
+                  {' · '}
+                  chat carries across sites
                 </p>
               )}
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {!minimized && (
+              <div className="mr-2 flex items-center gap-1 rounded-full bg-[color:var(--muted)] p-0.5 text-[10px] font-medium text-[color:var(--muted-fg)]" onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setProvider('gemini')}
+                  className={`rounded-full px-2 py-0.5 transition-colors ${provider === 'gemini' ? 'bg-[color:var(--bg)] text-[color:var(--fg)] shadow-sm' : 'hover:text-[color:var(--fg)]'}`}
+                >
+                  Gemini
+                </button>
+                <button
+                  onClick={() => setProvider('anthropic')}
+                  className={`rounded-full px-2 py-0.5 transition-colors ${provider === 'anthropic' ? 'bg-[color:var(--bg)] text-[color:var(--fg)] shadow-sm' : 'hover:text-[color:var(--fg)]'}`}
+                >
+                  Claude
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setMagicPointerActive(!magicPointerActive)}
               aria-label={magicPointerActive ? 'Deactivate magic pointer' : 'Activate magic pointer'}
@@ -364,52 +360,47 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
 
         {!minimized && (
           <>
+            <div
+              className="flex shrink-0 gap-1 border-b border-[color:var(--border)] px-3 py-2"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {SHOWCASE_SITES.map((site) => (
+                <button
+                  key={site.id}
+                  type="button"
+                  onClick={() => goToSite(site.id, pageSlug)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    activeSiteId === site.id
+                      ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
+                      : 'bg-[color:var(--muted)] text-[color:var(--muted-fg)] hover:text-[color:var(--fg)]'
+                  }`}
+                  title={`Open ${site.label}`}
+                >
+                  {site.label}
+                </button>
+              ))}
+            </div>
             <div className="flex-1 overflow-y-auto p-4">
               {messages.length === 0 ? (
                 <div className="space-y-3 text-sm text-[color:var(--muted-fg)]">
-                  <p>Type anything. For example:</p>
+                  <p>One conversation for all sites — switch anytime.</p>
                   <ul className="list-disc pl-5 space-y-1">
                     <li>&quot;Use a forest green dark theme&quot;</li>
-                    <li>&quot;Show me more chill jazz, less bangers&quot;</li>
-                    <li>&quot;Hide the shorts row&quot;</li>
+                    <li>&quot;Open Amazon and show me electronics deals&quot;</li>
+                    <li>&quot;Switch to Instagram — show more photos&quot;</li>
                   </ul>
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {messages.map((m, i) => {
-                    const showFallback =
-                      m.role === 'assistant' &&
-                      (!m.content || !m.content.trim()) &&
-                      (m.toolUses?.length ?? 0) > 0;
-                    const display = showFallback ? fallbackAcknowledgment(m.toolUses ?? []) : m.content;
-                    return (
-                      <li key={i} className={m.role === 'user' ? 'text-right' : ''}>
-                        <div
-                          className={`inline-block max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                            m.role === 'user'
-                              ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
-                              : 'bg-[color:var(--muted)] text-[color:var(--fg)]'
-                          }`}
-                        >
-                          <p className="whitespace-pre-wrap">{display}</p>
-                          {m.role === 'assistant' && m.toolUses && m.toolUses.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {m.toolUses.map((t, j) => (
-                                <span
-                                  key={j}
-                                  className="inline-flex items-center gap-1 rounded-full bg-[color:var(--bg)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[color:var(--muted-fg)] border border-[color:var(--border)]"
-                                  title={t.rationale ?? t.name}
-                                >
-                                  <span className="h-1 w-1 rounded-full bg-[color:var(--accent)]" />
-                                  {TOOL_VERBS[t.name] ?? t.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
+                  {messages.map((m, i) => (
+                    <MessageBubble
+                      key={i}
+                      message={m}
+                      isLast={i === messages.length - 1}
+                      isStreaming={isStreaming}
+                      onPickOption={(opt) => void send(opt, pageSlug)}
+                    />
+                  ))}
                   {isStreaming && (
                     <li>
                       <div className="inline-flex items-center gap-2 rounded-2xl bg-[color:var(--muted)] px-3 py-2 text-sm text-[color:var(--muted-fg)]">
@@ -451,7 +442,8 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                send(input);
+                void send(input, pageSlug);
+                setInput('');
               }}
               className="shrink-0 border-t border-[color:var(--border)] p-3"
             >
@@ -474,17 +466,94 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
               </div>
               <button
                 type="button"
-                onClick={reset}
+                onClick={() => void resetSitePreferences(pageSlug)}
                 disabled={isStreaming}
                 className="mt-2 text-xs text-[color:var(--muted-fg)] hover:underline disabled:opacity-50"
               >
-                Reset preferences
+                Reset {currentSiteLabel} preferences
               </button>
             </form>
           </>
         )}
+        {!minimized && (
+          <div
+            onMouseDown={onResizeMouseDown}
+            aria-hidden
+            className="absolute bottom-0 right-0 h-3.5 w-3.5 cursor-nwse-resize"
+            style={{
+              backgroundImage:
+                'linear-gradient(135deg, transparent 0 50%, color-mix(in srgb, var(--border) 70%, transparent) 50% 60%, transparent 60% 75%, color-mix(in srgb, var(--border) 70%, transparent) 75% 85%, transparent 85% 100%)',
+            }}
+          />
+        )}
       </aside>
-    </Rnd>,
+    </div>,
     document.body,
+  );
+}
+
+function MessageBubble({
+  message: m,
+  isLast,
+  isStreaming,
+  onPickOption,
+}: {
+  message: ChatMessage;
+  isLast: boolean;
+  isStreaming: boolean;
+  onPickOption: (opt: string) => void;
+}) {
+  const showFallback =
+    m.role === 'assistant' && (!m.content || !m.content.trim()) && (m.toolUses?.length ?? 0) > 0;
+  const display = showFallback ? fallbackAcknowledgment(m.toolUses ?? []) : m.content;
+
+  return (
+    <li className={m.role === 'user' ? 'text-right' : ''}>
+      {m.siteLabel && (
+        <p
+          className={`mb-1 text-[10px] uppercase tracking-wide text-[color:var(--muted-fg)] ${
+            m.role === 'user' ? 'text-right' : 'text-left'
+          }`}
+        >
+          {m.siteLabel}
+        </p>
+      )}
+      <div
+        className={`inline-block max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+          m.role === 'user'
+            ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
+            : 'bg-[color:var(--muted)] text-[color:var(--fg)]'
+        }`}
+      >
+        <p className="whitespace-pre-wrap">{display}</p>
+        {m.role === 'assistant' && m.toolUses && m.toolUses.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {m.toolUses.map((t, j) => (
+              <span
+                key={j}
+                className="inline-flex items-center gap-1 rounded-full bg-[color:var(--bg)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[color:var(--muted-fg)] border border-[color:var(--border)]"
+                title={t.rationale ?? t.name}
+              >
+                <span className="h-1 w-1 rounded-full bg-[color:var(--accent)]" />
+                {TOOL_VERBS[t.name] ?? t.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {m.role === 'assistant' && m.askOptions && m.askOptions.length > 0 && isLast && !isStreaming && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {m.askOptions.map((opt, j) => (
+              <button
+                key={j}
+                onClick={() => onPickOption(opt)}
+                className="rounded-full bg-[color:var(--bg)] px-3 py-1 text-xs text-[color:var(--fg)] border border-[color:var(--border)] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-fg)] hover:border-[color:var(--accent)] transition-colors"
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </li>
   );
 }

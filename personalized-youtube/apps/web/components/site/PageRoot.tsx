@@ -3,20 +3,89 @@
 import { useEffect } from 'react';
 import { usePageStore } from '@/lib/store';
 import { Site } from './Site';
-import { ChatPanel } from '@/components/chat/ChatPanel';
+import { getSiteBrand } from '@/lib/site-brand';
+import { BrandBottomNav } from '@/components/brand/SiteChrome';
 import { AmbientBackground } from '@/components/templates/AmbientBackground';
 import { MagicPointerController } from '@/components/magic-pointer/MagicPointerController';
+import { ChatPanel } from '@/components/chat/ChatPanel';
+import { AmazonCartProvider } from '@/lib/amazon-cart';
+
+// Keeps the URL's ?v= (watching) and ?q= (search) params in sync with the
+// store. Lives at the page root (always mounted) so the URL also clears when
+// WatchPage or search results unmount on exit — otherwise the logo click
+// flips the view but the params linger.
+function useUrlSync() {
+  const { watchingId, setWatching, searchQuery, exitSearch } = usePageStore();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const currentV = url.searchParams.get('v');
+    const currentQ = url.searchParams.get('q');
+    const desiredV = watchingId ?? null;
+    const desiredQ = searchQuery ?? null;
+    if (currentV === desiredV && currentQ === desiredQ) return;
+    if (desiredV) url.searchParams.set('v', desiredV);
+    else url.searchParams.delete('v');
+    if (desiredQ) url.searchParams.set('q', desiredQ);
+    else url.searchParams.delete('q');
+    window.history.pushState({ v: desiredV, q: desiredQ }, '', url.toString());
+  }, [watchingId, searchQuery]);
+
+  useEffect(() => {
+    function onPop() {
+      const url = new URL(window.location.href);
+      const v = url.searchParams.get('v');
+      const q = url.searchParams.get('q');
+      setWatching(v ?? null);
+      // popstate landed on a URL without ?q=: drop search mode and restore
+      // the home snapshot. (We don't re-execute the search on forward nav —
+      // the showcase just goes home, which is the dominant direction here.)
+      if (!q) exitSearch();
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [setWatching, exitSearch]);
+}
 
 const FONT_CLASS = {
+  // Legacy keys — kept because the schema still accepts them.
+  // They point at the bridge Tailwind utilities defined in tailwind.config.ts.
   sans: 'font-sans',
   serif: 'font-serif',
   mono: 'font-mono',
   rounded: 'font-rounded',
+
+  inter: 'font-inter',
+  'space-grotesk': 'font-space-grotesk',
+  bricolage: 'font-bricolage',
+  geist: 'font-geist',
+  anton: 'font-anton',
+  'big-shoulders': 'font-big-shoulders',
+  unbounded: 'font-unbounded',
+  syne: 'font-syne',
+  fraunces: 'font-fraunces',
+  'dm-serif': 'font-dm-serif',
+  'bodoni-moda': 'font-bodoni-moda',
+  cormorant: 'font-cormorant',
+  newsreader: 'font-newsreader',
+  lora: 'font-lora',
+  'eb-garamond': 'font-eb-garamond',
+  jetbrains: 'font-jetbrains',
+  'ibm-plex-mono': 'font-ibm-plex-mono',
+  'space-mono': 'font-space-mono',
+  caveat: 'font-caveat',
+  'permanent-marker': 'font-permanent-marker',
+  'architects-daughter': 'font-architects-daughter',
+  fredoka: 'font-fredoka',
+  monoton: 'font-monoton',
+  bungee: 'font-bungee',
 } as const;
 
 export function PageRoot({ pageSlug }: { pageSlug: string }) {
   const { config } = usePageStore();
   const bg = config.theme.background;
+  useUrlSync();
 
   // font-scale must live on <html> so Tailwind's rem-based utilities pick it up.
   useEffect(() => {
@@ -25,6 +94,7 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
       document.documentElement.style.removeProperty('--font-scale');
     };
   }, [config.theme.fontScale]);
+
 
   const themeStyle: React.CSSProperties = {
     ['--accent' as string]: config.theme.accent,
@@ -51,16 +121,21 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
   const chromeDim = config.theme.chromeDim ?? 0;
   const grain = config.theme.grain ?? 0;
 
-  return (
+  const brand = getSiteBrand(pageSlug);
+
+  const inner = (
     <div
       data-theme={config.theme.mode}
+      data-brand={brand}
       data-bg={isGradient ? 'gradient' : isPaper ? 'paper' : 'solid'}
       style={
         chromeDim > 0
           ? ({ ...themeStyle, ['--chrome-dim' as string]: String(chromeDim) } as React.CSSProperties)
           : themeStyle
       }
-      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}`}
+      className={`min-h-screen relative overflow-x-hidden text-fg ${isGradient || isPaper ? '' : 'bg-bg'} ${fontClass}${
+        brand === 'instagram' ? ' pb-16 md:pb-0' : brand === 'slack' ? ' slack-page-root pb-14 md:pb-0' : ''
+      }`}
     >
       {/* AmbientBackground sections render at the page-root level so they
           stay visible across both Home and Watch views — they're full-bleed
@@ -112,8 +187,15 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
         </>
       )}
       <Site />
-      <ChatPanel pageSlug={pageSlug} />
+      <ChatPanel />
       <MagicPointerController />
+      <BrandBottomNav config={config} />
     </div>
   );
+
+  if (brand === 'amazon') {
+    return <AmazonCartProvider>{inner}</AmazonCartProvider>;
+  }
+
+  return inner;
 }

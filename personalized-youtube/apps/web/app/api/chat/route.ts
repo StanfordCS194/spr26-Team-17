@@ -1,10 +1,12 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { gemini, GEMINI_MODEL_PRO, GEMINI_MODEL_FLASH, appendGeminiLog, estimateGeminiCost, toGeminiTools, toolCallToPatch } from '@/lib/gemini';
 import { anthropic, MODEL_OPUS, appendLog, estimateCost } from '@/lib/anthropic';
 import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
-import { TOOL_DEFINITIONS, type Patch } from '@showcase/shared';
+import { TOOL_DEFINITIONS, siteById, siteBySlug, type Patch } from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
+import { chatDebugEventsEnabled, isAllowedOutboundImageUrl } from '@/lib/intercept/security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,7 @@ interface ChatRequest {
   // This makes pointer edits ~5x cheaper and prevents accidental page restructuring.
   focusedSectionId?: string;
   focusedSectionType?: string;
+  provider?: 'gemini' | 'anthropic';
 }
 
 // Fetch a thumbnail URL and convert to a base64 image block for Claude.
@@ -52,7 +55,7 @@ async function fetchAsImageBlock(
 }
 
 export async function POST(req: NextRequest) {
-  const { pageSlug, message, history = [], watching = null, focusedSectionId, focusedSectionType } = (await req.json()) as ChatRequest;
+  const { pageSlug, message, history = [], watching = null, focusedSectionId, focusedSectionType, provider = 'gemini' } = (await req.json()) as ChatRequest;
   const cookieStore = await cookies();
   const visitorId = cookieStore.get('visitor_id')?.value;
   if (!visitorId) {
@@ -110,6 +113,8 @@ export async function POST(req: NextRequest) {
 
   const visitorState = buildVisitorState(
     {
+      activeSite: siteBySlug(pageSlug)?.label ?? pageSlug,
+      activeSlug: pageSlug,
       sections: sectionSummaries,
       theme: config.theme,
       filter: config.filter,
@@ -145,7 +150,7 @@ export async function POST(req: NextRequest) {
     ];
     const lower = message.toLowerCase();
     const wantsVision = VISION_KEYWORDS.some((k) => lower.includes(k));
-    if (wantsVision && watching.thumbnail) {
+    if (wantsVision && watching.thumbnail && isAllowedOutboundImageUrl(watching.thumbnail)) {
       const img = await fetchAsImageBlock(watching.thumbnail);
       if (img) userBlocks.push(img);
     }
@@ -179,6 +184,10 @@ Apply the change to section "${focusedSectionId}" immediately. Do not ask for cl
     async start(controller) {
       const enc = new TextEncoder();
       const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      const debug = chatDebugEventsEnabled();
+      const sendDebug = (obj: unknown) => {
+        if (debug) send(obj);
+      };
 
       const t0 = Date.now();
       const toolUses: Array<{ name: string; input: unknown }> = [];
@@ -188,111 +197,253 @@ Apply the change to section "${focusedSectionId}" immediately. Do not ask for cl
       let stopReason: string | null = null;
       let lastMessageId: string | undefined;
 
-      try {
-        const response = anthropic.messages.stream({
+      if (provider === 'gemini') {
+        const systemText = [sys.role.text, sys.schemaCatalog.text, sys.editingRules.text].join('\n\n');
+        const geminiHistory = history.map((h) => ({
+          role: h.role === 'assistant' ? ('model' as const) : ('user' as const),
+          parts: [{ text: h.content }],
+        }));
+
+        let userMessageText = visitorState;
+        if (watching && typeof watching.id === 'string' && watching.id.length > 0) {
+          userMessageText += `\n\n<playing_video>\n  id: ${watching.id}\n  title: ${watching.title || '(unknown)'}\n</playing_video>`;
+        }
+        userMessageText += '\n\nVisitor: ' + message;
+
+        try {
+          const model = gemini.getGenerativeModel({
+            model: GEMINI_MODEL_FLASH,
+            systemInstruction: systemText,
+            tools: toGeminiTools(),
+          });
+
+          const chat = model.startChat({ history: geminiHistory });
+          const result = await chat.sendMessage(userMessageText);
+          const response = result.response;
+
+          stopReason = response.candidates?.[0]?.finishReason ?? null;
+          const usageMeta = response.usageMetadata;
+          finalUsage = {
+            input_tokens: usageMeta?.promptTokenCount ?? 0,
+            output_tokens: usageMeta?.candidatesTokenCount ?? 0,
+          };
+
+          if (!response.candidates || response.candidates.length === 0 || !response.candidates[0]?.content) {
+            assistantText += '(Empty response from model)';
+            send({ kind: 'text', text: '(Empty response from model)' });
+          } else {
+            for (const candidate of response.candidates ?? []) {
+              for (const part of candidate.content?.parts ?? []) {
+                if (part.text) {
+                  assistantText += part.text;
+                  send({ kind: 'text', text: part.text });
+                }
+                if (part.functionCall) {
+                  const { name, args } = part.functionCall;
+                  const input = (args ?? {}) as Record<string, unknown>;
+                  toolUses.push({ name, input });
+                  send({ kind: 'tool_use', name });
+
+                  const patch = toolCallToPatch(name, input);
+                  if (patch) {
+                    patchesToWrite.push({ patch, rationale: (input as any)?.rationale });
+                    send({ kind: 'patch', patch });
+                  } else if (name === 'request_more_content') {
+                    send({ kind: 'request_more_content', input });
+                  } else if (name === 'ask_user') {
+                    send({ kind: 'ask_user', input });
+                  } else if (name === 'switch_site') {
+                    const target = siteById(String(input?.site ?? ''));
+                    if (target) {
+                      send({
+                        kind: 'switch_site',
+                        site: target.id,
+                        slug: target.slug,
+                        path: target.path,
+                        label: target.label,
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          send({ kind: 'error', message: (err as Error).message });
+        }
+
+        const cost = estimateGeminiCost(GEMINI_MODEL_FLASH, { inputTokens: finalUsage.input_tokens, outputTokens: finalUsage.output_tokens });
+
+        try {
+          const db = supabaseAdmin();
+          const { data: site } = await db.from('sites').select('id').eq('slug', pageSlug).single();
+          if (site) {
+            if (patchesToWrite.length > 0) {
+              await db.from('preferences').insert(
+                patchesToWrite.map((p) => ({
+                  visitor_id: visitorId,
+                  site_id: site.id,
+                  patch: p.patch,
+                  rationale: p.rationale ?? null,
+                  message_id: null,
+                })),
+              );
+            }
+            await db.from('chat_turns').insert({
+              visitor_id: visitorId,
+              site_id: site.id,
+              user_message: message,
+              assistant_message: assistantText || null,
+              tool_uses: toolUses,
+              cost_usd: cost,
+              cache_hit_ratio: 0,
+              input_tokens: finalUsage.input_tokens ?? 0,
+              output_tokens: finalUsage.output_tokens ?? 0,
+              cache_read_tokens: 0,
+              cache_creation_tokens: 0,
+            });
+          }
+        } catch {
+          // best-effort persistence
+        }
+
+        await appendGeminiLog({
+          ts: new Date().toISOString(),
+          visitorId,
+          durationMs: Date.now() - t0,
+          inputTokens: finalUsage.input_tokens ?? 0,
+          outputTokens: finalUsage.output_tokens ?? 0,
+          costUsd: cost,
+          model: GEMINI_MODEL_FLASH,
+          toolUses,
+          stopReason: String(stopReason ?? ''),
+        });
+
+        send({ kind: 'done', cacheHitRatio: 0, costUsd: cost });
+
+      } else {
+        const requestPayload = {
           model: MODEL_OPUS,
           max_tokens: 1024,
           system: [sys.role, sys.schemaCatalog, sys.editingRules],
           tools: activeTools as any,
           messages,
+        };
+        sendDebug({ kind: 'debug_request', payload: requestPayload });
+
+        try {
+          const response = anthropic.messages.stream(requestPayload as any);
+
+          for await (const ev of response) {
+            sendDebug({ kind: 'debug_stream_event', payload: ev });
+            if (ev.type === 'message_start') lastMessageId = ev.message.id;
+            if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
+              send({ kind: 'tool_use', name: ev.content_block.name });
+            }
+            if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+              send({ kind: 'text', text: ev.delta.text });
+            }
+            if (ev.type === 'message_delta') {
+              stopReason = ev.delta.stop_reason ?? null;
+              finalUsage = { ...finalUsage, ...ev.usage };
+            }
+          }
+
+          const finalMessage = await response.finalMessage();
+          finalUsage = finalMessage.usage;
+          sendDebug({ kind: 'debug_final', payload: { content: finalMessage.content, usage: finalUsage, stop_reason: stopReason } });
+
+          for (const block of finalMessage.content) {
+            if (block.type === 'text') {
+              assistantText += block.text;
+              continue;
+            }
+            if (block.type !== 'tool_use') continue;
+            const tu = block as { name: string; input: any; id: string };
+            toolUses.push({ name: tu.name, input: tu.input });
+
+            const patch = toolCallToPatch(tu.name, tu.input);
+            if (patch) {
+              patchesToWrite.push({ patch, messageId: lastMessageId, rationale: tu.input?.rationale });
+              send({ kind: 'patch', patch });
+            } else if (tu.name === 'request_more_content') {
+              send({ kind: 'request_more_content', input: tu.input });
+            } else if (tu.name === 'ask_user') {
+              send({ kind: 'ask_user', input: tu.input });
+            } else if (tu.name === 'switch_site') {
+              const target = siteById(String(tu.input?.site ?? ''));
+              if (target) {
+                send({
+                  kind: 'switch_site',
+                  site: target.id,
+                  slug: target.slug,
+                  path: target.path,
+                  label: target.label,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          send({ kind: 'error', message: (err as Error).message });
+        }
+
+        const cacheRead = finalUsage.cache_read_input_tokens ?? 0;
+        const cacheCreate = finalUsage.cache_creation_input_tokens ?? 0;
+        const inputT = (finalUsage.input_tokens ?? 0) + cacheRead + cacheCreate;
+        const cacheHitRatio = inputT > 0 ? cacheRead / inputT : 0;
+        const cost = estimateCost(MODEL_OPUS, finalUsage);
+
+        try {
+          const db = supabaseAdmin();
+          const { data: site } = await db.from('sites').select('id').eq('slug', pageSlug).single();
+          if (site) {
+            if (patchesToWrite.length > 0) {
+              await db.from('preferences').insert(
+                patchesToWrite.map((p) => ({
+                  visitor_id: visitorId,
+                  site_id: site.id,
+                  patch: p.patch,
+                  rationale: p.rationale ?? null,
+                  message_id: p.messageId ?? null,
+                })),
+              );
+            }
+            await db.from('chat_turns').insert({
+              visitor_id: visitorId,
+              site_id: site.id,
+              user_message: message,
+              assistant_message: assistantText || null,
+              tool_uses: toolUses,
+              cost_usd: cost,
+              cache_hit_ratio: cacheHitRatio,
+              input_tokens: finalUsage.input_tokens ?? 0,
+              output_tokens: finalUsage.output_tokens ?? 0,
+              cache_read_tokens: cacheRead,
+              cache_creation_tokens: cacheCreate,
+            });
+          }
+        } catch {
+          // best-effort persistence
+        }
+
+        await appendLog({
+          ts: new Date().toISOString(),
+          sessionId: lastMessageId,
+          visitorId,
+          durationMs: Date.now() - t0,
+          inputTokens: finalUsage.input_tokens ?? 0,
+          outputTokens: finalUsage.output_tokens ?? 0,
+          cacheReadTokens: cacheRead,
+          cacheCreationTokens: cacheCreate,
+          cacheHitRatio,
+          costUsd: cost,
+          model: MODEL_OPUS,
+          toolUses,
+          stopReason,
         });
 
-        for await (const ev of response) {
-          if (ev.type === 'message_start') lastMessageId = ev.message.id;
-          if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
-            send({ kind: 'tool_use', name: ev.content_block.name });
-          }
-          if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-            send({ kind: 'text', text: ev.delta.text });
-          }
-          if (ev.type === 'message_delta') {
-            stopReason = ev.delta.stop_reason ?? null;
-            finalUsage = { ...finalUsage, ...ev.usage };
-          }
-        }
-
-        const finalMessage = await response.finalMessage();
-        finalUsage = finalMessage.usage;
-
-        for (const block of finalMessage.content) {
-          if (block.type === 'text') {
-            assistantText += block.text;
-            continue;
-          }
-          if (block.type !== 'tool_use') continue;
-          const tu = block as { name: string; input: any; id: string };
-          toolUses.push({ name: tu.name, input: tu.input });
-
-          const patch = toolUseToPatch(tu);
-          if (patch) {
-            patchesToWrite.push({ patch, messageId: lastMessageId, rationale: tu.input?.rationale });
-            send({ kind: 'patch', patch });
-          } else if (tu.name === 'request_more_content') {
-            send({ kind: 'request_more_content', input: tu.input });
-          } else if (tu.name === 'ask_user') {
-            send({ kind: 'ask_user', input: tu.input });
-          }
-        }
-      } catch (err) {
-        send({ kind: 'error', message: (err as Error).message });
+        send({ kind: 'done', cacheHitRatio, costUsd: cost });
       }
-
-      const cacheRead = finalUsage.cache_read_input_tokens ?? 0;
-      const cacheCreate = finalUsage.cache_creation_input_tokens ?? 0;
-      const inputT = (finalUsage.input_tokens ?? 0) + cacheRead + cacheCreate;
-      const cacheHitRatio = inputT > 0 ? cacheRead / inputT : 0;
-      const cost = estimateCost(MODEL_OPUS, finalUsage);
-
-      try {
-        const db = supabaseAdmin();
-        const { data: site } = await db.from('sites').select('id').eq('slug', pageSlug).single();
-        if (site) {
-          if (patchesToWrite.length > 0) {
-            await db.from('preferences').insert(
-              patchesToWrite.map((p) => ({
-                visitor_id: visitorId,
-                site_id: site.id,
-                patch: p.patch,
-                rationale: p.rationale ?? null,
-                message_id: p.messageId ?? null,
-              })),
-            );
-          }
-          await db.from('chat_turns').insert({
-            visitor_id: visitorId,
-            site_id: site.id,
-            user_message: message,
-            assistant_message: assistantText || null,
-            tool_uses: toolUses,
-            cost_usd: cost,
-            cache_hit_ratio: cacheHitRatio,
-            input_tokens: finalUsage.input_tokens ?? 0,
-            output_tokens: finalUsage.output_tokens ?? 0,
-            cache_read_tokens: cacheRead,
-            cache_creation_tokens: cacheCreate,
-          });
-        }
-      } catch {
-        // best-effort persistence
-      }
-
-      await appendLog({
-        ts: new Date().toISOString(),
-        sessionId: lastMessageId,
-        visitorId,
-        durationMs: Date.now() - t0,
-        inputTokens: finalUsage.input_tokens ?? 0,
-        outputTokens: finalUsage.output_tokens ?? 0,
-        cacheReadTokens: cacheRead,
-        cacheCreationTokens: cacheCreate,
-        cacheHitRatio,
-        costUsd: cost,
-        model: MODEL_OPUS,
-        toolUses,
-        stopReason,
-      });
-
-      send({ kind: 'done', cacheHitRatio, costUsd: cost });
       controller.enqueue(enc.encode('data: [DONE]\n\n'));
       controller.close();
     },
@@ -307,40 +458,3 @@ Apply the change to section "${focusedSectionId}" immediately. Do not ask for cl
   });
 }
 
-function toolUseToPatch(tu: { name: string; input: any }): Patch | null {
-  switch (tu.name) {
-    case 'update_section':
-      return { op: 'update_section', sectionId: tu.input.sectionId, patch: tu.input.patch ?? {} };
-    case 'update_theme': {
-      // Claude occasionally wraps its input as {patch: {...}} (mirroring update_section's shape).
-      // Unwrap so deepMerge actually folds the theme fields instead of adding a dead 'patch' key.
-      const raw = tu.input as Record<string, unknown>;
-      const isWrapped =
-        raw && typeof raw === 'object' &&
-        Object.keys(raw).length === 1 &&
-        'patch' in raw &&
-        typeof raw.patch === 'object' && raw.patch !== null;
-      return { op: 'update_theme', patch: (isWrapped ? raw.patch : raw) as any };
-    }
-    case 'set_filter':
-      return { op: 'set_filter', filter: tu.input };
-    case 'set_sort':
-      return { op: 'set_sort', sort: tu.input };
-    case 'add_section':
-      return {
-        op: 'add_section',
-        sectionType: tu.input.type,
-        props: tu.input.props ?? {},
-        position: tu.input.position ?? { index: -1 },
-      };
-    case 'remove_section':
-      return { op: 'remove_section', sectionId: tu.input.sectionId };
-    case 'reorder_sections':
-      return { op: 'reorder_sections', order: tu.input.order ?? [] };
-    case 'request_more_content':
-    case 'ask_user':
-      return null;
-    default:
-      return null;
-  }
-}

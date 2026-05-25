@@ -1,6 +1,7 @@
 import { applyPatches, PageConfigSchema, type PageConfig, type Patch, type Short, type Video } from '@showcase/shared';
 import { supabaseAdmin } from '../supabase';
-import { getAdapter } from '../adapters';
+import { getAdapter, isLiveFeedSource, resolveFeedSource } from '../adapters';
+import type { SlackBootstrapMeta } from '../slack/client';
 
 interface GetRenderedConfigArgs {
   slug: string;
@@ -36,9 +37,16 @@ function replaceFeedVideos(
   //   VideoGrid        = remainder (or full feed if too few for the rows)
   // ShortsRow gets real shorts when available; otherwise left untouched so
   // the original mock shorts remain visible (so the "hide shorts" demo still works).
-  const continueSlice = videos.slice(0, 6);
-  const recommendedSlice = videos.slice(6, 12);
-  const gridSlice = videos.length > 12 ? videos.slice(12) : videos;
+  const hasContinue = config.sections.some((s) => s.type === 'ContinueWatchingRow');
+  const hasRecommended = config.sections.some((s) => s.type === 'RecommendedRow');
+  const continueSlice = hasContinue ? videos.slice(0, 6) : [];
+  const recommendedSlice = hasRecommended ? videos.slice(6, 12) : [];
+  const gridSlice =
+    hasContinue || hasRecommended
+      ? videos.length > 12
+        ? videos.slice(12)
+        : videos
+      : videos;
   // Build the active chip list: prefer the real YouTube labels (which are
   // personalized to the account) when available; always include "All" first.
   const realChipList = Array.isArray(chips) && chips.length > 0
@@ -74,7 +82,12 @@ export interface YtChipMeta {
 
 export async function getRenderedPage(
   { slug, visitorId }: GetRenderedConfigArgs,
-): Promise<{ config: PageConfig; ytContinuation: string | null; ytChips: YtChipMeta[] }> {
+): Promise<{
+  config: PageConfig;
+  ytContinuation: string | null;
+  ytChips: YtChipMeta[];
+  slackMeta: SlackBootstrapMeta | null;
+}> {
   const db = supabaseAdmin();
 
   const { data: site, error: siteErr } = await db
@@ -89,15 +102,13 @@ export async function getRenderedPage(
   let config = PageConfigSchema.parse(site.base_config) as PageConfig;
   let ytContinuation: string | null = null;
   let ytChips: YtChipMeta[] = [];
+  let slackMeta: SlackBootstrapMeta | null = null;
 
-  // If SHOWCASE_FEED_SOURCE=youtube, pull live videos from the youtubei.js
-  // adapter and substitute them into the row sections + grid. Adapter falls
-  // back to mock if the cookies/network/parser fails.
-  const source = process.env.SHOWCASE_FEED_SOURCE ?? process.env.FEED_ADAPTER ?? 'mock';
-  console.log('[page] feed source =', JSON.stringify(source), 'env=', process.env.SHOWCASE_FEED_SOURCE);
-  if (source === 'youtube') {
+  const source = resolveFeedSource(slug);
+  console.log('[page] slug=', slug, 'feed source =', source);
+  if (isLiveFeedSource(source)) {
     try {
-      const feed = await getAdapter().getFeed();
+      const feed = await getAdapter(source, slug).getFeed();
       if (feed.videos.length > 0) {
         config = replaceFeedVideos(config, feed.videos, feed.shorts ?? [], feed.chips);
         const maybeCont = (feed as { continuation?: unknown }).continuation;
@@ -105,9 +116,10 @@ export async function getRenderedPage(
         if (Array.isArray(feed.chips)) {
           ytChips = feed.chips.map((c) => ({ text: c.text, params: c.params }));
         }
+        if (feed.slackMeta) slackMeta = feed.slackMeta;
       }
     } catch (err) {
-      console.warn('[page] youtube adapter threw; using db catalog', err);
+      console.warn(`[page] ${source} adapter threw; using db catalog`, err);
     }
   } else {
     const { data: generated } = await db
@@ -118,7 +130,7 @@ export async function getRenderedPage(
     config = mergeGeneratedVideos(config, (generated ?? []).map((r) => r.data as Video));
   }
 
-  if (!visitorId) return { config, ytContinuation, ytChips };
+  if (!visitorId) return { config, ytContinuation, ytChips, slackMeta };
 
   await db.from('visitors').upsert(
     { id: visitorId, last_seen: new Date().toISOString() },
@@ -133,7 +145,7 @@ export async function getRenderedPage(
     .order('created_at', { ascending: true });
 
   const patches = (prefs ?? []).map((p) => p.patch as Patch);
-  return { config: applyPatches(config, patches), ytContinuation, ytChips };
+  return { config: applyPatches(config, patches), ytContinuation, ytChips, slackMeta };
 }
 
 // Backward-compat shim: existing callers (api/page, api/chat) only need the

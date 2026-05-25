@@ -218,7 +218,9 @@ function rowToCookie(row: SqliteCookieRow, key: Buffer): Cookie | null {
 
 // ---------- public API ----------
 
-export async function readYoutubeCookies(): Promise<CookiesResult> {
+/** Read Chrome cookies whose host_key contains any of the given substrings. */
+export async function readChromeCookies(hostSubstrings: string[]): Promise<CookiesResult> {
+  const label = hostSubstrings.join('|') || 'unknown';
   const dbPath = await findCookieDb();
   if (dbPath === null) {
     return {
@@ -250,12 +252,14 @@ export async function readYoutubeCookies(): Promise<CookiesResult> {
 
     let rows: SqliteCookieRow[];
     try {
+      const clauses = hostSubstrings.map(() => `host_key LIKE ?`).join(' OR ');
+      const params = hostSubstrings.map((s) => `%${s}%`);
       const stmt = db.prepare(
         `SELECT name, value, encrypted_value, host_key, path, expires_utc, is_secure, is_httponly
          FROM cookies
-         WHERE host_key LIKE '%youtube.com%'`,
+         WHERE ${clauses}`,
       );
-      rows = stmt.all() as SqliteCookieRow[];
+      rows = stmt.all(...params) as SqliteCookieRow[];
     } catch (err) {
       db.close();
       return {
@@ -273,7 +277,7 @@ export async function readYoutubeCookies(): Promise<CookiesResult> {
     if (rows.length === 0) {
       return {
         kind: 'cookies-unavailable',
-        reason: 'no youtube.com cookies present (is the user logged in?)',
+        reason: `no cookies present for ${label} (log in via Chrome on this profile)`,
       };
     }
 
@@ -303,12 +307,11 @@ export async function readYoutubeCookies(): Promise<CookiesResult> {
     if (cookies.length === 0) {
       return {
         kind: 'cookies-unavailable',
-        reason: 'all youtube.com cookies failed to decrypt (keychain mismatch?)',
+        reason: `all cookies failed to decrypt for ${label} (keychain mismatch?)`,
       };
     }
 
-    // Count-only log — never emit raw cookie values.
-    console.log(`[chrome-cookies] loaded ${cookies.length} cookies for youtube.com`);
+    console.log(`[chrome-cookies] loaded ${cookies.length} cookies for ${label}`);
     return { kind: 'ok', cookies };
   } finally {
     if (snapshot !== null) {
@@ -321,12 +324,28 @@ export async function readYoutubeCookies(): Promise<CookiesResult> {
   }
 }
 
-// Build a `Cookie:` header string from a list of cookies, restricted to the
-// youtube.com domain. We accept any host_key that contains "youtube.com"
-// (e.g. ".youtube.com", "www.youtube.com", "studio.youtube.com") but drop
-// anything else as a defensive belt.
-export function composeCookieHeader(cookies: Cookie[]): string {
-  const filtered = cookies.filter((c) => c.domain.includes('youtube.com'));
+export async function readYoutubeCookies(): Promise<CookiesResult> {
+  return readChromeCookies(['youtube.com']);
+}
+
+export async function readAmazonCookies(): Promise<CookiesResult> {
+  return readChromeCookies(['amazon.com']);
+}
+
+export async function readInstagramCookies(): Promise<CookiesResult> {
+  return readChromeCookies(['instagram.com']);
+}
+
+export async function readSlackCookies(): Promise<CookiesResult> {
+  return readChromeCookies(['slack.com', 'app.slack.com']);
+}
+
+// Build a `Cookie:` header from cookies, optionally restricted to domains
+// containing `domainIncludes` (when omitted, all passed cookies are used).
+export function composeCookieHeader(cookies: Cookie[], domainIncludes?: string): string {
+  const filtered = domainIncludes
+    ? cookies.filter((c) => c.domain.includes(domainIncludes))
+    : cookies;
   // De-dupe by name; if a name appears under both ".youtube.com" and a
   // sub-host, prefer the more specific one (longer host_key wins).
   const byName = new Map<string, Cookie>();

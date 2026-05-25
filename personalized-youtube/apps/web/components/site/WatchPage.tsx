@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Video } from '@showcase/shared';
+import { AmazonProductView } from '@/components/amazon/AmazonProductView';
+import { SlackThreadView } from '@/components/slack/SlackThreadView';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
 
@@ -28,6 +31,27 @@ type CommentsState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'ok'; comments: YtComment[]; total: string | null }
+  | { status: 'error'; reason: string };
+
+interface YtVideoInfo {
+  title: string;
+  description: string;
+  viewCount: number;
+  likeCount: number;
+  postedAgo: string;
+  channel: {
+    name: string;
+    avatar: string;
+    verified: boolean;
+    subscriberCount: number;
+    subscriberCountText: string;
+  };
+}
+
+type InfoState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ok'; info: YtVideoInfo }
   | { status: 'error'; reason: string };
 
 // Compact suggested-video card on the right column. Clicking switches the
@@ -72,42 +96,15 @@ function SuggestionCard({ video }: { video: Video }) {
   );
 }
 
-export function WatchPage() {
-  const { config, watchingId, watchingTitle, setWatching } = usePageStore();
+function productDescriptionText(description: string | undefined): string {
+  const text = description?.trim() ?? '';
+  if (!text || /^https?:\/\//i.test(text)) return '';
+  return text;
+}
 
-  // Sync watchingId <-> URL ?v= so the back button works and the URL is shareable.
-  useEffect(() => {
-    if (watchingId) {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('v') !== watchingId) {
-        url.searchParams.set('v', watchingId);
-        window.history.pushState({ v: watchingId }, '', url.toString());
-      }
-    } else {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('v')) {
-        url.searchParams.delete('v');
-        window.history.pushState({}, '', url.toString());
-      }
-    }
-  }, [watchingId]);
+function useWatchVideos() {
+  const { config, watchingId } = usePageStore();
 
-  // Restore watchingId from URL on initial mount + handle browser back button.
-  useEffect(() => {
-    const fromUrl = new URL(window.location.href).searchParams.get('v');
-    if (fromUrl) setWatching(fromUrl);
-    function onPop() {
-      const v = new URL(window.location.href).searchParams.get('v');
-      setWatching(v ?? null);
-    }
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-    // run only once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Pull suggestions from whatever section currently holds videos
-  // (VideoGrid in normal mode, or any RecommendedRow). Exclude currentvideo.
   const suggestions: Video[] = useMemo(() => {
     if (!watchingId) return [];
     const grid = config.sections.find((s) => s.type === 'VideoGrid');
@@ -126,7 +123,217 @@ export function WatchPage() {
     return undefined;
   }, [config.sections, watchingId]);
 
+  return { suggestions, currentVideo };
+}
+
+function WatchSidebar({ suggestions, label }: { suggestions: Video[]; label: string }) {
+  return (
+    <aside className="min-w-0">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+        {label}
+      </h2>
+      <div className="flex flex-col gap-2">
+        {suggestions.map((v) => (
+          <SuggestionCard key={v.id} video={v} />
+        ))}
+        {suggestions.length === 0 && (
+          <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+type IgCommentsState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ok'; comments: Array<{ id: string; author: string; authorAvatar: string; text: string; postedAgo: string; likes: number }>; total: number | null }
+  | { status: 'error'; reason: string };
+
+function InstagramPostView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
+  const [commentsState, setCommentsState] = useState<IgCommentsState>({ status: 'idle' });
+  const title = watchingTitle || currentVideo?.title || 'Instagram post';
+  const embedSrc = `https://www.instagram.com/p/${encodeURIComponent(watchingId)}/embed`;
+  const mediaKey =
+    currentVideo?.tags.find((t) => t.startsWith('igpk:'))?.slice(5) ?? watchingId;
+
+  useEffect(() => {
+    if (!mediaKey) {
+      setCommentsState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setCommentsState({ status: 'loading' });
+    fetch(`/api/instagram/comments?id=${encodeURIComponent(mediaKey)}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          const data = (await r.json().catch(() => ({}))) as { reason?: string };
+          setCommentsState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          return;
+        }
+        const data = (await r.json()) as {
+          ok?: boolean;
+          comments?: IgCommentsState extends { status: 'ok'; comments: infer C } ? C : never;
+          total?: number | null;
+        };
+        if (!data.ok || !Array.isArray(data.comments)) {
+          setCommentsState({ status: 'error', reason: 'comments unavailable' });
+          return;
+        }
+        setCommentsState({ status: 'ok', comments: data.comments, total: data.total ?? null });
+      })
+      .catch((err) => {
+        if (!cancelled) setCommentsState({ status: 'error', reason: (err as Error).message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaKey]);
+
+  return (
+    <div className="px-4 py-4 md:px-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        <div className="mx-auto w-full max-w-md">
+          <div className="overflow-hidden rounded-lg border border-[#dbdbdb] bg-white shadow-sm">
+            <iframe
+              src={embedSrc}
+              title={title}
+              className="w-full border-0"
+              style={{ minHeight: '680px' }}
+              scrolling="no"
+              allowTransparency={true}
+            />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <Avatar
+                name={currentVideo?.channel.name ?? 'Instagram'}
+                src={currentVideo?.channel.avatar ?? ''}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {currentVideo?.channel.name ?? 'Instagram'}
+                </p>
+                {currentVideo?.postedAgo && (
+                  <p className="text-xs text-[color:var(--muted-fg)]">{currentVideo.postedAgo}</p>
+                )}
+              </div>
+            </div>
+            {title && title !== 'Instagram post' && (
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{title}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => setWatching(null)}
+              className="mt-4 rounded-full bg-[color:var(--muted)] px-4 py-2 text-sm hover:bg-[color:var(--border)]"
+            >
+              ← Back to feed
+            </button>
+          </div>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+              {commentsState.status === 'ok' && commentsState.total != null
+                ? `${commentsState.total} comments`
+                : 'Comments'}
+            </h2>
+            {commentsState.status === 'loading' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Loading comments…</p>
+            )}
+            {commentsState.status === 'error' && (
+              <p className="text-sm text-[color:var(--muted-fg)]">Comments unavailable for this post.</p>
+            )}
+            {commentsState.status === 'ok' && commentsState.comments.length > 0 && (
+              <ul className="space-y-4">
+                {commentsState.comments.map((c) => (
+                  <li key={c.id} className="flex items-start gap-3">
+                    <Avatar name={c.author} src={c.authorAvatar} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{c.author}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{c.text}</p>
+                      <p className="mt-1 text-xs text-[color:var(--muted-fg)]">
+                        {c.postedAgo}
+                        {c.likes > 0 ? ` · ${c.likes} likes` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <WatchSidebar suggestions={suggestions} label="More posts" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YoutubeWatchView({
+  currentVideo,
+  suggestions,
+  watchingId,
+  watchingTitle,
+}: {
+  currentVideo: Video | undefined;
+  suggestions: Video[];
+  watchingId: string;
+  watchingTitle: string | null;
+}) {
+  const { setWatching } = usePageStore();
   const [commentsState, setCommentsState] = useState<CommentsState>({ status: 'idle' });
+  const [infoState, setInfoState] = useState<InfoState>({ status: 'idle' });
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+
+  // Fetch the per-video info (description, subs, views, posted-ago) via the
+  // youtubei adapter. Same cancel-on-switch pattern as comments.
+  useEffect(() => {
+    setDescriptionExpanded(false);
+    if (!watchingId) {
+      setInfoState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setInfoState({ status: 'loading' });
+    fetch(`/api/yt/info?v=${encodeURIComponent(watchingId)}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          const data = (await r.json().catch(() => ({}))) as { reason?: string };
+          setInfoState({ status: 'error', reason: data.reason ?? `HTTP ${r.status}` });
+          return;
+        }
+        const data = (await r.json()) as { ok?: boolean; info?: YtVideoInfo; reason?: string };
+        if (!data.ok || !data.info) {
+          setInfoState({ status: 'error', reason: data.reason ?? 'unknown error' });
+          return;
+        }
+        setInfoState({ status: 'ok', info: data.info });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setInfoState({ status: 'error', reason: (err as Error).message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [watchingId]);
 
   // Fetch real comments via the youtubei adapter when a new video starts.
   // Cancels stale fetches if the visitor switches videos mid-flight.
@@ -180,53 +387,104 @@ export function WatchPage() {
             />
           </div>
 
-          <div>
-            <h1 className="text-xl font-semibold leading-tight">
-              {watchingTitle ?? 'Now playing'}
-            </h1>
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                {currentVideo ? (
-                  <Avatar
-                    name={currentVideo.channel.name}
-                    src={currentVideo.channel.avatar}
-                    size="xl"
-                  />
-                ) : (
-                  <Avatar name="YouTube" size="xl" />
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {currentVideo?.channel.name ?? 'YouTube'}
-                    {currentVideo?.channel.verified && <span className="ml-1">✓</span>}
-                  </p>
-                  <p className="truncate text-xs text-[color:var(--muted-fg)]">
-                    {currentVideo
-                      ? `${formatViews(currentVideo.channel.subscriberCount)} subscribers`
-                      : 'via embed'}
-                  </p>
-                </div>
-                <button className="ml-2 rounded-full bg-[color:var(--fg)] px-4 py-1.5 text-sm font-medium text-[color:var(--bg)]">
-                  Subscribe
-                </button>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  onClick={() => setWatching(null)}
-                  className="rounded-full bg-[color:var(--muted)] px-4 py-1.5 text-sm hover:bg-[color:var(--border)]"
-                >
-                  ← Back
-                </button>
-              </div>
-            </div>
-          </div>
+          {(() => {
+            // Prefer real watch-page info; fall back to whatever the lockup
+            // entry already had on the home feed so the header doesn't flash
+            // blank while /api/yt/info is in flight.
+            const info = infoState.status === 'ok' ? infoState.info : null;
+            const title = info?.title || watchingTitle || currentVideo?.title || 'Now playing';
+            const channelName = info?.channel.name || currentVideo?.channel.name || 'YouTube';
+            const channelAvatar = info?.channel.avatar || currentVideo?.channel.avatar || '';
+            const channelVerified = info?.channel.verified || currentVideo?.channel.verified || false;
+            const subscriberLine =
+              info?.channel.subscriberCountText ||
+              (info && info.channel.subscriberCount > 0
+                ? `${formatViews(info.channel.subscriberCount)} subscribers`
+                : currentVideo && currentVideo.channel.subscriberCount > 0
+                  ? `${formatViews(currentVideo.channel.subscriberCount)} subscribers`
+                  : infoState.status === 'loading'
+                    ? 'Loading…'
+                    : '');
+            const views = info?.viewCount ?? currentVideo?.views ?? 0;
+            const postedAgo = info?.postedAgo || currentVideo?.postedAgo || '';
+            const likes = info?.likeCount ?? 0;
 
-          <div className="rounded-xl bg-[color:var(--muted)] p-4 text-sm text-[color:var(--muted-fg)]">
-            <p>
-              Personalization tools (chat, theme, layout, filters) still work while watching.
-              Try editing the page through the chat panel — your changes apply when you go back.
-            </p>
-          </div>
+            return (
+              <div>
+                <h1 className="text-xl font-semibold leading-tight">{title}</h1>
+                {(views > 0 || postedAgo) && (
+                  <p className="mt-1 text-xs text-[color:var(--muted-fg)]">
+                    {views > 0 && `${formatViews(views)} views`}
+                    {views > 0 && postedAgo && ' · '}
+                    {postedAgo}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={channelName} src={channelAvatar} size="xl" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {channelName}
+                        {channelVerified && <span className="ml-1">✓</span>}
+                      </p>
+                      {subscriberLine && (
+                        <p className="truncate text-xs text-[color:var(--muted-fg)]">
+                          {subscriberLine}
+                        </p>
+                      )}
+                    </div>
+                    <button className="ml-2 rounded-full bg-[color:var(--fg)] px-4 py-1.5 text-sm font-medium text-[color:var(--bg)]">
+                      Subscribe
+                    </button>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {likes > 0 && (
+                      <span className="rounded-full bg-[color:var(--muted)] px-4 py-1.5 text-sm">
+                        ♥ {formatViews(likes)}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setWatching(null)}
+                      className="rounded-full bg-[color:var(--muted)] px-4 py-1.5 text-sm hover:bg-[color:var(--border)]"
+                    >
+                      ← Back
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const info = infoState.status === 'ok' ? infoState.info : null;
+            const description = info?.description || currentVideo?.description || '';
+            if (infoState.status === 'loading' && !description) {
+              return (
+                <div className="rounded-xl bg-[color:var(--muted)] p-4 text-sm text-[color:var(--muted-fg)]">
+                  Loading description…
+                </div>
+              );
+            }
+            if (!description) return null;
+            return (
+              <div className="rounded-xl bg-[color:var(--muted)] p-4 text-sm text-[color:var(--fg)]">
+                <p
+                  className={`whitespace-pre-wrap ${descriptionExpanded ? '' : 'line-clamp-3'}`}
+                >
+                  {description}
+                </p>
+                {description.length > 200 && (
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionExpanded((v) => !v)}
+                    className="mt-2 text-xs font-medium text-[color:var(--muted-fg)] hover:text-[color:var(--fg)]"
+                  >
+                    {descriptionExpanded ? 'Show less' : 'Show more'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           <section className="mt-2">
             <h2 className="mb-4 flex items-baseline gap-3 text-base font-semibold">
@@ -306,21 +564,58 @@ export function WatchPage() {
           </section>
         </div>
 
-        {/* Right column: up next */}
-        <aside className="min-w-0">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
-            Up next
-          </h2>
-          <div className="flex flex-col gap-2">
-            {suggestions.map((v) => (
-              <SuggestionCard key={v.id} video={v} />
-            ))}
-            {suggestions.length === 0 && (
-              <p className="text-sm text-[color:var(--muted-fg)]">No suggestions yet.</p>
-            )}
-          </div>
-        </aside>
+        <WatchSidebar suggestions={suggestions} label="Up next" />
       </div>
     </div>
+  );
+}
+
+export function WatchPage() {
+  const { config, watchingId, watchingTitle } = usePageStore();
+  const { suggestions, currentVideo } = useWatchVideos();
+  const brand = getSiteBrand(config.slug);
+
+  if (!watchingId) return null;
+
+  if (brand === 'amazon') {
+    return (
+      <AmazonProductView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingTitle={watchingTitle}
+        watchingId={watchingId}
+      />
+    );
+  }
+
+  if (brand === 'instagram') {
+    return (
+      <InstagramPostView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingId={watchingId}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  if (brand === 'slack') {
+    return (
+      <SlackThreadView
+        currentVideo={currentVideo}
+        suggestions={suggestions}
+        watchingId={watchingId}
+        watchingTitle={watchingTitle}
+      />
+    );
+  }
+
+  return (
+    <YoutubeWatchView
+      currentVideo={currentVideo}
+      suggestions={suggestions}
+      watchingId={watchingId}
+      watchingTitle={watchingTitle}
+    />
   );
 }

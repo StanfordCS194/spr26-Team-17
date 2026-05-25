@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { Inter, Lora, JetBrains_Mono, Nunito } from 'next/font/google';
+import { fontVariables } from './fonts';
+import { ShowcaseChatLayer } from '@/components/chat/ShowcaseChatLayer';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans-loaded' });
-const lora = Lora({ subsets: ['latin'], variable: '--font-serif-loaded' });
-const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono-loaded' });
-const nunito = Nunito({ subsets: ['latin'], variable: '--font-rounded-loaded' });
+import './site-brands.css';
 
 export const metadata: Metadata = {
   title: 'Showcase — Personalizable YouTube',
@@ -17,9 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${lora.variable} ${jetbrains.variable} ${nunito.variable}`}
+      className={fontVariables}
     >
-      <body className="bg-bg text-fg antialiased">{children}</body>
+      <body className="bg-bg text-fg antialiased">
+        {children}
+        <ShowcaseChatLayer />
+      </body>
     </html>
   );
 }
