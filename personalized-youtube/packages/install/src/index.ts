@@ -1,5 +1,7 @@
 import { scanHostPage, type ScanResult, type ShowcaseSelectors, type SiteArchetype } from './scanner';
 import { applyDomPatch } from './patch-runtime';
+import { applyArchetypeTheme, ARCHETYPE_THEMES } from './archetype-themes';
+import { auditInstallSetup, type AuditReport } from './setup-audit';
 import { ensureInstallSession, loadInstallPatches, resetInstallPreferences } from './api';
 import { mountInstallChat } from './chat-ui';
 import type { Patch } from '@showcase/shared';
@@ -15,6 +17,7 @@ export interface ShowcaseInstallConfig {
 export interface ShowcaseInstallInstance {
   scan(): ScanResult;
   applyPatch(patch: Patch): void;
+  auditSetup(): AuditReport;
   reset(): Promise<void>;
   destroy(): void;
 }
@@ -32,10 +35,22 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   }
 
   // Scan is intentionally repeatable because patches can change the DOM shape.
-  const scan = () => scanHostPage(config.selectors, document, config.archetype ?? 'youtube');
+  const archetype = config.archetype ?? 'youtube';
+  const scan = () => scanHostPage(config.selectors, document, archetype);
   const initialScan = scan();
   let currentScan = initialScan;
   const apiBaseUrl = config.apiBaseUrl ?? window.location.origin;
+
+  applyArchetypeTheme(currentScan.bindings.root, archetype);
+
+  const auditSetup = () => auditInstallSetup(config.selectors, document, archetype);
+  if (config.debug) {
+    const report = auditSetup();
+    log(config, report.summary, report);
+    if (!report.ready) {
+      console.warn('[Showcase] Install setup audit found issues:', report.issues);
+    }
+  }
 
   // Create or reuse an anonymous visitor id so preferences can persist.
   const visitorIdPromise = ensureInstallSession(apiBaseUrl, config.siteId);
@@ -73,12 +88,13 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   if (typeof window !== 'undefined') {
     window.ShowcasePersonalize = {
       ...ShowcasePersonalize,
-      __debug: { applyPatch, scan, reset },
+      __debug: { applyPatch, scan, reset, auditSetup },
     };
   }
   return {
     scan,
     applyPatch,
+    auditSetup,
     reset,
     // Remove the widget when an embedding site needs to unmount the SDK.
     destroy() {
@@ -88,7 +104,7 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   };
 }
 
-export const ShowcasePersonalize = { init, scanHostPage, applyDomPatch };
+export const ShowcasePersonalize = { init, scanHostPage, applyDomPatch, auditInstallSetup, applyArchetypeTheme, ARCHETYPE_THEMES };
 
 declare global {
   interface Window {
@@ -97,6 +113,7 @@ declare global {
         applyPatch(patch: Patch): void;
         scan(): ScanResult;
         reset(): Promise<void>;
+        auditSetup(): AuditReport;
       };
     };
   }
@@ -109,4 +126,6 @@ if (typeof window !== 'undefined') {
 export default ShowcasePersonalize;
 export { scanHostPage };
 export { applyDomPatch };
-export type { ScanResult, ShowcaseSelectors, SiteArchetype };
+export { auditInstallSetup };
+export { applyArchetypeTheme, ARCHETYPE_THEMES } from './archetype-themes';
+export type { ScanResult, ShowcaseSelectors, SiteArchetype, AuditReport };

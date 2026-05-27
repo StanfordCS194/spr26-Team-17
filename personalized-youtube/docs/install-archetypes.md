@@ -568,7 +568,8 @@ Add `data-showcase-*` attributes to the company's existing HTML template (server
 
 1. **Register** the site in the Showcase backend:
    ```bash
-   pnpm seed:sites  # or POST /api/admin/sites with { slug, name, baseUrl }
+   pnpm seed:install   # install demo slugs (amazon-demo, instagram-demo, slack-demo)
+   pnpm seed:sites     # full prototype slugs (amazon-storefront, instagram-feed, slack-workspace)
    ```
 2. **Add CORS origin** for the company domain in `INSTALL_ALLOWED_ORIGINS`.
 3. **Embed the script** at the bottom of `<body>` (or via a tag manager):
@@ -587,6 +588,8 @@ Add `data-showcase-*` attributes to the company's existing HTML template (server
 4. **Verify** using the browser console: `ShowcasePersonalize` should be defined, the floating chat button should appear, and `GET /api/install/page?siteId=YOUR_SITE_ID` should return a `patches` array (empty on first visit).
 
 ### Step 3 — Validate and tune
+
+Run the built-in setup audit with `debug: true` or `install.auditSetup()` — it reports missing root, feed region, cards, titles, and tags before go-live.
 
 1. Open the page and open the chat overlay.
 2. Ask the assistant to change the theme, filter by a topic, or hide a section. Verify the DOM changes.

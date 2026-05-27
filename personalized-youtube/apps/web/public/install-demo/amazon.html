@@ -147,6 +147,22 @@
       .topbar-cart { font-size: 13px; font-weight: bold; padding: 4px 10px; }
       .cart-count { color: var(--az-orange); display: inline-block; font-size: 18px; font-weight: 900; margin-top: -3px; vertical-align: top; }
 
+      .demo-links {
+        align-items: center;
+        background: rgba(255,255,255,.08);
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 4px;
+        color: #ccc;
+        display: flex;
+        font-size: 11px;
+        gap: 6px;
+        padding: 4px 10px;
+        white-space: nowrap;
+      }
+      .demo-links a { color: var(--az-orange); font-weight: 600; text-decoration: none; }
+      .demo-links a:hover { text-decoration: underline; }
+      .demo-links .sep { color: rgba(255,255,255,.3); }
+
       /* ──────────────────────────────────────────
          Sub-navigation
       ────────────────────────────────────────── */
@@ -407,6 +423,24 @@
       .add-to-cart:hover { background: var(--az-yellow-dark); border-color: #c7a600; }
 
       /* ──────────────────────────────────────────
+         Demo banner
+      ────────────────────────────────────────── */
+      .demo-banner {
+        background: #FFF8E6;
+        border-bottom: 1px solid #F2C94C;
+        color: #333;
+        display: flex;
+        flex-shrink: 0;
+        font-size: 12px;
+        gap: 12px;
+        justify-content: center;
+        padding: 5px 16px;
+      }
+      .demo-banner strong { color: var(--az-orange-dark); }
+      .demo-banner a { color: var(--az-link); font-weight: 700; text-decoration: none; }
+      .demo-banner a:hover { text-decoration: underline; }
+
+      /* ──────────────────────────────────────────
          Responsive
       ────────────────────────────────────────── */
       @media (max-width: 1140px) {
@@ -456,6 +490,12 @@
 
       <div class="topbar-spacer"></div>
 
+      <div class="demo-links">
+        Also: <a href="./index.html">YouTube</a>
+        <span class="sep">·</span>
+        <a href="./instagram.html">Instagram →</a>
+      </div>
+
       <div class="topbar-actions">
         <a class="topbar-btn" href="#">
           <span>Hello, Sign in</span>
@@ -470,6 +510,13 @@
         </a>
       </div>
     </header>
+
+    <!-- ── Demo switcher banner ──────────────── -->
+    <div class="demo-banner">
+      <strong>Showcase Install Demo</strong>
+      Also try: <a href="./index.html">YouTube →</a>
+      <a href="./slack.html">Slack →</a>
+    </div>
 
     <!-- ── Sub-navigation ─────────────────────── -->
     <nav class="subnav" data-showcase-section="subnav">

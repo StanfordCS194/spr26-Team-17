@@ -17,6 +17,7 @@
     "migrate": "node --env-file=.env --import tsx scripts/migrate.ts",
     "seed": "node --env-file=.env --import tsx scripts/seed.ts",
     "seed:sites": "node --env-file=.env --import tsx scripts/seed-extra-sites.ts",
+    "seed:install": "node --env-file=.env --import tsx scripts/seed-install-sites.ts",
     "check:feeds": "node --env-file=.env --import tsx scripts/check-intercept-feeds.ts",
     "slack:setup": "node --env-file=.env --import tsx scripts/setup-slack-intercept.ts",
     "slack:configure": "node --env-file=.env --import tsx scripts/configure-slack-env.ts",

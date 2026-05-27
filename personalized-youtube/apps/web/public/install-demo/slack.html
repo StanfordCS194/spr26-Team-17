@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Corp — #general (Showcase Demo)</title>
+    <style>
+      :root {
+        --sl-sidebar:       #3F0E40;
+        --sl-sidebar-hover: #350D36;
+        --sl-sidebar-active:#1264A3;
+        --sl-accent:        #611F69;
+        --sl-accent-light:  #7C3085;
+        --sl-rail:          #2A072B;
+        --sl-rail-icon:     rgba(255,255,255,.7);
+        --sl-rail-active:   #fff;
+        --sl-text-sidebar:  rgba(255,255,255,.85);
+        --sl-text-muted:    rgba(255,255,255,.55);
+        --sl-unread:        #fff;
+        --sl-mention:       #CD2553;
+        --sl-divider:       rgba(255,255,255,.15);
+
+        --bg:               #FFFFFF;
+        --fg:               #1d1c1d;
+        --muted:            #616061;
+        --border:           #e8e8e8;
+        --hover-bg:         #F8F8F8;
+        --link:             #1264A3;
+        --reaction-bg:      #f0f0f0;
+        --reaction-border:  #d0d0d0;
+        --msg-hover:        #F9F9F9;
+        --ts-color:         #878787;
+        --author-color:     #1d1c1d;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Lato, "Helvetica Neue", Arial, Helvetica, sans-serif;
+        font-size: 15px;
+        height: 100vh;
+        line-height: 1.46668;
+        overflow: hidden;
+      }
+
+      /* ──────────────────────────────────────────
+         App shell: [rail] [sidebar] [workspace-body]
+      ────────────────────────────────────────── */
+      .app {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* ──────────────────────────────────────────
+         Workspace rail (icon column)
+      ────────────────────────────────────────── */
+      .workspace-rail {
+        background: var(--sl-rail);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        gap: 6px;
+        padding: 10px 8px;
+        width: 68px;
+      }
+      .rail-item {
+        align-items: center;
+        border-radius: 8px;
+        color: var(--sl-rail-icon);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        font-size: 10px;
+        font-weight: 700;
+        gap: 3px;
+        justify-content: center;
+        padding: 6px 4px 5px;
+        text-decoration: none;
+        transition: background 100ms;
+        user-select: none;
+      }
+      .rail-item:hover { background: var(--sl-sidebar-hover); color: #fff; }
+      .rail-item.active { color: var(--sl-rail-active); }
+      .rail-item .rail-icon {
+        align-items: center;
+        background: var(--sl-accent);
+        border-radius: 10px;
+        display: flex;
+        font-size: 18px;
+        height: 36px;
+        justify-content: center;
+        width: 36px;
+      }
+      .rail-item.active .rail-icon {
+        background: transparent;
+        border: 2px solid #fff;
+        border-radius: 12px;
+      }
+      .rail-icon-plain {
+        align-items: center;
+        display: flex;
+        font-size: 20px;
+        height: 36px;
+        justify-content: center;
+        width: 36px;
+      }
+      .rail-divider {
+        border-top: 1px solid var(--sl-divider);
+        margin: 4px 6px;
+      }
+      .rail-dot {
+        background: #fff;
+        border-radius: 50%;
+        height: 6px;
+        width: 6px;
+      }
+
+      /* ──────────────────────────────────────────
+         Channel sidebar
+      ────────────────────────────────────────── */
+      .channel-sidebar {
+        background: var(--sl-sidebar);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow: hidden;
+        width: 260px;
+      }
+
+      .sidebar-header {
+        align-items: center;
+        border-bottom: 1px solid var(--sl-divider);
+        display: flex;
+        gap: 8px;
+        height: 49px;
+        padding: 0 16px;
+        flex-shrink: 0;
+      }
+      .workspace-name {
+        color: #fff;
+        font-size: 15px;
+        font-weight: 900;
+        flex: 1;
+        letter-spacing: -.3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .workspace-name:hover { text-decoration: underline; }
+      .workspace-status {
+        align-items: center;
+        background: #27AE60;
+        border: 2px solid var(--sl-sidebar);
+        border-radius: 50%;
+        display: flex;
+        height: 10px;
+        width: 10px;
+        flex-shrink: 0;
+      }
+
+      .sidebar-search {
+        background: rgba(255,255,255,.1);
+        border: 1px solid transparent;
+        border-radius: 6px;
+        color: rgba(255,255,255,.8);
+        font-family: inherit;
+        font-size: 13px;
+        margin: 8px 12px;
+        outline: none;
+        padding: 5px 10px;
+        transition: background 120ms, border-color 120ms;
+        width: calc(100% - 24px);
+      }
+      .sidebar-search::placeholder { color: rgba(255,255,255,.55); }
+      .sidebar-search:focus {
+        background: rgba(255,255,255,.15);
+        border-color: rgba(255,255,255,.3);
+      }
+
+      .sidebar-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0 12px;
+      }
+      .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+      .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 2px; }
+
+      .sidebar-section {
+        margin-bottom: 4px;
+      }
+      .sidebar-section-header {
+        align-items: center;
+        color: var(--sl-text-muted);
+        cursor: pointer;
+        display: flex;
+        font-size: 13px;
+        font-weight: 700;
+        gap: 4px;
+        padding: 5px 12px 4px;
+        user-select: none;
+      }
+      .sidebar-section-header:hover { color: var(--sl-text-sidebar); }
+      .sidebar-section-header .chevron { font-size: 10px; transition: transform 120ms; }
+
+      .sidebar-channel-link {
+        align-items: center;
+        border-radius: 4px;
+        color: var(--sl-text-sidebar);
+        cursor: pointer;
+        display: flex;
+        font-size: 14px;
+        gap: 6px;
+        margin: 0 8px;
+        padding: 4px 8px;
+        text-decoration: none;
+        transition: background 80ms;
+        user-select: none;
+      }
+      .sidebar-channel-link:hover { background: var(--sl-sidebar-hover); color: #fff; }
+      .sidebar-channel-link.active {
+        background: var(--sl-sidebar-active);
+        color: #fff;
+        font-weight: 700;
+      }
+      .sidebar-channel-link .ch-prefix { color: var(--sl-text-muted); font-size: 16px; line-height: 1; }
+      .sidebar-channel-link.active .ch-prefix { color: rgba(255,255,255,.7); }
+      .sidebar-channel-link .ch-badge {
+        background: #CD2553;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        margin-left: auto;
+        min-width: 18px;
+        padding: 1px 5px;
+        text-align: center;
+      }
+      .sidebar-channel-link .unread-dot {
+        background: #fff;
+        border-radius: 50%;
+        height: 8px;
+        margin-left: auto;
+        width: 8px;
+      }
+
+      .sidebar-add {
+        align-items: center;
+        border-radius: 4px;
+        color: var(--sl-text-muted);
+        cursor: pointer;
+        display: flex;
+        font-size: 13px;
+        gap: 6px;
+        margin: 0 8px;
+        padding: 4px 8px;
+        text-decoration: none;
+        transition: background 80ms;
+        user-select: none;
+      }
+      .sidebar-add:hover { background: var(--sl-sidebar-hover); color: var(--sl-text-sidebar); }
+      .sidebar-add .plus { font-size: 16px; font-weight: 300; }
+
+      /* ──────────────────────────────────────────
+         Workspace body: [channel-header] [message-pane] [composer]
+      ────────────────────────────────────────── */
+      .workspace-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      /* ──────────────────────────────────────────
+         Channel header / topbar
+      ────────────────────────────────────────── */
+      .channel-header {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-shrink: 0;
+        gap: 8px;
+        height: 49px;
+        padding: 0 16px;
+      }
+      .channel-header-name {
+        align-items: center;
+        display: flex;
+        font-size: 15px;
+        font-weight: 900;
+        gap: 5px;
+      }
+      .channel-header-name .hash { color: var(--muted); font-size: 18px; }
+      .channel-header-divider {
+        background: var(--border);
+        height: 22px;
+        width: 1px;
+        flex-shrink: 0;
+      }
+      .channel-topic {
+        color: var(--muted);
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .channel-header-actions {
+        align-items: center;
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      .header-btn {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        display: flex;
+        font-size: 12px;
+        gap: 4px;
+        padding: 4px 8px;
+        transition: background 100ms;
+      }
+      .header-btn:hover { background: var(--hover-bg); color: var(--fg); }
+      .header-btn .icon { font-size: 16px; }
+      .member-avatars {
+        display: flex;
+        margin-right: 4px;
+      }
+      .mini-avatar {
+        align-items: center;
+        border: 2px solid #fff;
+        border-radius: 4px;
+        display: flex;
+        font-size: 9px;
+        font-weight: 700;
+        height: 22px;
+        justify-content: center;
+        margin-left: -6px;
+        width: 22px;
+      }
+      .mini-avatar:first-child { margin-left: 0; }
+      .mini-avatar.a1 { background: #E01E5A; color: #fff; }
+      .mini-avatar.a2 { background: #36C5F0; color: #fff; }
+      .mini-avatar.a3 { background: #2EB67D; color: #fff; }
+      .mini-avatar.a4 { background: #ECB22E; color: #fff; }
+
+      /* ──────────────────────────────────────────
+         Demo banner / switcher
+      ────────────────────────────────────────── */
+      .demo-banner {
+        background: #FFF8E6;
+        border-bottom: 1px solid #F2C94C;
+        color: #333;
+        display: flex;
+        flex-shrink: 0;
+        font-size: 12px;
+        gap: 12px;
+        justify-content: center;
+        padding: 5px 16px;
+      }
+      .demo-banner strong { color: var(--sl-accent); }
+      .demo-banner a { color: var(--link); font-weight: 700; text-decoration: none; }
+      .demo-banner a:hover { text-decoration: underline; }
+
+      /* ──────────────────────────────────────────
+         Message pane
+      ────────────────────────────────────────── */
+      .message-pane {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px 8px;
+      }
+      .message-pane::-webkit-scrollbar { width: 6px; }
+      .message-pane::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+      /* Date divider */
+      .date-divider {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        margin: 16px 0 8px;
+      }
+      .date-divider::before,
+      .date-divider::after {
+        background: var(--border);
+        content: '';
+        flex: 1;
+        height: 1px;
+      }
+      .date-pill {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 12px;
+        white-space: nowrap;
+      }
+
+      /* ──────────────────────────────────────────
+         Message cards (item cards)
+      ────────────────────────────────────────── */
+      .message-row {
+        border-radius: 4px;
+        display: flex;
+        gap: 10px;
+        padding: 6px 8px 6px 4px;
+        position: relative;
+        transition: background 80ms;
+      }
+      .message-row:hover { background: var(--msg-hover); }
+      .message-row:hover .msg-actions { opacity: 1; }
+
+      .msg-avatar {
+        border-radius: 4px;
+        flex-shrink: 0;
+        font-size: 13px;
+        font-weight: 700;
+        height: 36px;
+        line-height: 36px;
+        text-align: center;
+        width: 36px;
+      }
+      .msg-avatar.av-alice   { background: #E01E5A; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-bob     { background: #36C5F0; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-carol   { background: #2EB67D; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-dave    { background: #ECB22E; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-eve     { background: #611F69; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-frank   { background: #1264A3; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-grace   { background: #E8912D; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-hana    { background: #007A5A; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-ivan    { background: #CC2E29; color: #fff; border-radius: 4px; }
+      .msg-avatar.av-julia   { background: #4A154B; color: #fff; border-radius: 4px; }
+
+      .msg-body { flex: 1; min-width: 0; }
+
+      .msg-header {
+        align-items: baseline;
+        display: flex;
+        gap: 8px;
+        margin-bottom: 2px;
+      }
+      .msg-author {
+        color: var(--author-color);
+        font-size: 15px;
+        font-weight: 900;
+        line-height: 1.2;
+      }
+      .msg-author:hover { text-decoration: underline; cursor: pointer; }
+      .msg-time {
+        color: var(--ts-color);
+        font-size: 12px;
+        line-height: 1.2;
+      }
+      .msg-app-tag {
+        background: #e8e8e8;
+        border-radius: 3px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 4px;
+      }
+
+      .msg-text {
+        color: var(--fg);
+        font-size: 15px;
+        line-height: 1.46668;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .msg-text a { color: var(--link); text-decoration: none; }
+      .msg-text a:hover { text-decoration: underline; }
+      .msg-text code {
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-family: Monaco, "Courier New", monospace;
+        font-size: 13px;
+        padding: 1px 4px;
+      }
+      .msg-text .mention {
+        background: #e8f0f9;
+        border-radius: 3px;
+        color: var(--link);
+        font-weight: 700;
+        padding: 0 2px;
+      }
+      .msg-text .emoji { font-size: 18px; }
+
+      /* Compact continuation message (no avatar re-render) */
+      .message-row.continuation {
+        padding-top: 1px;
+        padding-bottom: 1px;
+      }
+      .message-row.continuation .msg-time-stub {
+        color: var(--ts-color);
+        display: none;
+        flex-shrink: 0;
+        font-size: 11px;
+        padding-top: 4px;
+        text-align: right;
+        width: 36px;
+      }
+      .message-row.continuation:hover .msg-time-stub { display: block; }
+      .message-row.continuation .msg-body { padding-left: 0; }
+
+      /* Reactions */
+      .msg-reactions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .reaction {
+        align-items: center;
+        background: var(--reaction-bg);
+        border: 1px solid var(--reaction-border);
+        border-radius: 24px;
+        cursor: pointer;
+        display: flex;
+        font-size: 13px;
+        gap: 4px;
+        padding: 2px 8px;
+        transition: background 80ms;
+        user-select: none;
+      }
+      .reaction:hover { background: #e4e4e4; border-color: #b0b0b0; }
+      .reaction.mine { background: #E8F0F9; border-color: #1264A3; color: var(--link); }
+      .reaction .count { color: var(--muted); font-size: 12px; font-weight: 700; }
+      .reaction.mine .count { color: var(--link); }
+
+      /* Thread reply */
+      .msg-thread-btn {
+        align-items: center;
+        border: 0;
+        background: transparent;
+        color: var(--link);
+        cursor: pointer;
+        display: flex;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        gap: 5px;
+        margin-top: 4px;
+        padding: 2px 0;
+      }
+      .msg-thread-btn:hover { text-decoration: underline; }
+      .thread-avatar {
+        border-radius: 3px;
+        height: 18px;
+        width: 18px;
+        font-size: 9px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Floating action toolbar */
+      .msg-actions {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.12);
+        display: flex;
+        gap: 0;
+        opacity: 0;
+        position: absolute;
+        right: 12px;
+        top: -14px;
+        transition: opacity 80ms;
+        z-index: 5;
+      }
+      .action-btn {
+        background: transparent;
+        border: 0;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 5px 8px;
+        transition: background 80ms;
+      }
+      .action-btn:hover { background: var(--hover-bg); }
+
+      /* Attachment/image block */
+      .msg-attachment {
+        background: var(--hover-bg);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--sl-accent);
+        border-radius: 4px;
+        margin-top: 6px;
+        max-width: 480px;
+        padding: 10px 14px;
+      }
+      .attach-service {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 3px;
+        text-transform: uppercase;
+      }
+      .attach-title { color: var(--link); font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+      .attach-desc { color: var(--fg); font-size: 13px; line-height: 1.4; }
+      .attach-meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+      /* Channel intro banner */
+      .channel-intro {
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+      }
+      .channel-intro-icon {
+        align-items: center;
+        background: var(--sl-accent);
+        border-radius: 12px;
+        display: flex;
+        font-size: 28px;
+        height: 56px;
+        justify-content: center;
+        margin-bottom: 8px;
+        width: 56px;
+      }
+      .channel-intro h2 {
+        font-size: 22px;
+        font-weight: 900;
+        margin-bottom: 4px;
+      }
+      .channel-intro p { color: var(--muted); font-size: 14px; }
+
+      /* ──────────────────────────────────────────
+         Message composer
+      ────────────────────────────────────────── */
+      .composer {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        flex-shrink: 0;
+        margin: 0 16px 16px;
+        overflow: hidden;
+      }
+      .composer-input {
+        background: transparent;
+        border: 0;
+        color: var(--fg);
+        display: block;
+        font-family: inherit;
+        font-size: 15px;
+        min-height: 42px;
+        outline: none;
+        padding: 10px 14px 4px;
+        resize: none;
+        width: 100%;
+      }
+      .composer-input::placeholder { color: var(--muted); }
+      .composer-toolbar {
+        align-items: center;
+        display: flex;
+        gap: 2px;
+        padding: 4px 10px 6px;
+      }
+      .composer-btn {
+        background: transparent;
+        border: 0;
+        border-radius: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 17px;
+        line-height: 1;
+        padding: 4px 6px;
+        transition: background 100ms, color 100ms;
+      }
+      .composer-btn:hover { background: var(--hover-bg); color: var(--fg); }
+      .composer-send {
+        align-items: center;
+        background: #007A5A;
+        border: 0;
+        border-radius: 4px;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        font-size: 17px;
+        margin-left: auto;
+        padding: 5px 10px;
+        transition: background 100ms;
+      }
+      .composer-send:hover { background: #006649; }
+      .composer-divider {
+        background: var(--border);
+        height: 20px;
+        margin: 0 3px;
+        width: 1px;
+      }
+
+      /* ──────────────────────────────────────────
+         Responsive
+      ────────────────────────────────────────── */
+      @media (max-width: 860px) {
+        .workspace-rail { display: none; }
+        .channel-sidebar { width: 220px; }
+      }
+      @media (max-width: 640px) {
+        .channel-sidebar { display: none; }
+      }
+    </style>
+  </head>
+
+  <!--
+    data-showcase-root: marks the area the install script is allowed to scan.
+    archetype="slack" in init() configures item-level selectors automatically.
+  -->
+  <div data-showcase-root class="app">
+
+    <!-- ── Workspace rail ─────────────────────── -->
+    <nav class="workspace-rail" aria-label="Workspace switcher">
+      <a class="rail-item active" href="#" title="Acme Corp">
+        <span class="rail-icon">🏢</span>
+        <span>Acme</span>
+      </a>
+      <div class="rail-divider"></div>
+      <a class="rail-item" href="#" title="Home">
+        <span class="rail-icon-plain">🏠</span>
+        <span>Home</span>
+      </a>
+      <a class="rail-item" href="#" title="DMs">
+        <span class="rail-icon-plain">💬</span>
+        <span>DMs</span>
+      </a>
+      <a class="rail-item" href="#" title="Activity">
+        <span class="rail-icon-plain">🔔</span>
+        <span>Activity</span>
+      </a>
+      <a class="rail-item" href="#" title="More">
+        <span class="rail-icon-plain">⋯</span>
+        <span>More</span>
+      </a>
+    </nav>
+
+    <!-- ── Channel sidebar ────────────────────── -->
+    <aside class="channel-sidebar" data-showcase-section="sidebar" aria-label="Channels">
+      <div class="sidebar-header">
+        <span class="workspace-name">Acme Corp</span>
+        <span class="workspace-status" title="Active"></span>
+      </div>
+
+      <input class="sidebar-search" type="search" placeholder="Search Acme Corp" aria-label="Search" />
+
+      <div class="sidebar-scroll">
+        <!-- Jump to section -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾</span> Jump to
+          </div>
+          <a class="sidebar-channel-link" href="#">
+            <span class="rail-icon-plain" style="font-size:14px">📌</span> Drafts &amp; Sent
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="rail-icon-plain" style="font-size:14px">📥</span> All unreads
+            <span class="ch-badge">4</span>
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="rail-icon-plain" style="font-size:14px">🧵</span> Threads
+          </a>
+        </div>
+
+        <!-- Channels -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾</span> Channels
+          </div>
+          <a class="sidebar-channel-link active" href="#" aria-current="page">
+            <span class="ch-prefix">#</span> general
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> random
+            <span class="unread-dot"></span>
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> project-atlas
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> engineering
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> design
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> announcements
+            <span class="ch-badge">2</span>
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="ch-prefix">#</span> onboarding
+          </a>
+          <a class="sidebar-add" href="#">
+            <span class="plus">＋</span> Add channels
+          </a>
+        </div>
+
+        <!-- Direct Messages -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾</span> Direct messages
+          </div>
+          <a class="sidebar-channel-link" href="#">
+            <span class="msg-avatar av-alice" style="height:20px;width:20px;font-size:10px;line-height:20px;flex-shrink:0;border-radius:3px">AL</span>
+            alice
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="msg-avatar av-bob" style="height:20px;width:20px;font-size:10px;line-height:20px;flex-shrink:0;border-radius:3px">BO</span>
+            bob
+            <span class="unread-dot"></span>
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="msg-avatar av-carol" style="height:20px;width:20px;font-size:10px;line-height:20px;flex-shrink:0;border-radius:3px">CA</span>
+            carol
+          </a>
+          <a class="sidebar-channel-link" href="#">
+            <span class="msg-avatar av-dave" style="height:20px;width:20px;font-size:10px;line-height:20px;flex-shrink:0;border-radius:3px">DV</span>
+            dave
+          </a>
+          <a class="sidebar-add" href="#">
+            <span class="plus">＋</span> New direct message
+          </a>
+        </div>
+
+        <!-- Apps -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▸</span> Apps
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Workspace body ─────────────────────── -->
+    <div class="workspace-body">
+
+      <!-- ── Channel header / topbar ─────────── -->
+      <header class="channel-header" data-showcase-section="topbar">
+        <div class="channel-header-name">
+          <span class="hash">#</span>general
+        </div>
+        <div class="channel-header-divider"></div>
+        <span class="channel-topic">Team-wide announcements, updates, and casual conversation. Welcome to Acme Corp 👋</span>
+        <div class="channel-header-actions">
+          <div class="member-avatars">
+            <span class="mini-avatar a1">AL</span>
+            <span class="mini-avatar a2">BO</span>
+            <span class="mini-avatar a3">CA</span>
+            <span class="mini-avatar a4">DV</span>
+          </div>
+          <button class="header-btn"><span class="icon">🔍</span></button>
+          <button class="header-btn"><span class="icon">📌</span> Pins</button>
+          <button class="header-btn"><span class="icon">👥</span> Members</button>
+          <button class="header-btn"><span class="icon">⚙️</span></button>
+        </div>
+      </header>
+
+      <!-- ── Demo switcher banner ────────────── -->
+      <div class="demo-banner">
+        <strong>Showcase Install Demo</strong>
+        Also try: <a href="./index.html">YouTube →</a>
+        <a href="./amazon.html">Amazon →</a>
+      </div>
+
+      <!-- ── Message pane ─────────────────────── -->
+      <!--
+        data-showcase-section="message-list" is the stable patch target.
+        archetype: "slack" preset reads [data-showcase-item-card] children
+        for title, subtitle (author), and meta (timestamp) automatically.
+        videoGrid: "[data-showcase-section='message-list']" in selectors override.
+      -->
+      <div class="message-pane" data-showcase-section="message-list">
+
+        <!-- Channel intro -->
+        <div class="channel-intro">
+          <div class="channel-intro-icon">📢</div>
+          <h2># general</h2>
+          <p>This is the very beginning of the <strong>#general</strong> channel. Team-wide announcements and conversations live here.</p>
+        </div>
+
+        <!-- ── Date divider ── -->
+        <div class="date-divider">
+          <span class="date-pill">Monday, May 19</span>
+        </div>
+
+        <!-- ── Message 1 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="welcome onboarding team intro">
+          <span class="msg-avatar av-grace" data-showcase-item-image aria-hidden="true">GR</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>grace</span>
+              <span class="msg-time" data-showcase-item-meta>9:01 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Good morning everyone! 🌞 Excited to kick off the week. We've got a big sprint ahead — let's make it count. Don't forget standup at 10 AM.</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">👋 <span class="count">12</span></span>
+              <span class="reaction">☀️ <span class="count">7</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 2 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="deploy release production engineering">
+          <span class="msg-avatar av-alice" data-showcase-item-image aria-hidden="true">AL</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>alice</span>
+              <span class="msg-time" data-showcase-item-meta>9:14 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>🚀 We just deployed <strong>v2.8.0</strong> to production — all checks green ✅ Release notes in Notion. Shoutout to <span class="mention">@bob</span> for the late-night debugging session!</p>
+            <div class="msg-thread-btn">
+              <span class="thread-avatar av-bob" style="background:#36C5F0;color:#fff">BO</span>
+              <span class="thread-avatar av-carol" style="background:#2EB67D;color:#fff">CA</span>
+              4 replies · Last reply 9:45 AM
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 3 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="deploy release engineering thanks">
+          <span class="msg-avatar av-bob" data-showcase-item-image aria-hidden="true">BO</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>bob</span>
+              <span class="msg-time" data-showcase-item-meta>9:18 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Happy to help <span class="mention">@alice</span>! The memory leak was in the event listener cleanup — pushed a patch in <code>PR #412</code>. Should be rock solid now 💪</p>
+            <div class="msg-reactions">
+              <span class="reaction">🎉 <span class="count">9</span></span>
+              <span class="reaction">💪 <span class="count">5</span></span>
+              <span class="reaction mine">🚀 <span class="count">3</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Date divider ── -->
+        <div class="date-divider">
+          <span class="date-pill">Tuesday, May 20</span>
+        </div>
+
+        <!-- ── Message 4 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="announcement meeting all-hands planning">
+          <span class="msg-avatar av-hana" data-showcase-item-image aria-hidden="true">HN</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>hana</span>
+              <span class="msg-time" data-showcase-item-meta>8:55 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>📅 <strong>All-Hands this Thursday at 2 PM PT.</strong> Agenda: Q2 roadmap review, team OKRs, and a sneak peek at Project Atlas. Please add your questions to the shared doc beforehand.</p>
+            <div class="msg-attachment">
+              <div class="attach-service">Google Docs</div>
+              <div class="attach-title">All-Hands May 22 — Agenda &amp; Questions</div>
+              <div class="attach-desc">Q2 roadmap · OKR updates · Project Atlas preview</div>
+              <div class="attach-meta">docs.google.com</div>
+            </div>
+            <div class="msg-reactions">
+              <span class="reaction mine">👍 <span class="count">18</span></span>
+              <span class="reaction">📝 <span class="count">6</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 5 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="design review ui feedback figma">
+          <span class="msg-avatar av-carol" data-showcase-item-image aria-hidden="true">CA</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>carol</span>
+              <span class="msg-time" data-showcase-item-meta>10:22 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>New Figma designs for the onboarding flow are ready for review 🎨 Would love eyes from the product team — especially the step 3 modal which we redesigned based on user feedback.</p>
+            <div class="msg-attachment">
+              <div class="attach-service">Figma</div>
+              <div class="attach-title">Onboarding Flow v4 — Redesign</div>
+              <div class="attach-desc">Updated step 3 modal, improved microcopy, revised progress indicator</div>
+              <div class="attach-meta">figma.com · Last edited 2 hours ago</div>
+            </div>
+            <div class="msg-reactions">
+              <span class="reaction">😍 <span class="count">11</span></span>
+              <span class="reaction mine">👀 <span class="count">8</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 6 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="lunch food team office">
+          <span class="msg-avatar av-dave" data-showcase-item-image aria-hidden="true">DV</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>dave</span>
+              <span class="msg-time" data-showcase-item-meta>12:03 PM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Anyone up for a lunch run to that new ramen spot on Market St? Going around 12:30 🍜</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">🍜 <span class="count">5</span></span>
+              <span class="reaction">✅ <span class="count">4</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Date divider ── -->
+        <div class="date-divider">
+          <span class="date-pill">Wednesday, May 21</span>
+        </div>
+
+        <!-- ── Message 7 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="incident outage bug hotfix production">
+          <span class="msg-avatar av-frank" data-showcase-item-image aria-hidden="true">FK</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>frank</span>
+              <span class="msg-time" data-showcase-item-meta>2:37 PM</span>
+              <span class="msg-app-tag">Incident Bot</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>⚠️ <strong>P2 Incident open:</strong> Elevated error rate on the search API (5xx up ~12%). Engineering is investigating. Status page updated. Will post updates here every 15 min.</p>
+            <div class="msg-reactions">
+              <span class="reaction">😬 <span class="count">7</span></span>
+              <span class="reaction">🔍 <span class="count">3</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 8 (continuation) ── -->
+        <article class="message-row continuation"
+          data-showcase-item-card
+          data-showcase-tags="incident resolved engineering fix">
+          <span class="msg-time-stub">2:58</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>frank</span>
+              <span class="msg-time" data-showcase-item-meta>2:58 PM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>✅ <strong>Incident resolved.</strong> Root cause was a misconfigured cache TTL after the v2.8.0 deploy. Rolled back the config change — error rate back to baseline. Post-mortem tomorrow at 11 AM.</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">😮‍💨 <span class="count">14</span></span>
+              <span class="reaction">🙏 <span class="count">10</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Date divider ── -->
+        <div class="date-divider">
+          <span class="date-pill">Thursday, May 22</span>
+        </div>
+
+        <!-- ── Message 9 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="hiring job posting engineering role team growth">
+          <span class="msg-avatar av-hana" data-showcase-item-image aria-hidden="true">HN</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>hana</span>
+              <span class="msg-time" data-showcase-item-meta>9:05 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>We're hiring! 🎉 Two new roles just went live: <strong>Senior Backend Engineer</strong> and <strong>Product Designer (Growth)</strong>. Please share with anyone in your network who might be a good fit. Referral bonus applies!</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">🎉 <span class="count">22</span></span>
+              <span class="reaction">🔗 <span class="count">9</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 10 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="project atlas milestone feature launch">
+          <span class="msg-avatar av-eve" data-showcase-item-image aria-hidden="true">EV</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>eve</span>
+              <span class="msg-time" data-showcase-item-meta>11:40 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Project Atlas update 🗺️ We hit our M2 milestone — the new personalization engine is live in beta for 5% of users. Early signals look great: +18% engagement, -22% drop-off on the onboarding funnel. More details in the all-hands doc!</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">🚀 <span class="count">31</span></span>
+              <span class="reaction">📈 <span class="count">17</span></span>
+              <span class="reaction">🎯 <span class="count">8</span></span>
+            </div>
+            <div class="msg-thread-btn">
+              <span class="thread-avatar" style="background:#E01E5A;color:#fff">AL</span>
+              <span class="thread-avatar" style="background:#36C5F0;color:#fff">BO</span>
+              <span class="thread-avatar" style="background:#2EB67D;color:#fff">CA</span>
+              7 replies · Last reply 2:15 PM
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 11 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="office social team event friday happy-hour">
+          <span class="msg-avatar av-ivan" data-showcase-item-image aria-hidden="true">IV</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>ivan</span>
+              <span class="msg-time" data-showcase-item-meta>3:12 PM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Friendly reminder: <strong>Team Happy Hour tomorrow (Friday) at 5 PM</strong> in the rooftop lounge 🍻 All are welcome — bring a friend or coworker you haven't caught up with in a while. Snacks and drinks provided!</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">🍻 <span class="count">16</span></span>
+              <span class="reaction">🎉 <span class="count">12</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Date divider ── -->
+        <div class="date-divider">
+          <span class="date-pill">Today</span>
+        </div>
+
+        <!-- ── Message 12 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="standup update status engineering">
+          <span class="msg-avatar av-alice" data-showcase-item-image aria-hidden="true">AL</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>alice</span>
+              <span class="msg-time" data-showcase-item-meta>10:01 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Morning standup notes 📋 — Alice: wrapping up the auth token refresh refactor. Bob: investigating p95 latency spike in the recommendations API. Carol: finishing hi-fi mocks for search results page. Dave: writing migration scripts for the new schema.</p>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 13 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="question help tooling ci github actions">
+          <span class="msg-avatar av-julia" data-showcase-item-image aria-hidden="true">JU</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>julia</span>
+              <span class="msg-time" data-showcase-item-meta>10:48 AM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Quick question: has anyone seen the GitHub Actions cache step flaking on the <code>build-test</code> workflow? I've hit it 3 times today — the <code>actions/cache@v3</code> restore step times out after ~2 min. Any known workaround? 🙏</p>
+            <div class="msg-thread-btn">
+              <span class="thread-avatar" style="background:#36C5F0;color:#fff">BO</span>
+              3 replies · Last reply 11:05 AM
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+        <!-- ── Message 14 ── -->
+        <article class="message-row"
+          data-showcase-item-card
+          data-showcase-tags="win customer success metrics growth">
+          <span class="msg-avatar av-carol" data-showcase-item-image aria-hidden="true">CA</span>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" data-showcase-item-subtitle>carol</span>
+              <span class="msg-time" data-showcase-item-meta>2:15 PM</span>
+            </div>
+            <p class="msg-text" data-showcase-item-title>Big win to share 🏆 Globex Corp just signed a 3-year enterprise contract — our biggest deal this quarter! Huge props to the sales team and everyone who supported the demo prep. More details in the CRM notes.</p>
+            <div class="msg-reactions">
+              <span class="reaction mine">🏆 <span class="count">28</span></span>
+              <span class="reaction">💸 <span class="count">19</span></span>
+              <span class="reaction">🎉 <span class="count">24</span></span>
+              <span class="reaction">🙌 <span class="count">11</span></span>
+            </div>
+          </div>
+          <div class="msg-actions">
+            <button class="action-btn" title="Add reaction">😊</button>
+            <button class="action-btn" title="Reply in thread">💬</button>
+            <button class="action-btn" title="More">⋯</button>
+          </div>
+        </article>
+
+      </div><!-- /.message-pane -->
+
+      <!-- ── Composer ──────────────────────────── -->
+      <div class="composer">
+        <textarea class="composer-input" placeholder="Message #general" rows="1" aria-label="Message #general"></textarea>
+        <div class="composer-toolbar">
+          <button class="composer-btn" title="Formatting">𝗕</button>
+          <button class="composer-btn" title="Attach file">📎</button>
+          <button class="composer-btn" title="Emoji">😊</button>
+          <button class="composer-btn" title="Mention">@</button>
+          <div class="composer-divider"></div>
+          <button class="composer-btn" title="More">⋯</button>
+          <button class="composer-send" title="Send message" aria-label="Send">➤</button>
+        </div>
+      </div>
+
+    </div><!-- /.workspace-body -->
+  </div><!-- /.app -->
+
+  <!--
+    Browser bundle produced by packages/install/scripts/build.mjs.
+    Run `pnpm build` in packages/install to generate showcase-install.iife.js.
+  -->
+  <script src="./showcase-install.iife.js"></script>
+  <script>
+    // This is the exact shape a customer Slack-like site would pass to our install SDK.
+    // archetype: "slack" auto-configures item-level selectors via ARCHETYPE_PRESETS.slack:
+    //   itemCard:     [data-showcase-item-card]
+    //   itemTitle:    [data-showcase-item-title]   (message body first line)
+    //   itemSubtitle: [data-showcase-item-subtitle] (maps to channel.name = author username)
+    //   itemImage:    [data-showcase-item-image]   (avatar element)
+    //   itemMeta:     [data-showcase-item-meta]    (timestamp string)
+    window.showcaseInstallConfig = {
+      siteId: "slack-demo",
+      apiBaseUrl: window.location.origin,
+      debug: true,
+      archetype: "slack",
+      selectors: {
+        // Override only what differs from the youtube defaults.
+        // The message pane uses "message-list" instead of the default "video-grid" id.
+        videoGrid: "[data-showcase-section='message-list']",
+      },
+    };
+
+    window.ShowcasePersonalize.init(window.showcaseInstallConfig);
+
+    console.info("[Showcase demo] scanned Slack elements", {
+      sections: document.querySelectorAll("[data-showcase-section]").length,
+      cards:    document.querySelectorAll("[data-showcase-item-card]").length,
+    });
+  </script>
+</html>

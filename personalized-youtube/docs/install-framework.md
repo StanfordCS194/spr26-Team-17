@@ -197,6 +197,33 @@ ShowcasePersonalize.init({
 
 Both approaches produce the same scan result. The `archetype` approach is shorter; the explicit approach is useful when you want full control or when your attribute names diverge significantly from the preset.
 
+### Setup audit (debug)
+
+When `debug: true`, the SDK runs `auditSetup()` on init and logs missing regions or cards. You can also call it manually:
+
+```js
+const install = ShowcasePersonalize.init({ siteId: "amazon-demo", archetype: "amazon", debug: true });
+console.log(install.auditSetup());
+// or: ShowcasePersonalize.__debug.auditSetup()
+```
+
+Seed install demo site rows before testing chat persistence:
+
+```bash
+pnpm seed:install
+```
+
+### All install demos
+
+| Demo | URL | siteId | archetype |
+|------|-----|--------|-----------|
+| YouTube | `/install-demo` | `static-youtube-demo` | `youtube` |
+| Amazon | `/install-demo/amazon` | `amazon-demo` | `amazon` |
+| Instagram | `/install-demo/instagram` | `instagram-demo` | `instagram` |
+| Slack | `/install-demo/slack` | `slack-demo` | `slack` |
+
+See [`install-archetypes.md`](./install-archetypes.md) for per-site markup contracts.
+
 ## Archetype Coverage
 
 The install runtime still maps every site onto the shared `PageConfig` / `Video[]` pipeline internally, but the `archetype` presets and [`install-archetypes.md`](./install-archetypes.md) guide let Amazon-like storefronts, Instagram-like feeds, and Slack-like workspaces adopt the same drop-in script without rebuilding their UI in Showcase.

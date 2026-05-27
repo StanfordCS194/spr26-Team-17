@@ -5,6 +5,13 @@ import type { Patch } from '@showcase/shared';
 export const DEMO_SITE_ID = 'static-youtube-demo';
 export const DEMO_SITE_FALLBACK_SLUG = 'youtube-clone';
 
+const INSTALL_SITE_SLUGS: Record<string, string> = {
+  [DEMO_SITE_ID]: DEMO_SITE_FALLBACK_SLUG,
+  'amazon-demo': 'amazon-demo',
+  'instagram-demo': 'instagram-demo',
+  'slack-demo': 'slack-demo',
+};
+
 // Localhost is allowed by default so the static demo can call these APIs in dev.
 const DEFAULT_ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
@@ -48,7 +55,7 @@ export function installJson(req: NextRequest, body: unknown, init?: ResponseInit
 // Maps a public install siteId to the internal site row/config in Supabase.
 export async function resolveInstallSite(siteId: string) {
   const db = supabaseAdmin();
-  const slug = siteId === DEMO_SITE_ID ? DEMO_SITE_FALLBACK_SLUG : siteId;
+  const slug = INSTALL_SITE_SLUGS[siteId] ?? siteId;
   const { data: site, error } = await db
     .from('sites')
     .select('id, slug, base_config')
