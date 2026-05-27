@@ -13,6 +13,7 @@ interface InstallChatRequest {
   message: string;
   pageSnapshot: Pick<PageConfig, 'sections' | 'theme' | 'filter' | 'sort'>;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  archetype?: 'youtube' | 'amazon' | 'instagram' | 'slack';
 }
 
 const INSTALL_SUPPORTED_OPS = new Set([
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     ...(body.history ?? []),
     {
       role: 'user',
-      content: `${visitorState}\n\nThis visitor is using the installable static-site runtime. Only these patch ops are supported: ${Array.from(INSTALL_SUPPORTED_OPS).join(', ')}. If another tool would be useful, explain that it is not available in this install yet.\n\nVisitor: ${body.message}`,
+      content: `${visitorState}\n\nThis visitor is using the installable static-site runtime (archetype: ${body.archetype ?? 'youtube'}). Cards may represent videos, products, posts, or messages depending on archetype — filter by title, channel/subtitle, tags, and description. Only these patch ops are supported: ${Array.from(INSTALL_SUPPORTED_OPS).join(', ')}. If another tool would be useful, explain that it is not available in this install yet.\n\nVisitor: ${body.message}`,
     },
   ];
 

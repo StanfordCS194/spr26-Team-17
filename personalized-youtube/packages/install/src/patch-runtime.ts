@@ -61,7 +61,8 @@ function applyFilter(bindings: DomBindings, filter: Partial<FilterState>) {
   const requireTitleMatches = normalizeWords(filter.requireTitleMatches);
   const excludeTitleMatches = normalizeWords(filter.excludeTitleMatches);
 
-  for (const card of bindings.videoCards) {
+  const cards = bindings.itemCards ?? bindings.videoCards;
+  for (const card of cards) {
     const text = cardText(card);
     let visible = true;
     if (requireTags.length > 0) visible = requireTags.some((tag) => text.includes(tag));

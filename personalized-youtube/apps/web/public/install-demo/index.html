@@ -48,6 +48,21 @@
         font-weight: 800;
       }
 
+      .demo-switcher {
+        background: var(--muted);
+        border-radius: 8px;
+        color: var(--muted-fg);
+        font-size: 12px;
+        padding: 6px 12px;
+        white-space: nowrap;
+      }
+      .demo-switcher a {
+        color: var(--accent);
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .demo-switcher a:hover { text-decoration: underline; }
+
       .search {
         border: 1px solid var(--border);
         border-radius: 999px;
@@ -177,6 +192,7 @@
       <div class="brand" data-showcase-logo>StaticTube</div>
       <div class="search" data-showcase-search>Search</div>
       <div aria-label="Profile">AC</div>
+      <div class="demo-switcher">Also: <a href="./amazon.html">Amazon demo →</a></div>
     </header>
 
     <div class="shell">

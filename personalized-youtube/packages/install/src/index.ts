@@ -1,4 +1,4 @@
-import { scanHostPage, type ScanResult, type ShowcaseSelectors } from './scanner';
+import { scanHostPage, type ScanResult, type ShowcaseSelectors, type SiteArchetype } from './scanner';
 import { applyDomPatch } from './patch-runtime';
 import { ensureInstallSession, loadInstallPatches, resetInstallPreferences } from './api';
 import { mountInstallChat } from './chat-ui';
@@ -8,6 +8,7 @@ export interface ShowcaseInstallConfig {
   siteId: string;
   apiBaseUrl?: string;
   debug?: boolean;
+  archetype?: SiteArchetype;
   selectors?: Partial<ShowcaseSelectors>;
 }
 
@@ -31,7 +32,7 @@ export function init(config: ShowcaseInstallConfig): ShowcaseInstallInstance {
   }
 
   // Scan is intentionally repeatable because patches can change the DOM shape.
-  const scan = () => scanHostPage(config.selectors);
+  const scan = () => scanHostPage(config.selectors, document, config.archetype ?? 'youtube');
   const initialScan = scan();
   let currentScan = initialScan;
   const apiBaseUrl = config.apiBaseUrl ?? window.location.origin;
@@ -108,4 +109,4 @@ if (typeof window !== 'undefined') {
 export default ShowcasePersonalize;
 export { scanHostPage };
 export { applyDomPatch };
-export type { ScanResult, ShowcaseSelectors };
+export type { ScanResult, ShowcaseSelectors, SiteArchetype };

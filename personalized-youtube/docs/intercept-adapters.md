@@ -63,6 +63,8 @@ TOS posture: same as YouTube intercept â€” educational showcase on the operatorâ
 
 Full audit and deploy checklist: [`security.md`](./security.md).
 
+For the drop-in install path (no source code access), see [`install-framework.md`](./install-framework.md) and [`install-archetypes.md`](./install-archetypes.md).
+
 ## Updating when sites change
 
 1. Re-capture request in DevTools (URL, headers, body).

@@ -89,3 +89,29 @@ test('scanHostPage converts a static YouTube-like DOM into PageConfig', () => {
   assert.equal(result.config.sections[3].props.videos[0].channel.name, 'Film Room');
   assert.equal(result.bindings.videoCards.length, 1);
 });
+
+test('scanHostPage applies amazon archetype preset selectors', () => {
+  const body = el('body', { 'data-showcase-root': '' }, '', [
+    el('header', { 'data-showcase-section': 'topbar' }, 'Shop'),
+    el('section', { 'data-showcase-section': 'video-grid' }, '', [
+      el('article', { 'data-showcase-item-card': '', 'data-showcase-tags': 'gadgets prime', 'data-showcase-item-id': 'asin-B00TEST123' }, '', [
+        el('img', { 'data-showcase-item-image': '', src: 'https://example.com/product.jpg' }),
+        el('h3', { 'data-showcase-item-title': '' }, 'USB-C Hub 8-in-1'),
+        el('span', { 'data-showcase-item-subtitle': '' }, 'Acme Store'),
+        el('span', { 'data-showcase-item-price': '' }, '$29.99'),
+        el('span', { 'data-showcase-item-meta': '' }, 'Prime delivery'),
+      ]),
+    ]),
+  ]);
+
+  const result = scanHostPage({}, new FixtureDocument(body), 'amazon');
+  const first = result.config.sections[3].props.videos[0];
+
+  assert.equal(result.bindings.videoCards.length, 1);
+  assert.equal(result.bindings.itemCards.length, 1);
+  assert.equal(first.id, 'asin-B00TEST123');
+  assert.equal(first.title, 'USB-C Hub 8-in-1');
+  assert.equal(first.channel.name, 'Acme Store');
+  assert.equal(first.thumbnail, 'https://example.com/product.jpg');
+  assert.equal(first.description, '$29.99 | Prime delivery');
+});

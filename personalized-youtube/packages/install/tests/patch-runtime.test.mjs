@@ -120,6 +120,7 @@ test('applyDomPatch applies theme variables to the host root', () => {
 // Confirms filter patches hide non-matching video cards.
 test('applyDomPatch filters cards by title or tags', () => {
   const { bindings } = fixture();
+  bindings.itemCards = bindings.videoCards;
   applyDomPatch({ op: 'set_filter', filter: { requireTitleMatches: ['NBA'] } }, bindings);
   assert.equal(bindings.videoCards[0].style.display, '');
   assert.equal(bindings.videoCards[1].style.display, 'none');

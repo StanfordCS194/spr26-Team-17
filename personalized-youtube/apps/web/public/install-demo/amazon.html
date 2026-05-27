@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amazon — Top Picks for You (Showcase Demo)</title>
+    <style>
+      :root {
+        --az-dark:        #232F3E;
+        --az-mid:         #37475A;
+        --az-nav-hover:   #3d5166;
+        --az-orange:      #FF9900;
+        --az-orange-dark: #c45500;
+        --az-yellow:      #FFD814;
+        --az-yellow-dark: #F7CA00;
+        --az-border:      #DDD;
+        --az-light:       #EAEDED;
+        --az-star:        #f0a500;
+        --az-prime:       #00A8E1;
+        --az-link:        #007185;
+        --az-red:         #B12704;
+        --fg:             #0F1111;
+        --muted:          #565959;
+        --bg:             #EAEDED;
+
+        /* Category image tints */
+        --img-electronics: #bfdbfe;
+        --img-kitchen:     #fef08a;
+        --img-books:       #bbf7d0;
+        --img-home:        #e9d5ff;
+        --img-sports:      #fbcfe8;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      /* ──────────────────────────────────────────
+         Topbar
+      ────────────────────────────────────────── */
+      .topbar {
+        align-items: center;
+        background: var(--az-dark);
+        color: #fff;
+        display: flex;
+        gap: 6px;
+        height: 60px;
+        padding: 0 10px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .brand {
+        color: #fff;
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: -1.5px;
+        line-height: 1;
+        padding: 4px 8px;
+        border: 2px solid transparent;
+        border-radius: 3px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .brand span { color: var(--az-orange); font-size: 10px; vertical-align: super; }
+      .brand:hover { border-color: #fff; }
+
+      .topbar-deliver {
+        border: 2px solid transparent;
+        border-radius: 3px;
+        color: #fff;
+        cursor: default;
+        display: flex;
+        flex-direction: column;
+        font-size: 11px;
+        gap: 1px;
+        padding: 4px 8px;
+        white-space: nowrap;
+      }
+      .topbar-deliver strong { color: #fff; font-size: 13px; }
+      .topbar-deliver:hover { border-color: #fff; }
+
+      .search-form {
+        display: flex;
+        flex: 1;
+        border-radius: 4px;
+        max-width: 760px;
+        overflow: hidden;
+      }
+      .search-cat {
+        background: #f3f3f3;
+        border: 0;
+        border-right: 1px solid #cdbbbb;
+        color: #555;
+        cursor: pointer;
+        font-size: 12px;
+        min-width: 52px;
+        padding: 0 8px;
+        max-width: 96px;
+      }
+      .search-input {
+        border: 0;
+        flex: 1;
+        font-size: 15px;
+        outline: none;
+        padding: 8px 10px;
+      }
+      .search-btn {
+        align-items: center;
+        background: var(--az-orange);
+        border: 0;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        padding: 0 14px;
+        transition: background 120ms;
+      }
+      .search-btn:hover { background: var(--az-orange-dark); }
+      .search-btn svg { fill: #1a1a1a; height: 20px; width: 20px; }
+
+      .topbar-spacer { flex: 1; }
+
+      .topbar-actions { align-items: center; display: flex; gap: 2px; }
+      .topbar-btn {
+        background: transparent;
+        border: 2px solid transparent;
+        border-radius: 3px;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        font-size: 11px;
+        gap: 0;
+        padding: 4px 8px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .topbar-btn strong { font-size: 13px; }
+      .topbar-btn:hover { border-color: #fff; }
+      .topbar-cart { font-size: 13px; font-weight: bold; padding: 4px 10px; }
+      .cart-count { color: var(--az-orange); display: inline-block; font-size: 18px; font-weight: 900; margin-top: -3px; vertical-align: top; }
+
+      /* ──────────────────────────────────────────
+         Sub-navigation
+      ────────────────────────────────────────── */
+      .subnav {
+        align-items: center;
+        background: var(--az-mid);
+        color: #fff;
+        display: flex;
+        gap: 0;
+        height: 38px;
+        overflow: hidden;
+        padding: 0 6px;
+      }
+      .subnav-link {
+        align-items: center;
+        border: 2px solid transparent;
+        border-radius: 2px;
+        color: #fff;
+        display: flex;
+        font-size: 13px;
+        gap: 5px;
+        height: 100%;
+        padding: 0 10px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .subnav-link:hover { border-color: #fff; background: var(--az-nav-hover); }
+      .subnav-link.bold { font-weight: bold; }
+      .subnav-link svg { fill: #fff; height: 18px; width: 18px; }
+
+      /* ──────────────────────────────────────────
+         Page shell
+      ────────────────────────────────────────── */
+      .shell {
+        display: flex;
+        margin: 0 auto;
+        max-width: 1560px;
+        padding: 14px 0;
+      }
+
+      /* ──────────────────────────────────────────
+         Sidebar
+      ────────────────────────────────────────── */
+      .sidebar {
+        align-self: flex-start;
+        background: #fff;
+        border-radius: 4px;
+        flex: 0 0 230px;
+        margin: 0 8px;
+        padding: 12px 0 20px;
+        position: sticky;
+        top: 72px;
+      }
+      .sidebar-heading {
+        border-bottom: 1px solid var(--az-border);
+        font-size: 17px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        padding: 0 16px 10px;
+      }
+      .sidebar-section {
+        margin-bottom: 12px;
+        padding: 0 16px;
+      }
+      .sidebar-section-title {
+        border-top: 1px solid var(--az-border);
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 6px;
+        padding-top: 10px;
+      }
+      .sidebar a {
+        color: var(--az-link);
+        display: block;
+        font-size: 13px;
+        padding: 3px 0;
+        text-decoration: none;
+      }
+      .sidebar a:hover { color: var(--az-orange-dark); text-decoration: underline; }
+      .sidebar a.active { color: var(--az-orange-dark); font-weight: bold; }
+      .rating-filter { align-items: center; display: flex; gap: 4px; padding: 3px 0; }
+      .rating-filter .stars-wrap { font-size: 13px; display: inline-block; }
+      .rating-filter a { display: inline; padding: 0; }
+
+      /* ──────────────────────────────────────────
+         Main content
+      ────────────────────────────────────────── */
+      main {
+        flex: 1;
+        min-width: 0;
+        padding-right: 8px;
+      }
+
+      /* ──────────────────────────────────────────
+         Category chips
+      ────────────────────────────────────────── */
+      .chips {
+        background: #fff;
+        border-radius: 4px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 14px 16px;
+      }
+      .chip {
+        background: #fff;
+        border: 1px solid var(--az-border);
+        border-radius: 20px;
+        color: var(--az-link);
+        cursor: pointer;
+        font-size: 13px;
+        padding: 6px 14px;
+        transition: background 120ms, border-color 120ms;
+        white-space: nowrap;
+      }
+      .chip:hover { background: #f7f7f7; border-color: #aaa; }
+      .chip.active { background: var(--az-dark); border-color: var(--az-dark); color: #fff; }
+
+      /* ──────────────────────────────────────────
+         Results bar
+      ────────────────────────────────────────── */
+      .results-bar {
+        align-items: center;
+        background: #fff;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding: 10px 16px;
+        font-size: 13px;
+      }
+      .results-count { color: var(--muted); }
+      .results-count strong { color: var(--fg); }
+      .sort-bar { align-items: center; display: flex; gap: 6px; }
+      .sort-label { color: var(--muted); }
+      .sort-select {
+        border: 1px solid var(--az-border);
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 13px;
+        padding: 4px 8px;
+      }
+
+      /* ──────────────────────────────────────────
+         Product grid
+      ────────────────────────────────────────── */
+      .product-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      /* ──────────────────────────────────────────
+         Product card
+      ────────────────────────────────────────── */
+      .product-card {
+        background: #fff;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 14px;
+        position: relative;
+        transition: box-shadow 160ms;
+      }
+      .product-card:hover { box-shadow: 0 2px 14px rgba(0,0,0,.13); }
+
+      /* Badges */
+      .card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 20px; }
+      .badge { border-radius: 3px; font-size: 11px; font-weight: bold; padding: 2px 6px; }
+      .badge-bestseller { background: var(--az-orange); color: #fff; }
+      .badge-choice { background: #232F3E; color: #fff; }
+      .badge-choice em { color: var(--az-orange); font-style: normal; }
+      .badge-prime { background: transparent; border: 1.5px solid var(--az-prime); color: var(--az-prime); font-style: italic; font-weight: 900; letter-spacing: -.5px; }
+      .badge-deal { background: #cc0c39; color: #fff; }
+
+      /* Product image */
+      .product-fig {
+        margin-bottom: 12px;
+        position: relative;
+      }
+      .product-img {
+        aspect-ratio: 1;
+        border-radius: 8px;
+        display: block;
+        object-fit: cover;
+        width: 100%;
+      }
+      .product-img.electronics { background: var(--img-electronics); }
+      .product-img.kitchen     { background: var(--img-kitchen); }
+      .product-img.books       { background: var(--img-books); }
+      .product-img.home        { background: var(--img-home); }
+      .product-img.sports      { background: var(--img-sports); }
+      .product-emoji {
+        align-items: center;
+        display: flex;
+        font-size: 68px;
+        inset: 0;
+        justify-content: center;
+        pointer-events: none;
+        position: absolute;
+        user-select: none;
+      }
+
+      /* Info */
+      .product-title {
+        color: var(--fg);
+        display: -webkit-box;
+        font-size: 14px;
+        font-weight: normal;
+        line-height: 1.4;
+        margin-bottom: 4px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+      .product-brand { color: var(--az-link); cursor: pointer; font-size: 12px; margin-bottom: 6px; }
+      .product-brand:hover { text-decoration: underline; }
+
+      /* Stars */
+      .star-row { align-items: center; display: flex; gap: 5px; margin-bottom: 5px; }
+      .stars-wrap { display: inline-block; font-size: 14px; line-height: 1; position: relative; }
+      .stars-back { color: #ddd; letter-spacing: 1px; }
+      .stars-fore { color: var(--az-star); left: 0; letter-spacing: 1px; overflow: hidden; position: absolute; top: 0; white-space: nowrap; }
+      .review-count { color: var(--az-link); font-size: 12px; text-decoration: none; }
+      .review-count:hover { color: var(--az-orange-dark); text-decoration: underline; }
+
+      /* Price */
+      .product-price { color: var(--az-red); font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+      .product-price sup { font-size: 11px; vertical-align: super; }
+      .price-was { color: var(--muted); font-size: 12px; text-decoration: line-through; margin-left: 6px; font-weight: normal; }
+      .price-save { background: var(--az-orange); border-radius: 3px; color: #fff; font-size: 11px; font-weight: bold; margin-left: 5px; padding: 1px 5px; }
+
+      .product-meta {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .product-meta strong { color: var(--fg); }
+      .stock { color: #007600; font-size: 12px; margin-bottom: 10px; }
+      .stock.low { color: var(--az-orange-dark); }
+
+      /* CTA */
+      .add-to-cart {
+        background: var(--az-yellow);
+        border: 1px solid var(--az-yellow-dark);
+        border-radius: 20px;
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+        margin-top: auto;
+        padding: 8px 14px;
+        transition: background 120ms, border-color 120ms;
+        width: 100%;
+      }
+      .add-to-cart:hover { background: var(--az-yellow-dark); border-color: #c7a600; }
+
+      /* ──────────────────────────────────────────
+         Responsive
+      ────────────────────────────────────────── */
+      @media (max-width: 1140px) {
+        .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      }
+      @media (max-width: 860px) {
+        .sidebar { display: none; }
+        .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 540px) {
+        .topbar-deliver { display: none; }
+        .subnav-link:not(.bold):not(:first-child) { display: none; }
+        .product-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+
+  <!--
+    data-showcase-root: marks the area the install script is allowed to scan.
+    archetype="amazon" in init() configures item-level selectors automatically.
+  -->
+  <body data-showcase-root>
+
+    <!-- ── Topbar ──────────────────────────────── -->
+    <header class="topbar" data-showcase-section="topbar">
+      <a class="brand" href="#" data-showcase-logo>amazon<span>.com</span></a>
+
+      <div class="topbar-deliver">
+        <span>Deliver to</span>
+        <strong>📍 San Francisco 94102</strong>
+      </div>
+
+      <form class="search-form" role="search" data-showcase-search>
+        <select class="search-cat" aria-label="Search in">
+          <option>All</option>
+          <option>Electronics</option>
+          <option>Books</option>
+          <option>Kitchen</option>
+          <option>Sports</option>
+          <option>Home</option>
+        </select>
+        <input class="search-input" type="search" placeholder="Search Amazon" aria-label="Search Amazon" />
+        <button class="search-btn" type="submit" aria-label="Go">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        </button>
+      </form>
+
+      <div class="topbar-spacer"></div>
+
+      <div class="topbar-actions">
+        <a class="topbar-btn" href="#">
+          <span>Hello, Sign in</span>
+          <strong>Account &amp; Lists ▾</strong>
+        </a>
+        <a class="topbar-btn" href="#">
+          <span>Returns</span>
+          <strong>&amp; Orders</strong>
+        </a>
+        <a class="topbar-btn topbar-cart" href="#">
+          🛒&thinsp;<span class="cart-count">3</span>&thinsp;Cart
+        </a>
+      </div>
+    </header>
+
+    <!-- ── Sub-navigation ─────────────────────── -->
+    <nav class="subnav" data-showcase-section="subnav">
+      <a class="subnav-link bold" href="#">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        All
+      </a>
+      <a class="subnav-link bold" href="#">Today's Deals</a>
+      <a class="subnav-link" href="#">Customer Service</a>
+      <a class="subnav-link" href="#">Registry</a>
+      <a class="subnav-link" href="#">Gift Cards</a>
+      <a class="subnav-link" href="#">Sell</a>
+      <a class="subnav-link" href="#">Prime</a>
+      <a class="subnav-link" href="#">Buy Again</a>
+    </nav>
+
+    <div class="shell">
+
+      <!-- ── Left sidebar ───────────────────────── -->
+      <aside class="sidebar" data-showcase-section="sidebar">
+        <div class="sidebar-heading">Department</div>
+        <div class="sidebar-section">
+          <a class="active" href="#">Any Department</a>
+          <a href="#">Electronics</a>
+          <a href="#">Computers &amp; Accessories</a>
+          <a href="#">Smart Home</a>
+          <a href="#">Kitchen &amp; Dining</a>
+          <a href="#">Books</a>
+          <a href="#">Sports &amp; Outdoors</a>
+          <a href="#">Home &amp; Kitchen</a>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Customer Reviews</div>
+          <div class="rating-filter">
+            <span class="stars-wrap" title="4 stars &amp; up">
+              <span class="stars-back">★★★★★</span>
+              <span class="stars-fore" style="width:80%">★★★★★</span>
+            </span>
+            <a href="#">&amp; Up</a>
+          </div>
+          <div class="rating-filter">
+            <span class="stars-wrap" title="3 stars &amp; up">
+              <span class="stars-back">★★★★★</span>
+              <span class="stars-fore" style="width:60%">★★★★★</span>
+            </span>
+            <a href="#">&amp; Up</a>
+          </div>
+          <div class="rating-filter">
+            <span class="stars-wrap" title="2 stars &amp; up">
+              <span class="stars-back">★★★★★</span>
+              <span class="stars-fore" style="width:40%">★★★★★</span>
+            </span>
+            <a href="#">&amp; Up</a>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Brand</div>
+          <a href="#">Sony</a>
+          <a href="#">Anker</a>
+          <a href="#">Logitech</a>
+          <a href="#">Ninja</a>
+          <a href="#">Instant Pot</a>
+          <a href="#">Govee</a>
+          <a href="#">iRobot</a>
+          <a href="#">Keychron</a>
+          <a href="#">Breville</a>
+          <a href="#">Manduka</a>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Price</div>
+          <a href="#">Under $25</a>
+          <a href="#">$25 to $50</a>
+          <a href="#">$50 to $100</a>
+          <a href="#">$100 to $200</a>
+          <a href="#">$200 &amp; Above</a>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Availability</div>
+          <a href="#">Prime Eligible</a>
+          <a href="#">Free Shipping</a>
+          <a href="#">In Stock</a>
+          <a href="#">Climate Pledge Friendly</a>
+        </div>
+      </aside>
+
+      <main>
+        <!-- ── Category chips ─────────────────────── -->
+        <nav class="chips" data-showcase-section="chips">
+          <button class="chip active" data-showcase-chip>All Departments</button>
+          <button class="chip" data-showcase-chip>Electronics</button>
+          <button class="chip" data-showcase-chip>Kitchen</button>
+          <button class="chip" data-showcase-chip>Books</button>
+          <button class="chip" data-showcase-chip>Home</button>
+          <button class="chip" data-showcase-chip>Sports &amp; Outdoors</button>
+          <button class="chip" data-showcase-chip>Today's Deals</button>
+          <button class="chip" data-showcase-chip>Prime</button>
+          <button class="chip" data-showcase-chip>New Arrivals</button>
+        </nav>
+
+        <!-- ── Results header ───────────────────────── -->
+        <div class="results-bar">
+          <div class="results-count">
+            1–14 of over <strong>100,000 results</strong> for <strong>"top picks for you"</strong>
+          </div>
+          <div class="sort-bar">
+            <span class="sort-label">Sort by:</span>
+            <select class="sort-select">
+              <option selected>Featured</option>
+              <option>Price: Low to High</option>
+              <option>Price: High to Low</option>
+              <option>Avg. Customer Review</option>
+              <option>Newest Arrivals</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ── Product grid ─────────────────────────── -->
+        <!--
+          data-showcase-section="product-grid" is the stable patch target.
+          The archetype: "amazon" preset scans [data-showcase-item-card] children
+          for title, brand, image, price, and meta automatically.
+          Pass videoGrid: "[data-showcase-section='product-grid']" as a selector
+          override if your section id differs from the default "video-grid".
+        -->
+        <section data-showcase-section="product-grid">
+          <div class="product-grid">
+
+            <!-- ── Card 1: Sony WH-1000XM5 ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="electronics headphones audio wireless noise-canceling sony">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">#1 Best Seller</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img electronics" data-showcase-item-image src="" alt="Sony WH-1000XM5 Headphones" />
+                <span class="product-emoji" aria-hidden="true">🎧</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Sony WH-1000XM5 Wireless Noise Canceling Headphones with Auto Noise Canceling Optimizer, Crystal Clear Hands-Free Calling</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Sony</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.6 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:92%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(12,847)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$279<sup>.99</sup><span class="price-was">$349.99</span><span class="price-save">Save 20%</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 2: Anker USB-C Hub ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="electronics usb hub charging accessories anker">
+              <div class="card-badges">
+                <span class="badge badge-choice"><em>Amazon's</em>&thinsp;Choice</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img electronics" data-showcase-item-image src="" alt="Anker 7-in-1 USB-C Hub" />
+                <span class="product-emoji" aria-hidden="true">🔌</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Anker 7-in-1 USB C Hub, USB C Adapter with 4K HDMI, 100W Power Delivery, 2 USB 3.0 Ports, SD and microSD Card Reader</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Anker</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.7 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:94%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(8,234)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$35<sup>.99</sup></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 3: Ninja Air Fryer ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="kitchen air-fryer cooking appliance ninja healthy">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">#1 Best Seller</span>
+                <span class="badge badge-deal">Deal</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img kitchen" data-showcase-item-image src="" alt="Ninja AF101 Air Fryer" />
+                <span class="product-emoji" aria-hidden="true">🍳</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Ninja AF101 Air Fryer that Crisps, Roasts, Reheats &amp; Dehydrates, for Quick, Easy Meals, 4 Qt. Capacity</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Ninja</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.8 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:96%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(45,123)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$79<sup>.95</sup><span class="price-was">$99.95</span><span class="price-save">Save $20</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 4: Clean Code ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="books programming software engineering craftsmanship">
+              <div class="card-badges">
+                <span class="badge badge-choice"><em>Amazon's</em>&thinsp;Choice</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img books" data-showcase-item-image src="" alt="Clean Code book" />
+                <span class="product-emoji" aria-hidden="true">📖</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Clean Code: A Handbook of Agile Software Craftsmanship</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Robert C. Martin</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.7 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:94%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(3,891)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$34<sup>.99</sup></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Tue, Jun 3</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 5: Logitech MX Master 3S ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="electronics mouse ergonomic wireless logitech productivity">
+              <div class="card-badges">
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img electronics" data-showcase-item-image src="" alt="Logitech MX Master 3S" />
+                <span class="product-emoji" aria-hidden="true">🖱️</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Logitech MX Master 3S – Performance Wireless Mouse with Ultra-fast Scrolling, 8K DPI, Quiet Clicks, USB-C, Bluetooth</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Logitech</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.6 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:92%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(6,012)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$89<sup>.99</sup><span class="price-was">$99.99</span><span class="price-save">Save 10%</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 6: iRobot Roomba ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="home vacuum robot cleaning smart irobot wifi">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">Best Seller</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img home" data-showcase-item-image src="" alt="iRobot Roomba i3" />
+                <span class="product-emoji" aria-hidden="true">🤖</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>iRobot Roomba i3 EVO (3150) Wi-Fi Connected Robot Vacuum – Now Clean by Room with Smart Mapping Works with Alexa</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by iRobot</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.5 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:90%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(22,456)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$249<sup>.99</sup><span class="price-was">$349.99</span><span class="price-save">Save $100</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock low">Only 6 left in stock — order soon</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 7: Manduka Yoga Mat ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="sports yoga fitness exercise mat manduka eco">
+              <div class="card-badges">
+                <span class="badge badge-choice"><em>Amazon's</em>&thinsp;Choice</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img sports" data-showcase-item-image src="" alt="Manduka PRO Yoga Mat" />
+                <span class="product-emoji" aria-hidden="true">🧘</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Manduka PRO Yoga Mat – Premium 6mm Thick Mat, Eco Friendly, Oeko-Tex Certified, High Performance Grip, 71&quot;</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Manduka</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.8 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:96%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(9,341)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$120<sup>.00</sup></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Tue, Jun 3</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 8: Keychron K2 Keyboard ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="electronics keyboard mechanical typing keychron wireless">
+              <div class="card-badges">
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img electronics" data-showcase-item-image src="" alt="Keychron K2 Keyboard" />
+                <span class="product-emoji" aria-hidden="true">⌨️</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Keychron K2 Wireless Mechanical Keyboard, Compact 84 Keys Hot-Swappable Keyboard with Gateron G Pro Brown Switch, White Backlight</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Keychron</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.6 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:92%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(7,823)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$89<sup>.99</sup></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 9: Breville Espresso Machine ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="kitchen espresso coffee machine breville barista">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">Best Seller</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img kitchen" data-showcase-item-image src="" alt="Breville Bambino Plus" />
+                <span class="product-emoji" aria-hidden="true">☕</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Breville Bambino Plus Espresso Machine BES500BSS, 64 fl. oz, Brushed Stainless Steel</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Breville</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.7 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:94%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(3,267)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$499<sup>.95</sup><span class="price-was">$599.95</span><span class="price-save">Save $100</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock low">Only 4 left in stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 10: Designing ML Systems ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="books machine-learning ai data-science chip-huyen oreilly">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">Best Seller</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img books" data-showcase-item-image src="" alt="Designing ML Systems book" />
+                <span class="product-emoji" aria-hidden="true">🧠</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Designing Machine Learning Systems: An Iterative Process for Production-Ready Applications</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Chip Huyen</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.9 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:98%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(1,203)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$44<sup>.99</sup></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Tue, Jun 3</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 11: TheraBand Resistance Bands ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="sports resistance-bands workout fitness exercise therapy">
+              <div class="card-badges">
+                <span class="badge badge-choice"><em>Amazon's</em>&thinsp;Choice</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img sports" data-showcase-item-image src="" alt="TheraBand Resistance Bands" />
+                <span class="product-emoji" aria-hidden="true">💪</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>TheraBand Professional Non-Latex Resistance Bands Set, Beginner to Advanced Home Exercise Kit, 5 Bands Included</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by TheraBand</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.7 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:94%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(18,902)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$22<sup>.99</sup><span class="price-was">$27.99</span><span class="price-save">Save 18%</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 12: Govee LED Strip Lights ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="home led lights smart rgb decor govee music-sync">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">#1 Best Seller</span>
+                <span class="badge badge-deal">Deal</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img home" data-showcase-item-image src="" alt="Govee LED Strip Lights" />
+                <span class="product-emoji" aria-hidden="true">💡</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Govee LED Strip Lights 32.8ft, RGB LED Lights for Bedroom with App Control, Music Sync, 64 Scene Modes, Color Changing</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Govee</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.5 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:90%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(67,234)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$22<sup>.99</sup><span class="price-was">$29.99</span><span class="price-save">Save 23%</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 13: Logitech C920s Webcam ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="electronics webcam video streaming logitech hd conferencing">
+              <div class="card-badges">
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img electronics" data-showcase-item-image src="" alt="Logitech C920s Webcam" />
+                <span class="product-emoji" aria-hidden="true">📷</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Logitech C920s HD Pro Webcam, Full HD 1080p/30fps Video Calling, Clear Stereo Audio, HD Light Correction, Privacy Shutter</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Logitech</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.6 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:92%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(33,891)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$69<sup>.99</sup><span class="price-was">$99.99</span><span class="price-save">Save 30%</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+            <!-- ── Card 14: Instant Pot Duo ── -->
+            <article class="product-card"
+              data-showcase-item-card
+              data-showcase-tags="kitchen instant-pot pressure-cooker slow-cooker rice-cooker appliance">
+              <div class="card-badges">
+                <span class="badge badge-bestseller">#1 Best Seller</span>
+                <span class="badge badge-prime">prime</span>
+              </div>
+              <figure class="product-fig">
+                <img class="product-img kitchen" data-showcase-item-image src="" alt="Instant Pot Duo 6Qt" />
+                <span class="product-emoji" aria-hidden="true">⚡</span>
+              </figure>
+              <h3 class="product-title" data-showcase-item-title>Instant Pot Duo 7-in-1 Electric Pressure Cooker, Slow Cooker, Rice Cooker, Steamer, Sauté, Yogurt Maker &amp; Warmer, 6 Quart</h3>
+              <p class="product-brand" data-showcase-item-subtitle>by Instant Pot</p>
+              <div class="star-row">
+                <div class="stars-wrap" title="4.7 out of 5 stars">
+                  <span class="stars-back">★★★★★</span>
+                  <span class="stars-fore" style="width:94%">★★★★★</span>
+                </div>
+                <a href="#" class="review-count">(142,867)</a>
+              </div>
+              <p class="product-price" data-showcase-item-price>$79<sup>.95</sup><span class="price-was">$99.95</span><span class="price-save">Save $20</span></p>
+              <p class="product-meta" data-showcase-item-meta>FREE delivery <strong>Mon, Jun 2</strong></p>
+              <p class="stock">In Stock</p>
+              <button class="add-to-cart">Add to Cart</button>
+            </article>
+
+          </div><!-- /.product-grid -->
+        </section>
+      </main>
+    </div><!-- /.shell -->
+
+    <!--
+      Browser bundle produced by packages/install/scripts/build.mjs.
+      Run `pnpm build` in packages/install to generate showcase-install.iife.js.
+    -->
+    <script src="./showcase-install.iife.js"></script>
+    <script>
+      // This is the exact shape a customer Amazon-like site would pass to our install SDK.
+      // archetype: "amazon" auto-configures item-level selectors via ARCHETYPE_PRESETS.amazon:
+      //   itemCard:     [data-showcase-item-card]
+      //   itemTitle:    [data-showcase-item-title]
+      //   itemSubtitle: [data-showcase-item-subtitle]  (maps to channel.name)
+      //   itemImage:    [data-showcase-item-image]
+      //   itemPrice:    [data-showcase-item-price]     (goes into description)
+      //   itemMeta:     [data-showcase-item-meta]      (goes into description)
+      window.showcaseInstallConfig = {
+        siteId: "amazon-demo",
+        apiBaseUrl: window.location.origin,
+        debug: true,
+        archetype: "amazon",
+        selectors: {
+          // Override only what differs from the youtube defaults.
+          // The product grid uses "product-grid" instead of the default "video-grid" id.
+          videoGrid: "[data-showcase-section='product-grid']",
+        },
+      };
+
+      window.ShowcasePersonalize.init(window.showcaseInstallConfig);
+
+      console.info("[Showcase demo] scanned Amazon elements", {
+        sections: document.querySelectorAll("[data-showcase-section]").length,
+        cards:    document.querySelectorAll("[data-showcase-item-card]").length,
+        chips:    document.querySelectorAll("[data-showcase-chip]").length,
+      });
+    </script>
+  </body>
+</html>

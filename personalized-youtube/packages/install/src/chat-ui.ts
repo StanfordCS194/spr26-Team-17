@@ -113,6 +113,7 @@ export function mountInstallChat({ config, visitorIdPromise, scan, applyPatch, r
           message: text,
           pageSnapshot: scan().config,
           history: state.history,
+          archetype: config.archetype ?? 'youtube',
         }),
       });
       if (!res.body) throw new Error(`Chat failed: ${res.status}`);
