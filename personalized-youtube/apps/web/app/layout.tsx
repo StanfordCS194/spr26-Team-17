@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { fontVariables } from './fonts';
-import { ShowcaseChatLayer } from '@/components/chat/ShowcaseChatLayer';
+import { ChatProvider } from '@/lib/chat-store';
 import './globals.css';
 import './site-brands.css';
 
@@ -17,8 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={fontVariables}
     >
       <body className="bg-bg text-fg antialiased">
-        {children}
-        <ShowcaseChatLayer />
+        {/* ChatProvider lives at the root so chat state persists across site
+            navigations. The ChatPanel itself is rendered by PageRoot, which is
+            inside a PageStoreProvider — both contexts the panel depends on. */}
+        <ChatProvider>{children}</ChatProvider>
       </body>
     </html>
   );

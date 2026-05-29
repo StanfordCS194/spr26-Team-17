@@ -111,6 +111,7 @@ export function toolCallToPatch(name: string, args: Record<string, unknown>): Pa
     case 'request_more_content':
     case 'ask_user':
     case 'switch_site':
+    case 'open_site':
       return null;
     default: return null;
   }

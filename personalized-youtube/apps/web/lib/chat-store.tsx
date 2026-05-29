@@ -10,8 +10,9 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { SHOWCASE_SITES, type PageConfig, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
+import { SHOWCASE_SITES, isOpenSiteSlug, type PageConfig, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
 import { getPageBridge } from '@/lib/page-bridge';
+import { addOpenTab } from '@/lib/open-tabs';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -44,6 +45,7 @@ const TOOL_VERBS: Record<string, string> = {
   request_more_content: 'pulling fresh videos',
   ask_user: 'has a quick question',
   switch_site: 'switching site',
+  open_site: 'opening a new tab',
 };
 
 function siteMeta(slug: string): { siteSlug: string; siteLabel: string } {
@@ -189,6 +191,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               }
               if (ev.kind === 'request_more_content') void fetchMoreContent(ev.input, pageSlug);
               if (ev.kind === 'switch_site' && typeof ev.path === 'string') router.push(ev.path);
+              if (
+                ev.kind === 'open_site' &&
+                typeof ev.path === 'string' &&
+                typeof ev.slug === 'string' &&
+                typeof ev.url === 'string'
+              ) {
+                addOpenTab({ slug: ev.slug, label: ev.label ?? ev.url, url: ev.url, path: ev.path });
+                router.push(ev.path);
+              }
               if (ev.kind === 'ask_user') {
                 const q = typeof ev.input?.question === 'string' ? ev.input.question : '';
                 if (q) assistantContent += (assistantContent ? '\n\n' : '') + q;
@@ -206,8 +217,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         ]);
 
         // Reconcile with server-rendered config (preferences applied in DB).
+        // Dynamically-opened URL tabs have no DB row — their optimistic patches
+        // are authoritative for the session, so skip the reconcile fetch.
         const bridge = getPageBridge();
-        if (bridge && bridge.pageSlug === pageSlug) {
+        if (bridge && bridge.pageSlug === pageSlug && !isOpenSiteSlug(pageSlug)) {
           try {
             const pageRes = await fetch(`/api/page?slug=${encodeURIComponent(pageSlug)}`);
             if (pageRes.ok) {

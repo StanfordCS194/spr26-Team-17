@@ -50,6 +50,12 @@ export const SwitchSiteInput = z.object({
   rationale: z.string().optional(),
 });
 
+export const OpenSiteInput = z.object({
+  url: z.string(),
+  label: z.string().optional(),
+  rationale: z.string().optional(),
+});
+
 const toJsonSchema = (s: z.ZodTypeAny) =>
   zodToJsonSchema(s, { target: 'jsonSchema7', $refStrategy: 'none' });
 
@@ -104,6 +110,12 @@ export const TOOL_DEFINITIONS = [
     description:
       'Navigate the visitor to another showcase surface (YouTube, Amazon, Instagram, or Slack). Use when they ask to open/switch/go to another site, or when personalization only makes sense on a different surface (e.g. "show me Amazon deals" while on YouTube). Does not change the current page layout — it loads that site\'s clone.',
     input_schema: toJsonSchema(SwitchSiteInput),
+  },
+  {
+    name: 'open_site',
+    description:
+      'Open an ARBITRARY website (any URL the visitor names) as a brand-new personalizable tab, alongside YouTube/Amazon/etc. Use when the visitor says things like "open example.com", "add nytimes.com as a tab", or "pull in <url>". Pass the URL exactly as given; optionally a short label for the tab. The new tab is built from the page\'s PUBLIC content and can then be personalized with the normal tools. Prefer switch_site for the four built-in surfaces; use open_site for everything else.',
+    input_schema: toJsonSchema(OpenSiteInput),
   },
 ] as const;
 

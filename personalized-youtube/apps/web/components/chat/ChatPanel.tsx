@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { pickRotatingChips, type RecommendedPrompt } from '@/lib/recommended-prompts';
 import { getPageBridge } from '@/lib/page-bridge';
 import { TOOL_VERBS, useChatStore, type ChatMessage } from '@/lib/chat-store';
 import { usePageStore } from '@/lib/store';
+import { useOpenTabs, removeOpenTab } from '@/lib/open-tabs';
 import { SHOWCASE_SITES, siteByPath } from '@showcase/shared';
 
 function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
@@ -97,8 +98,10 @@ function useActivePageSlug(): string {
 
 export function ChatPanel() {
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const pageSlug = useActivePageSlug();
   const activeSiteId = SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.id ?? 'youtube';
+  const openTabs = useOpenTabs();
   const { messages, isStreaming, generatingCategory, send, resetSitePreferences, goToSite } =
     useChatStore();
   const { magicPointerActive, setMagicPointerActive } = usePageStore();
@@ -269,7 +272,10 @@ export function ChatPanel() {
 
   if (!windowState) return null;
 
-  const currentSiteLabel = SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.label ?? 'Showcase';
+  const currentSiteLabel =
+    SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.label ??
+    openTabs.find((t) => t.slug === pageSlug)?.label ??
+    'Showcase';
 
   return createPortal(
     <div
@@ -361,7 +367,7 @@ export function ChatPanel() {
         {!minimized && (
           <>
             <div
-              className="flex shrink-0 gap-1 border-b border-[color:var(--border)] px-3 py-2"
+              className="flex shrink-0 flex-wrap gap-1 border-b border-[color:var(--border)] px-3 py-2"
               onMouseDown={(e) => e.stopPropagation()}
             >
               {SHOWCASE_SITES.map((site) => (
@@ -370,7 +376,7 @@ export function ChatPanel() {
                   type="button"
                   onClick={() => goToSite(site.id, pageSlug)}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    activeSiteId === site.id
+                    activeSiteId === site.id && !openTabs.some((t) => t.slug === pageSlug)
                       ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
                       : 'bg-[color:var(--muted)] text-[color:var(--muted-fg)] hover:text-[color:var(--fg)]'
                   }`}
@@ -379,6 +385,44 @@ export function ChatPanel() {
                   {site.label}
                 </button>
               ))}
+              {openTabs.map((tab) => {
+                const active = tab.slug === pageSlug;
+                return (
+                  <span
+                    key={tab.slug}
+                    className={`group inline-flex items-center gap-1 rounded-full py-1 pl-2.5 pr-1 text-[11px] font-medium transition-colors ${
+                      active
+                        ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
+                        : 'bg-[color:var(--muted)] text-[color:var(--muted-fg)] hover:text-[color:var(--fg)]'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!active) router.push(tab.path);
+                      }}
+                      title={tab.url}
+                      className="max-w-[88px] truncate"
+                    >
+                      {tab.label}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Close ${tab.label}`}
+                      title="Close tab"
+                      onClick={() => {
+                        removeOpenTab(tab.slug);
+                        if (active) router.push('/');
+                      }}
+                      className="grid h-3.5 w-3.5 place-items-center rounded-full opacity-60 hover:opacity-100 hover:bg-[color:var(--bg)]/30"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-2.5 w-2.5">
+                        <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="3" />
+                      </svg>
+                    </button>
+                  </span>
+                );
+              })}
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {messages.length === 0 ? (

@@ -3,9 +3,21 @@ import type { NextRequest } from 'next/server';
 import { gemini, GEMINI_MODEL_PRO, GEMINI_MODEL_FLASH, appendGeminiLog, estimateGeminiCost, toGeminiTools, toolCallToPatch } from '@/lib/gemini';
 import { anthropic, MODEL_OPUS, appendLog, estimateCost } from '@/lib/anthropic';
 import { buildSystemBlocks, buildVisitorState } from '@/lib/prompts/system';
-import { TOOL_DEFINITIONS, siteById, siteBySlug, type Patch } from '@showcase/shared';
+import {
+  TOOL_DEFINITIONS,
+  siteById,
+  siteBySlug,
+  isOpenSiteSlug,
+  decodeOpenSiteSlug,
+  encodeOpenSiteSlug,
+  normalizeOpenUrl,
+  openSiteLabel,
+  openSitePath,
+  type Patch,
+} from '@showcase/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getRenderedConfig } from '@/lib/queries/page';
+import { getOpenSiteConfig } from '@/lib/open-site/config';
 import { chatDebugEventsEnabled, isAllowedOutboundImageUrl } from '@/lib/intercept/security';
 
 export const runtime = 'nodejs';
@@ -54,6 +66,19 @@ async function fetchAsImageBlock(
   }
 }
 
+// Map an open_site tool call into the SSE event the client uses to add a tab
+// and navigate to it. Returns null when the URL is missing or disallowed.
+function openSiteEvent(
+  input: unknown,
+): { kind: 'open_site'; url: string; label: string; slug: string; path: string } | null {
+  const obj = (input ?? {}) as { url?: unknown; label?: unknown };
+  const norm = normalizeOpenUrl(typeof obj.url === 'string' ? obj.url : '');
+  if (!norm) return null;
+  const label =
+    typeof obj.label === 'string' && obj.label.trim() ? obj.label.trim() : openSiteLabel(norm);
+  return { kind: 'open_site', url: norm, label, slug: encodeOpenSiteSlug(norm), path: openSitePath(norm, label) };
+}
+
 export async function POST(req: NextRequest) {
   const { pageSlug, message, history = [], watching = null, focusedSectionId, focusedSectionType, provider = 'gemini' } = (await req.json()) as ChatRequest;
   const cookieStore = await cookies();
@@ -62,7 +87,13 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'no visitor cookie' }), { status: 400 });
   }
 
-  const config = await getRenderedConfig({ slug: pageSlug, visitorId });
+  // Dynamically-opened URL tabs have no DB row; rebuild their config from the
+  // URL encoded in the synthetic slug (public content only). In-session edits
+  // are applied optimistically client-side and not persisted server-side.
+  const openSiteUrl = isOpenSiteSlug(pageSlug) ? decodeOpenSiteSlug(pageSlug) : null;
+  const config = openSiteUrl
+    ? await getOpenSiteConfig(openSiteUrl, pageSlug)
+    : await getRenderedConfig({ slug: pageSlug, visitorId });
   const sys = buildSystemBlocks();
 
   // Per-type hint: tells Claude exactly what props a section accepts and their valid values.
@@ -113,7 +144,7 @@ export async function POST(req: NextRequest) {
 
   const visitorState = buildVisitorState(
     {
-      activeSite: siteBySlug(pageSlug)?.label ?? pageSlug,
+      activeSite: siteBySlug(pageSlug)?.label ?? (openSiteUrl ? openSiteLabel(openSiteUrl) : pageSlug),
       activeSlug: pageSlug,
       sections: sectionSummaries,
       theme: config.theme,
@@ -263,6 +294,9 @@ Apply the change to section "${focusedSectionId}" immediately. Do not ask for cl
                         label: target.label,
                       });
                     }
+                  } else if (name === 'open_site') {
+                    const ev = openSiteEvent(input);
+                    if (ev) send(ev);
                   }
                 }
               }
@@ -381,6 +415,9 @@ Apply the change to section "${focusedSectionId}" immediately. Do not ask for cl
                   label: target.label,
                 });
               }
+            } else if (tu.name === 'open_site') {
+              const ev = openSiteEvent(tu.input);
+              if (ev) send(ev);
             }
           }
         } catch (err) {
