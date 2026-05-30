@@ -71,6 +71,11 @@ export function openSiteLabel(url: string): string {
   }
 }
 
+/** The URL-path-safe segment for an opened site (base64url of the URL). */
+export function openSiteSegment(url: string): string {
+  return base64UrlEncode(url);
+}
+
 export function encodeOpenSiteSlug(url: string): string {
   return `${OPEN_SITE_PREFIX}${base64UrlEncode(url)}`;
 }
@@ -79,20 +84,33 @@ export function isOpenSiteSlug(slug: string): boolean {
   return slug.startsWith(OPEN_SITE_PREFIX);
 }
 
+/** Build the synthetic slug from a route segment (inverse of slug→segment). */
+export function segmentToSlug(segment: string): string {
+  return `${OPEN_SITE_PREFIX}${segment}`;
+}
+
 /** Recover the source URL from a synthetic open-site slug (null if invalid). */
 export function decodeOpenSiteSlug(slug: string): string | null {
   if (!isOpenSiteSlug(slug)) return null;
+  return decodeOpenSiteSegment(slug.slice(OPEN_SITE_PREFIX.length));
+}
+
+/** Recover the source URL from a route segment (null if invalid). */
+export function decodeOpenSiteSegment(segment: string): string | null {
   try {
-    const url = base64UrlDecode(slug.slice(OPEN_SITE_PREFIX.length));
-    return normalizeOpenUrl(url);
+    return normalizeOpenUrl(base64UrlDecode(segment));
   } catch {
     return null;
   }
 }
 
-/** Route the client navigates to when opening a URL as a tab. */
-export function openSitePath(url: string, label?: string): string {
-  const params = new URLSearchParams({ u: url });
-  if (label) params.set('label', label);
-  return `${OPEN_SITE_PATH}?${params.toString()}`;
+/**
+ * Route the client navigates to when opening a URL as a tab.
+ *
+ * Each opened site gets its OWN path segment (`/open/<segment>`) rather than a
+ * shared `/open?u=` query, so the Next App Router treats every site as a
+ * distinct route and refetches instead of serving a cached sibling.
+ */
+export function openSitePath(url: string, _label?: string): string {
+  return `${OPEN_SITE_PATH}/${openSiteSegment(url)}`;
 }

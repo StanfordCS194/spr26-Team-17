@@ -23,12 +23,18 @@ export interface IngestedCard {
   description: string;
 }
 
+export type ContentKind = 'article' | 'product' | 'social' | 'video' | 'generic';
+
 export interface IngestResult {
   kind: 'ok';
   siteName: string;
   title: string;
   description: string;
   favicon: string;
+  /** Brand color from <meta name="theme-color"> (#rrggbb) or null. */
+  themeColor: string | null;
+  /** Coarse page kind, used to pick a matching layout. */
+  contentKind: ContentKind;
   cards: IngestedCard[];
 }
 
@@ -115,6 +121,55 @@ function absolute(base: URL, href: string): string {
   }
 }
 
+/** Normalize a CSS color (hex 3/6 or rgb()) to #rrggbb, else null. */
+function normalizeColor(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase();
+  const hex6 = /^#([0-9a-f]{6})$/.exec(s);
+  if (hex6) return `#${hex6[1]}`;
+  const hex3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(s);
+  if (hex3) return `#${hex3[1]}${hex3[1]}${hex3[2]}${hex3[2]}${hex3[3]}${hex3[3]}`;
+  const rgb = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(s);
+  if (rgb) {
+    const to2 = (n: string) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, '0');
+    return `#${to2(rgb[1]!)}${to2(rgb[2]!)}${to2(rgb[3]!)}`;
+  }
+  return null;
+}
+
+/** Pick the best favicon/app icon link, preferring larger app icons. */
+function pickIcon(html: string, base: URL): string {
+  const candidates: Array<{ href: string; score: number }> = [];
+  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
+    const tag = m[0];
+    if (!/rel=["'][^"']*icon[^"']*["']/i.test(tag)) continue;
+    const href = /href=["']([^"']+)["']/i.exec(tag)?.[1];
+    if (!href) continue;
+    const abs = absolute(base, href);
+    if (!abs || !/^https?:\/\//.test(abs)) continue;
+    let score = 1;
+    if (/apple-touch-icon/i.test(tag)) score += 4;
+    const size = /sizes=["'](\d+)/i.exec(tag)?.[1];
+    if (size) score += Math.min(3, Number(size) / 64);
+    if (/\.svg(\?|$)/i.test(abs)) score += 2; // crisp at any size
+    if (/\.png(\?|$)/i.test(abs)) score += 1;
+    candidates.push({ href: abs, score });
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.href ?? absolute(base, '/favicon.ico');
+}
+
+function classifyContent(html: string, ogType: string, imageCount: number): ContentKind {
+  const t = ogType.toLowerCase();
+  if (t.includes('article') || t.includes('news')) return 'article';
+  if (t.includes('product')) return 'product';
+  if (t.includes('profile') || t.includes('video.other')) return 'social';
+  if (t.startsWith('video')) return 'video';
+  if (/property=["']product:price|itemprop=["']price|add to cart/i.test(html)) return 'product';
+  if (/<article[\s>]/i.test(html) && imageCount < 6) return 'article';
+  return 'generic';
+}
+
 function collectImages(html: string, base: URL): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -196,10 +251,12 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
   const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? '';
   const title = metaContent(html, 'og:title', 'twitter:title') || decodeEntities(titleTag) || siteName;
   const description = metaContent(html, 'og:description', 'twitter:description', 'description');
-  const favicon = absolute(base, '/favicon.ico');
+  const favicon = pickIcon(html, base);
+  const themeColor = normalizeColor(metaContent(html, 'theme-color'));
 
   const images = collectImages(html, base);
   const links = collectLinks(html, base);
+  const contentKind = classifyContent(html, metaContent(html, 'og:type'), images.length);
 
   const cards: IngestedCard[] = [];
   const seenTitles = new Set<string>();
@@ -219,5 +276,5 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
     if (cards.length >= MAX_CARDS) break;
   }
 
-  return { kind: 'ok', siteName, title, description, favicon, cards };
+  return { kind: 'ok', siteName, title, description, favicon, themeColor, contentKind, cards };
 }

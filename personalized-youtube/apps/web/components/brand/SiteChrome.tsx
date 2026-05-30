@@ -51,6 +51,71 @@ function SlackLogo() {
   );
 }
 
+// Neutral, site-themed chrome for dynamically-opened URL tabs. Uses the real
+// favicon as the logo and the site's accent color, so the tab reads like the
+// actual website rather than a YouTube clone.
+function GenericTopBar({ section, config }: { section: Section; config: PageConfig }) {
+  const { query, setQuery, searching, runSearch, goHome } = useBrandSearch(config);
+  const [iconOk, setIconOk] = useState(true);
+
+  if (section.type !== 'TopBar') return null;
+  const { searchPlaceholder, showProfileChip } = section.props;
+  const logoText = section.props.logoText || config.meta.title || 'Site';
+  const favicon = config.meta.favicon;
+  const initial = (logoText.trim()[0] ?? 'S').toUpperCase();
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await runSearch(query);
+  }
+
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4">
+      <button
+        type="button"
+        onClick={goHome}
+        aria-label={`${logoText} home`}
+        className="flex items-center gap-2 rounded-md select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+      >
+        <span className="relative grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-[color:var(--accent)] text-sm font-bold text-[color:var(--accent-fg)]">
+          {favicon && iconOk ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={favicon}
+              alt=""
+              className="absolute inset-0 h-full w-full bg-white object-contain"
+              onError={() => setIconOk(false)}
+            />
+          ) : (
+            initial
+          )}
+        </span>
+        <span className="text-lg font-bold tracking-tight">{logoText}</span>
+      </button>
+
+      <form className="mx-auto flex w-full max-w-2xl items-stretch" onSubmit={onSubmit}>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={searchPlaceholder || 'Search'}
+          disabled={searching}
+          className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-2 text-sm outline-none focus:border-[color:var(--accent)] disabled:opacity-60"
+        />
+      </form>
+
+      {showProfileChip && (
+        <div
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-sm font-semibold text-[color:var(--accent-fg)]"
+          aria-label="Profile"
+        >
+          {initial}
+        </div>
+      )}
+    </header>
+  );
+}
+
 function useBrandSearch(config: PageConfig) {
   const brand = getSiteBrand(config.slug);
   const {
@@ -135,6 +200,7 @@ export function BrandTopBar({ section, config }: { section: Section; config: Pag
   const { searchPlaceholder, showProfileChip } = section.props;
 
   if (brand === 'slack') return null;
+  if (brand === 'generic') return <GenericTopBar section={section} config={config} />;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,9 +1,13 @@
 // Builds a personalizable PageConfig for an arbitrarily-opened URL.
 //
-// Strategy (per product decision): blend BOTH paths —
-//   1. Public server-side fetch of the URL → real cards (titles + images).
-//   2. Pad with the mock catalog so the grid always looks full, even when the
-//      page is sparse or ingestion degrades.
+// Strategy: make the tab look like the REAL site as much as the template set
+// allows —
+//   1. Public server-side fetch of the URL → real cards + identity signals
+//      (site name, favicon, theme-color, content kind).
+//   2. Theme the page from that identity: accent color, favicon-as-logo, and a
+//      layout matched to the content kind (article→list, product→dense grid…).
+//   3. Render the site's OWN content only — NO cross-site mock padding, so it
+//      never looks like a YouTube clone.
 // No DB row is required; dynamic tabs are built on demand and cached briefly.
 
 import {
@@ -12,12 +16,72 @@ import {
   type PageConfig,
   type Video,
 } from '@showcase/shared';
-import { createMockAdapter } from '../adapters/mock';
-import { ingestPublicPage } from '../ingest/public-page';
+import { ingestPublicPage, type ContentKind } from '../ingest/public-page';
 
 const TARGET_GRID = 36;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map<string, { config: PageConfig; ts: number }>();
+
+// Stable, pleasant accent derived from the hostname when the site exposes no
+// theme-color. Keeps each opened site visually consistent across reloads.
+function hostnameColor(host: string): string {
+  let h = 0;
+  for (let i = 0; i < host.length; i++) h = (h * 31 + host.charCodeAt(i)) | 0;
+  const hue = Math.abs(h) % 360;
+  return hslToHex(hue, 65, 45);
+}
+
+function hslToHex(hSat: number, s: number, l: number): string {
+  const a = (s * Math.min(l, 100 - l)) / 100 / 100;
+  const f = (n: number) => {
+    const k = (n + hSat / 30) % 12;
+    const color = l / 100 - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+// Relative luminance (0..1) so we can keep the accent dark enough that white
+// text on it stays legible (the topbar logo chip uses --accent-fg = white).
+function luminance(hex: string): number {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return 0.5;
+  const [r, g, b] = [m[1], m[2], m[3]].map((c) => parseInt(c!, 16) / 255) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function pickAccent(themeColor: string | null, host: string): string {
+  const candidate = themeColor ?? hostnameColor(host);
+  // Too-light brand colors (e.g. near-white) make the white-on-accent logo
+  // invisible — fall back to a hostname color in that case.
+  return luminance(candidate) > 0.8 ? hostnameColor(host) : candidate;
+}
+
+interface LayoutChoice {
+  columns: 2 | 3 | 4 | 5;
+  density: 'compact' | 'cozy' | 'comfortable';
+  layout: 'grid' | 'list' | 'shelves';
+  aspectRatio: '16:9' | '4:3' | '1:1' | '3:4';
+  cardLayout: 'vertical' | 'horizontal';
+  chips: string[];
+}
+
+function layoutForKind(kind: ContentKind): LayoutChoice {
+  switch (kind) {
+    case 'article':
+      return { columns: 2, density: 'comfortable', layout: 'list', aspectRatio: '16:9', cardLayout: 'horizontal', chips: ['Top stories', 'Latest', 'For you', 'Saved'] };
+    case 'product':
+      return { columns: 5, density: 'compact', layout: 'grid', aspectRatio: '1:1', cardLayout: 'vertical', chips: ['All', 'Best sellers', 'Deals', 'New'] };
+    case 'social':
+      return { columns: 3, density: 'compact', layout: 'grid', aspectRatio: '1:1', cardLayout: 'vertical', chips: ['Feed', 'Following', 'Explore', 'Saved'] };
+    case 'video':
+      return { columns: 4, density: 'cozy', layout: 'grid', aspectRatio: '16:9', cardLayout: 'vertical', chips: ['All', 'Latest', 'Popular', 'Watch later'] };
+    default:
+      return { columns: 4, density: 'cozy', layout: 'grid', aspectRatio: '16:9', cardLayout: 'vertical', chips: ['All', 'Latest', 'Popular', 'Saved'] };
+  }
+}
 
 function hashId(input: string): string {
   let h = 0;
@@ -60,46 +124,54 @@ function cardsToVideos(
   return out;
 }
 
-async function padVideos(real: Video[]): Promise<Video[]> {
-  if (real.length >= TARGET_GRID) return real.slice(0, TARGET_GRID);
-  const seen = new Set(real.map((v) => v.id));
-  try {
-    const { videos } = await createMockAdapter('youtube-clone').getFeed();
-    const padded = [...real];
-    for (const v of videos) {
-      if (padded.length >= TARGET_GRID) break;
-      const id = `pad_${v.id}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      padded.push({ ...v, id });
-    }
-    return padded;
-  } catch {
-    return real;
-  }
+interface SiteIdentity {
+  slug: string;
+  siteName: string;
+  logoText: string;
+  favicon: string;
+  accent: string;
+  kind: ContentKind;
 }
 
-function buildConfig(slug: string, siteTitle: string, videos: Video[]): PageConfig {
+function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
+  const l = layoutForKind(identity.kind);
+  const isArticle = identity.kind === 'article';
+  // Many large sites (DoorDash, etc.) sit behind bot protection and can't be
+  // previewed server-side. Rather than a blank grid, show the site's identity
+  // plus a clear note so the tab still reads as that site and stays useful.
+  const emptyNote =
+    videos.length === 0
+      ? [
+          {
+            id: 'emptyNote',
+            type: 'CustomNote' as const,
+            props: {
+              visible: true,
+              text: `${identity.siteName} blocks automated preview, so we couldn't load its public content. You can still personalize this tab's layout, or ask the assistant to open a different link.`,
+            },
+          },
+        ]
+      : [];
   return PageConfigSchema.parse({
-    id: slug,
-    slug,
+    id: identity.slug,
+    slug: identity.slug,
     theme: {
       mode: 'light',
-      accent: '#6366F1',
+      accent: identity.accent,
       fontScale: '1',
-      fontFamily: 'sans',
-      radius: 'lg',
+      fontFamily: isArticle ? 'newsreader' : 'inter',
+      radius: identity.kind === 'product' || identity.kind === 'social' ? 'sm' : 'lg',
       background: { kind: 'solid' },
       videoCardDefaults: {
-        aspectRatio: '16:9',
+        aspectRatio: l.aspectRatio,
         thumbnailScale: 1,
         titleWeight: 600,
         channelNameWeight: 400,
-        showDescription: false,
+        showDescription: isArticle,
         showViewCount: false,
         showPostedAgo: false,
         showDuration: false,
-        cardLayout: 'vertical',
+        cardLayout: l.cardLayout,
         hoverEffect: 'lift',
       },
     },
@@ -108,8 +180,8 @@ function buildConfig(slug: string, siteTitle: string, videos: Video[]): PageConf
         id: 'topBar',
         type: 'TopBar',
         props: {
-          logoText: siteTitle.slice(0, 40) || 'Opened site',
-          searchPlaceholder: 'Search',
+          logoText: identity.logoText.slice(0, 40) || 'Opened site',
+          searchPlaceholder: `Search ${identity.siteName}`.slice(0, 40),
           compactSearch: false,
           showProfileChip: true,
         },
@@ -117,17 +189,18 @@ function buildConfig(slug: string, siteTitle: string, videos: Video[]): PageConf
       {
         id: 'categoryChips',
         type: 'CategoryChips',
-        props: { active: 'All', chips: ['All', 'Latest', 'Popular', 'Saved'] },
+        props: { active: l.chips[0] ?? 'All', chips: l.chips },
       },
+      ...emptyNote,
       {
         id: 'videoGrid',
         type: 'VideoGrid',
-        props: { columns: 4, density: 'cozy', layout: 'grid', videos },
+        props: { columns: l.columns, density: l.density, layout: l.layout, videos },
       },
     ],
     filter: { include: [], exclude: [], requireTags: [], blockChannels: [] },
     sort: { by: 'recommended', order: 'desc' },
-    meta: { title: siteTitle.slice(0, 60) || 'Opened site', favicon: '/favicon.ico' },
+    meta: { title: identity.siteName.slice(0, 60) || 'Opened site', favicon: identity.favicon || '/favicon.ico' },
   });
 }
 
@@ -136,18 +209,44 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
   const cached = cache.get(slug);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.config;
 
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return 'site';
+    }
+  })();
+
   const ingest = await ingestPublicPage(url);
-  let siteTitle = openSiteLabel(url);
-  let real: Video[] = [];
+  // Render the site's OWN content only — no cross-site mock padding, so the tab
+  // looks like the real site rather than a YouTube clone.
+  let identity: SiteIdentity;
+  let videos: Video[] = [];
   if (ingest.kind === 'ok') {
-    siteTitle = ingest.title || ingest.siteName || siteTitle;
-    real = cardsToVideos(ingest.siteName || siteTitle, ingest.favicon, ingest.cards);
+    identity = {
+      slug,
+      siteName: ingest.siteName || openSiteLabel(url),
+      logoText: ingest.siteName || ingest.title || openSiteLabel(url),
+      favicon: ingest.favicon,
+      accent: pickAccent(ingest.themeColor, host),
+      kind: ingest.contentKind,
+    };
+    videos = cardsToVideos(identity.siteName, ingest.favicon, ingest.cards).slice(0, TARGET_GRID);
   } else {
-    console.warn(`[open-site] ingest unavailable for ${slug}: ${ingest.reason} — using mock catalog`);
+    console.warn(`[open-site] ingest unavailable for ${slug}: ${ingest.reason}`);
+    identity = {
+      slug,
+      siteName: openSiteLabel(url),
+      logoText: openSiteLabel(url),
+      // Google's favicon service resolves even when the origin blocks our fetch,
+      // so the tab still shows the real site mark.
+      favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`,
+      accent: hostnameColor(host),
+      kind: 'generic',
+    };
   }
 
-  const videos = await padVideos(real);
-  const config = buildConfig(slug, siteTitle, videos);
+  const config = buildConfig(identity, videos);
   cache.set(slug, { config, ts: Date.now() });
   return config;
 }
