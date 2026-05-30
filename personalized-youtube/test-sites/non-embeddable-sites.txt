@@ -1,0 +1,53 @@
+# Non-embeddable sites — fall back to ARCHETYPE reconstruction
+#
+# Big, reputable sites that cannot be shown as a live iframe. The hybrid
+# renderer detects this during ingestion and rebuilds the page from its
+# detected frontend profile (mode/accent/font/layout) + content, with an
+# honest note.
+#
+# Reason codes:
+#   (H) HEADER block  — sends X-Frame-Options or CSP frame-ancestors
+#   (J) JS frame-bust — permissive headers, but busts/blanks itself in a frame
+#   (L) Login wall    — content stays behind sign-in even after you log in
+#
+# Verified May 2026.
+
+# --- Big consumer sites (header-blocked) ---
+https://www.youtube.com              # (H) XFO: SAMEORIGIN
+https://www.google.com               # (H) XFO: SAMEORIGIN
+https://www.reddit.com               # (H) XFO: SAMEORIGIN
+https://www.nytimes.com              # (H) XFO: DENY
+https://www.bbc.com                  # (H) XFO: SAMEORIGIN
+https://github.com                   # (H) XFO: deny + CSP frame-ancestors 'none'
+https://stripe.com                   # (H) XFO: SAMEORIGIN + CSP frame-ancestors
+
+# --- Developer / foundation sites (header-blocked) ---
+https://developer.mozilla.org        # (H) XFO: DENY (MDN)
+https://www.python.org               # (H) XFO: SAMEORIGIN
+https://www.w3.org                   # (H) CSP frame-ancestors 'self'
+https://www.apache.org               # (H) CSP frame-ancestors 'none'
+https://www.gnu.org                  # (H) XFO: sameorigin
+https://www.ietf.org                 # (H) XFO: DENY
+https://www.openstreetmap.org        # (H) XFO: SAMEORIGIN
+
+# --- Government / institutions (header-blocked) ---
+https://www.nasa.gov                 # (H) XFO: SAMEORIGIN
+https://www.usa.gov                  # (H) XFO: DENY
+https://www.usgs.gov                 # (H) XFO: SAMEORIGIN
+https://www.loc.gov                  # (H) XFO: sameorigin (Library of Congress)
+https://www.si.edu                   # (H) XFO: SAMEORIGIN (Smithsonian)
+https://www.gov.uk                   # (H) CSP frame-ancestors 'self'
+https://www.who.int                  # (H) CSP frame-ancestors 'self'
+https://www.un.org                   # (H) CSP frame-ancestors 'self'
+
+# --- Permissive headers but still won't render (JS frame-busting) ---
+https://www.amazon.com               # (J) homepage headers allow framing, but busts in-frame
+
+# --- Login-walled (content gated behind an account) ---
+https://docs.google.com              # (L) Google Docs — gated + blocks third-party embedding
+https://mail.google.com              # (L) Gmail
+https://drive.google.com             # (L) Google Drive
+https://www.facebook.com             # (L)+(H) sign-in wall, XFO: DENY
+https://www.instagram.com            # (L)+(H) sign-in wall, framing blocked
+https://www.linkedin.com             # (L)+(H) sign-in wall, XFO: DENY
+https://x.com                        # (L)+(H) sign-in wall, framing blocked
