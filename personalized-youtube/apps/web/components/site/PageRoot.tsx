@@ -100,6 +100,19 @@ export function PageRoot({ pageSlug }: { pageSlug: string }) {
     ['--accent' as string]: config.theme.accent,
   };
 
+  // Opened-site tabs follow the source site's inferred corner radius. (Built-in
+  // showcase brands keep their own globals.css radius, so only apply for these.)
+  if (getSiteBrand(pageSlug) === 'generic') {
+    const RADIUS_REM: Record<string, string> = {
+      none: '0px',
+      sm: '0.25rem',
+      md: '0.5rem',
+      lg: '0.75rem',
+      xl: '1rem',
+    };
+    (themeStyle as Record<string, string>)['--radius'] = RADIUS_REM[config.theme.radius] ?? '0.75rem';
+  }
+
   // Custom backgrounds: gradient overrides the default surface; solid relies on bg-bg.
   if (bg.kind === 'gradient' && bg.from && bg.to) {
     themeStyle.background = `linear-gradient(${bg.angle}deg, ${bg.from}, ${bg.to})`;

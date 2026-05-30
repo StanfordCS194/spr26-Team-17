@@ -52,8 +52,8 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function pickAccent(themeColor: string | null, host: string): string {
-  const candidate = themeColor ?? hostnameColor(host);
+function pickAccent(detected: string | null, host: string): string {
+  const candidate = detected ?? hostnameColor(host);
   // Too-light brand colors (e.g. near-white) make the white-on-accent logo
   // invisible — fall back to a hostname color in that case.
   return luminance(candidate) > 0.8 ? hostnameColor(host) : candidate;
@@ -131,36 +131,68 @@ interface SiteIdentity {
   favicon: string;
   accent: string;
   kind: ContentKind;
+  mode: 'light' | 'dark';
+  fontKey: string;
+  radius: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  /** Column count read from the site's CSS, or null to use the kind default. */
+  columns: 2 | 3 | 4 | 5 | null;
 }
 
 function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
   const l = layoutForKind(identity.kind);
   const isArticle = identity.kind === 'article';
+  const columns = identity.columns ?? l.columns;
+
+  const topBar = {
+    id: 'topBar',
+    type: 'TopBar' as const,
+    props: {
+      logoText: identity.logoText.slice(0, 40) || 'Opened site',
+      searchPlaceholder: `Search ${identity.siteName}`.slice(0, 40),
+      compactSearch: false,
+      showProfileChip: true,
+    },
+  };
+
   // Many large sites (DoorDash, etc.) sit behind bot protection and can't be
-  // previewed server-side. Rather than a blank grid, show the site's identity
-  // plus a clear note so the tab still reads as that site and stays useful.
-  const emptyNote =
+  // previewed server-side. Rather than a broken-looking empty grid, show just
+  // the site identity + a clear note so the tab still reads as that site.
+  const sections =
     videos.length === 0
       ? [
+          topBar,
           {
             id: 'emptyNote',
             type: 'CustomNote' as const,
             props: {
               visible: true,
-              text: `${identity.siteName} blocks automated preview, so we couldn't load its public content. You can still personalize this tab's layout, or ask the assistant to open a different link.`,
+              text: `${identity.siteName} blocks automated preview, so we couldn't load its public content. You can still personalize this tab's look, or ask the assistant to open a different link.`,
             },
           },
         ]
-      : [];
+      : [
+          topBar,
+          {
+            id: 'categoryChips',
+            type: 'CategoryChips' as const,
+            props: { active: l.chips[0] ?? 'All', chips: l.chips },
+          },
+          {
+            id: 'videoGrid',
+            type: 'VideoGrid' as const,
+            props: { columns, density: l.density, layout: l.layout, videos },
+          },
+        ];
+
   return PageConfigSchema.parse({
     id: identity.slug,
     slug: identity.slug,
     theme: {
-      mode: 'light',
+      mode: identity.mode,
       accent: identity.accent,
       fontScale: '1',
-      fontFamily: isArticle ? 'newsreader' : 'inter',
-      radius: identity.kind === 'product' || identity.kind === 'social' ? 'sm' : 'lg',
+      fontFamily: identity.fontKey,
+      radius: identity.radius,
       background: { kind: 'solid' },
       videoCardDefaults: {
         aspectRatio: l.aspectRatio,
@@ -175,29 +207,7 @@ function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
         hoverEffect: 'lift',
       },
     },
-    sections: [
-      {
-        id: 'topBar',
-        type: 'TopBar',
-        props: {
-          logoText: identity.logoText.slice(0, 40) || 'Opened site',
-          searchPlaceholder: `Search ${identity.siteName}`.slice(0, 40),
-          compactSearch: false,
-          showProfileChip: true,
-        },
-      },
-      {
-        id: 'categoryChips',
-        type: 'CategoryChips',
-        props: { active: l.chips[0] ?? 'All', chips: l.chips },
-      },
-      ...emptyNote,
-      {
-        id: 'videoGrid',
-        type: 'VideoGrid',
-        props: { columns: l.columns, density: l.density, layout: l.layout, videos },
-      },
-    ],
+    sections,
     filter: { include: [], exclude: [], requireTags: [], blockChannels: [] },
     sort: { by: 'recommended', order: 'desc' },
     meta: { title: identity.siteName.slice(0, 60) || 'Opened site', favicon: identity.favicon || '/favicon.ico' },
@@ -223,13 +233,18 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
   let identity: SiteIdentity;
   let videos: Video[] = [];
   if (ingest.kind === 'ok') {
+    const fe = ingest.frontend;
     identity = {
       slug,
       siteName: ingest.siteName || openSiteLabel(url),
       logoText: ingest.siteName || ingest.title || openSiteLabel(url),
       favicon: ingest.favicon,
-      accent: pickAccent(ingest.themeColor, host),
+      accent: pickAccent(fe.accent ?? ingest.themeColor, host),
       kind: ingest.contentKind,
+      mode: fe.mode,
+      fontKey: fe.fontKey,
+      radius: fe.radius,
+      columns: fe.columns,
     };
     videos = cardsToVideos(identity.siteName, ingest.favicon, ingest.cards).slice(0, TARGET_GRID);
   } else {
@@ -243,6 +258,10 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
       favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`,
       accent: hostnameColor(host),
       kind: 'generic',
+      mode: 'light',
+      fontKey: 'inter',
+      radius: 'lg',
+      columns: null,
     };
   }
 

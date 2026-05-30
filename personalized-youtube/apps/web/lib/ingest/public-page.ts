@@ -10,9 +10,10 @@
 //     (OWASP A10), matching the spirit of intercept/security.ts.
 //   - Upstream HTML never leaves the server; only derived titles + image URLs do.
 //
-// Output is a small set of "cards" derived from OpenGraph tags, headings, links
-// and images — enough to populate a personalizable grid. Callers blend this with
-// the mock catalog so the tab always looks full even for sparse pages.
+// Output is (a) a small set of "cards" derived from OpenGraph tags, headings,
+// links and images, and (b) a FrontendProfile inferred from the site's own
+// HTML/CSS (mode, brand color, font, radius, grid) so the opened tab can follow
+// the real site's look. Only the site's OWN content is used — no mock padding.
 
 import { isIP } from 'node:net';
 
@@ -25,6 +26,20 @@ export interface IngestedCard {
 
 export type ContentKind = 'article' | 'product' | 'social' | 'video' | 'generic';
 
+// What we infer about the target site's actual frontend, by reading its HTML +
+// CSS (inline styles plus a couple of its linked stylesheets). Used to make the
+// opened tab follow the real site's look rather than a one-size preset.
+export interface FrontendProfile {
+  mode: 'light' | 'dark';
+  /** Primary brand/CTA color (#rrggbb) or null when undetectable. */
+  accent: string | null;
+  /** Detected body font, mapped to a supported font key (e.g. 'inter'). */
+  fontKey: string;
+  radius: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  /** Grid column count read from the site's CSS, or null when unknown. */
+  columns: 2 | 3 | 4 | 5 | null;
+}
+
 export interface IngestResult {
   kind: 'ok';
   siteName: string;
@@ -35,6 +50,8 @@ export interface IngestResult {
   themeColor: string | null;
   /** Coarse page kind, used to pick a matching layout. */
   contentKind: ContentKind;
+  /** Inferred frontend look (colors, mode, font, radius, grid). */
+  frontend: FrontendProfile;
   cards: IngestedCard[];
 }
 
@@ -159,6 +176,219 @@ function pickIcon(html: string, base: URL): string {
   return candidates[0]?.href ?? absolute(base, '/favicon.ico');
 }
 
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return null;
+  return [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)];
+}
+
+function relLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0.5;
+  const [r, g, b] = rgb.map((c) => c / 255) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// A color reads as a "brand accent" only if it's reasonably saturated and not
+// near-white/near-black — so we don't pick the page background or text color.
+function isVividAccent(hex: string): boolean {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return false;
+  const [r, g, b] = rgb.map((c) => c / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+  return s > 0.3 && l > 0.2 && l < 0.85;
+}
+
+// Tally every vivid color in the supplied text (CSS values, inline styles, and
+// legacy bgcolor attributes). The brand color is usually the most-repeated
+// vivid color, so frequency is a good signal when there's no named brand var.
+function vividColorCounts(text: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  const add = (raw: string | undefined) => {
+    const c = normalizeColor(raw);
+    if (c && isVividAccent(c)) counts.set(c, (counts.get(c) ?? 0) + 1);
+  };
+  for (const m of text.matchAll(/#[0-9a-fA-F]{6}\b/g)) add(m[0]);
+  for (const m of text.matchAll(/#[0-9a-fA-F]{3}\b/g)) add(m[0]);
+  for (const m of text.matchAll(/rgba?\([^)]+\)/gi)) add(m[0]);
+  return counts;
+}
+
+function topColor(counts: Map<string, number>): string | null {
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [c, n] of counts) {
+    if (n > bestN) {
+      best = c;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+// Map a CSS font-family string to one of our supported font keys.
+function mapFont(familyRaw: string): string {
+  const f = familyRaw.toLowerCase();
+  if (/\binter\b/.test(f)) return 'inter';
+  if (/geist/.test(f)) return 'geist';
+  if (/space grotesk/.test(f)) return 'space-grotesk';
+  if (/(poppins|montserrat|dm sans|work sans|nunito|manrope|rubik|figtree|sora|outfit|plus jakarta)/.test(f))
+    return 'space-grotesk';
+  if (/fraunces/.test(f)) return 'fraunces';
+  if (/(playfair|dm serif|bodoni)/.test(f)) return 'dm-serif';
+  if (/(merriweather|newsreader|source serif|noto serif)/.test(f)) return 'newsreader';
+  if (/(lora|pt serif|libre baskerville)/.test(f)) return 'lora';
+  if (/(jetbrains|ibm plex mono|consolas|menlo|sf mono|monospace)/.test(f)) return 'jetbrains';
+  if (/(georgia|times|garamond|cormorant)/.test(f) || (/\bserif\b/.test(f) && !/sans-serif/.test(f)))
+    return 'lora';
+  return 'inter';
+}
+
+function inlineCss(html: string): string {
+  let out = '';
+  for (const m of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) out += `\n${m[1] ?? ''}`;
+  for (const m of html.matchAll(/style=["']([^"']+)["']/gi)) out += `\n*{${m[1] ?? ''}}`;
+  return out;
+}
+
+const CSS_FETCH_TIMEOUT_MS = 3500;
+const CSS_MAX_BYTES = 400_000;
+
+async function fetchText(url: string): Promise<string> {
+  const safe = safeUrl(url);
+  if (!safe) return '';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), CSS_FETCH_TIMEOUT_MS);
+    const res = await fetch(safe.toString(), {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': 'ShowcaseBot/1.0 (+personalization preview)', Accept: 'text/css,*/*' },
+    });
+    clearTimeout(timer);
+    if (!res.ok || !safeUrl(res.url || safe.toString())) return '';
+    const buf = await res.arrayBuffer();
+    return Buffer.from(buf.slice(0, CSS_MAX_BYTES)).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+
+// Fetch up to 2 of the page's linked stylesheets so color/font/radius detection
+// works even when a site ships its CSS in external files (most do).
+async function fetchStylesheets(html: string, base: URL): Promise<string> {
+  const hrefs: string[] = [];
+  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
+    const tag = m[0];
+    if (!/rel=["'][^"']*stylesheet[^"']*["']/i.test(tag)) continue;
+    const href = /href=["']([^"']+)["']/i.exec(tag)?.[1];
+    if (!href) continue;
+    const abs = absolute(base, href);
+    if (abs && /^https?:\/\//.test(abs) && safeUrl(abs)) hrefs.push(abs);
+    if (hrefs.length >= 2) break;
+  }
+  const parts = await Promise.all(hrefs.map(fetchText));
+  return parts.join('\n');
+}
+
+function firstColorVar(css: string, names: string[]): string | null {
+  for (const name of names) {
+    const re = new RegExp(`--${name}\\s*:\\s*(#[0-9a-fA-F]{3,6}|rgba?\\([^)]+\\))`, 'i');
+    const m = re.exec(css);
+    const c = normalizeColor(m?.[1]);
+    if (c) return c;
+  }
+  return null;
+}
+
+function analyzeFrontend(
+  html: string,
+  css: string,
+  themeColor: string | null,
+  contentKind: ContentKind,
+): FrontendProfile {
+  const all = `${css}\n${inlineCss(html)}`;
+
+  // ── Background + light/dark mode ──────────────────────────────────────────
+  const bgVar =
+    firstColorVar(all, ['background', 'bg', 'body-bg', 'page-bg', 'surface', 'color-background', 'background-primary']) ??
+    normalizeColor(/(?:body|html|:root)\s*\{[^}]*?background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,6}|rgba?\([^)]+\))/i.exec(all)?.[1]);
+  const htmlTag = /<html\b[^>]*>/i.exec(html)?.[0] ?? '';
+  const declaresDark =
+    /data-theme=["']dark|class=["'][^"']*\bdark\b|color-scheme["'][^>]*content=["'][^"']*\bdark\b(?![^"']*light)/i.test(
+      `${htmlTag} ${metaContent(html, 'color-scheme')}`,
+    );
+  let mode: 'light' | 'dark' = 'light';
+  if (bgVar) mode = relLuminance(bgVar) < 0.4 ? 'dark' : 'light';
+  else if (declaresDark) mode = 'dark';
+
+  // ── Accent / brand color ──────────────────────────────────────────────────
+  // 1) a named brand/primary CSS var (most reliable),
+  // 2) else theme-color if it's vivid,
+  // 3) else the most-repeated vivid color across CSS + inline + bgcolor attrs.
+  const namedAccent = firstColorVar(all, [
+    'accent', 'primary', 'color-primary', 'brand', 'brand-primary', 'brand-color',
+    'cta', 'color-accent', 'accent-color', 'interactive', 'link', 'color-link',
+  ]);
+  let accent: string | null = null;
+  if (namedAccent && isVividAccent(namedAccent)) accent = namedAccent;
+  else if (themeColor && isVividAccent(themeColor)) accent = themeColor;
+  else {
+    const bgcolors = [...html.matchAll(/bgcolor=["']?(#[0-9a-fA-F]{3,6})/gi)].map((m) => m[1]).join(' ');
+    accent = topColor(vividColorCounts(`${all}\n${bgcolors}`)) ?? themeColor;
+  }
+
+  // ── Font family ───────────────────────────────────────────────────────────
+  // Google Fonts link wins (it's almost always the real display font). Else
+  // pick the most-declared family, ignoring monospace unless it's the only one
+  // (code blocks shouldn't make the whole page mono).
+  let fontKey = 'inter';
+  const gfont = /fonts\.googleapis\.com\/css2?\?family=([^:&"']+)/i.exec(html)?.[1];
+  if (gfont) {
+    fontKey = mapFont(decodeURIComponent(gfont.replace(/\+/g, ' ')));
+  } else {
+    const fontCounts = new Map<string, number>();
+    for (const m of all.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) {
+      const key = mapFont(m[1] ?? '');
+      fontCounts.set(key, (fontCounts.get(key) ?? 0) + 1);
+    }
+    if (fontCounts.size > 1) fontCounts.delete('jetbrains');
+    let bestN = 0;
+    for (const [key, n] of fontCounts) {
+      if (n > bestN) {
+        fontKey = key;
+        bestN = n;
+      }
+    }
+  }
+
+  // ── Corner radius ─────────────────────────────────────────────────────────
+  const radii: number[] = [];
+  for (const m of all.matchAll(/border-radius\s*:\s*(\d+(?:\.\d+)?)px/gi)) {
+    const v = Number(m[1]);
+    if (v >= 0 && v <= 40) radii.push(v);
+  }
+  let radius: FrontendProfile['radius'] = 'lg';
+  if (radii.length) {
+    radii.sort((a, b) => a - b);
+    const med = radii[Math.floor(radii.length / 2)]!;
+    radius = med <= 1 ? 'none' : med <= 5 ? 'sm' : med <= 9 ? 'md' : med <= 16 ? 'lg' : 'xl';
+  }
+
+  // ── Grid columns ──────────────────────────────────────────────────────────
+  let columns: FrontendProfile['columns'] = null;
+  const rep = /grid-template-columns\s*:\s*repeat\(\s*(\d+)/i.exec(all)?.[1];
+  if (rep) columns = Math.max(2, Math.min(5, Number(rep))) as FrontendProfile['columns'];
+
+  // contentKind nudges defaults when CSS was silent.
+  if (columns === null && contentKind === 'article') columns = 2;
+
+  return { mode, accent, fontKey, radius, columns };
+}
+
 function classifyContent(html: string, ogType: string, imageCount: number): ContentKind {
   const t = ogType.toLowerCase();
   if (t.includes('article') || t.includes('news')) return 'article';
@@ -258,6 +488,10 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
   const links = collectLinks(html, base);
   const contentKind = classifyContent(html, metaContent(html, 'og:type'), images.length);
 
+  // Read the site's own CSS to follow its real frontend (colors/mode/font/grid).
+  const externalCss = await fetchStylesheets(html, base);
+  const frontend = analyzeFrontend(html, externalCss, themeColor, contentKind);
+
   const cards: IngestedCard[] = [];
   const seenTitles = new Set<string>();
   const linkCount = Math.min(links.length, MAX_CARDS);
@@ -276,5 +510,5 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
     if (cards.length >= MAX_CARDS) break;
   }
 
-  return { kind: 'ok', siteName, title, description, favicon, themeColor, contentKind, cards };
+  return { kind: 'ok', siteName, title, description, favicon, themeColor, contentKind, frontend, cards };
 }
