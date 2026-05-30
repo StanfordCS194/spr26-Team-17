@@ -272,7 +272,7 @@ export async function getOpenSitePlan(url: string, slug: string): Promise<OpenSi
     loginWalled = /sign-in/i.test(ingest.reason);
     const label = openSiteLabel(url);
     const note = ingest.reason.includes('sign-in')
-      ? `${label} requires signing in, so there's no public page to preview here. The personalization layer only works on public content — try a public site, or use ${label} directly.`
+      ? `${label} keeps its content behind your account and blocks third-party embedding, so it can't be shown inside this tab — even when you're already signed in. Open ${label} directly to use it.`
       : ingest.reason.includes('disallowed')
         ? `${label} can't be previewed for security reasons.`
         : `We couldn't load public content for ${label} (${ingest.reason}). Try a different link, or open ${label} directly.`;

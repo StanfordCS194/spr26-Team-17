@@ -8,7 +8,14 @@ import { getPageBridge } from '@/lib/page-bridge';
 import { TOOL_VERBS, useChatStore, type ChatMessage } from '@/lib/chat-store';
 import { usePageStore } from '@/lib/store';
 import { useOpenTabs, removeOpenTab } from '@/lib/open-tabs';
-import { SHOWCASE_SITES, siteByPath } from '@showcase/shared';
+import {
+  SHOWCASE_SITES,
+  siteByPath,
+  segmentToSlug,
+  isOpenSiteSlug,
+  decodeOpenSiteSlug,
+  openSiteLabel,
+} from '@showcase/shared';
 
 function fallbackAcknowledgment(toolUses: Array<{ name: string }>): string {
   if (toolUses.length === 0) return '';
@@ -93,6 +100,11 @@ function defaultWindowState(): WindowState {
 
 function useActivePageSlug(): string {
   const pathname = usePathname() ?? '/';
+  // Opened-site tabs live at /open/<segment>; derive their slug straight from
+  // the URL so the chat reflects the real site (label, "Reset X preferences",
+  // active tab) instead of falling back to the YouTube slug.
+  const openMatch = /^\/open\/([^/?#]+)/.exec(pathname);
+  if (openMatch?.[1]) return segmentToSlug(openMatch[1]);
   return siteByPath(pathname)?.slug ?? getPageBridge()?.pageSlug ?? 'youtube-clone';
 }
 
@@ -275,6 +287,9 @@ export function ChatPanel() {
   const currentSiteLabel =
     SHOWCASE_SITES.find((s) => s.slug === pageSlug)?.label ??
     openTabs.find((t) => t.slug === pageSlug)?.label ??
+    (isOpenSiteSlug(pageSlug)
+      ? openSiteLabel(decodeOpenSiteSlug(pageSlug) ?? '')
+      : null) ??
     'Showcase';
 
   return createPortal(
