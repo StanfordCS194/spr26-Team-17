@@ -43,6 +43,10 @@ export const Video = z.object({
   // Visitor-scoped watched flag (computed server-side per visitor cookie or
   // baked into the seed for static demos).
   watched: z.boolean().optional(),
+  // Real destination URL for ingested "open any link" cards. When set (generic
+  // opened-site tabs), the card links straight to the source page in a new tab
+  // instead of the internal YouTube-style watch view.
+  href: z.string().optional(),
 });
 export type Video = z.infer<typeof Video>;
 

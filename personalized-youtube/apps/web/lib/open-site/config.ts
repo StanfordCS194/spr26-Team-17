@@ -119,6 +119,7 @@ function cardsToVideos(
       tags: ['web', 'opened-site'],
       description: card.description ?? '',
       category: 'web',
+      href: card.href || undefined,
     });
   }
   return out;

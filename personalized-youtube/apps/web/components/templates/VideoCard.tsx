@@ -60,7 +60,9 @@ export function VideoCard({
       ? amazonProductHref(video)
       : brand === 'instagram'
         ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
-        : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+        : brand === 'generic'
+          ? video.href || '#'
+          : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
 
   const scale = cardDefaults.thumbnailScale ?? 1;
   const thumbRadius =
@@ -70,6 +72,9 @@ export function VideoCard({
 
   function onCardClick(e: React.MouseEvent): void {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    // Opened-site tabs are real web links — let the anchor open the source page
+    // in a new tab rather than hijacking into the internal watch view.
+    if (brand === 'generic') return;
     if (brand === 'youtube' && !youtubeMode) return;
     e.preventDefault();
     setWatching(video.id, video.title, {
@@ -188,7 +193,7 @@ export function VideoCard({
             <AmazonStars rating={parseAmazonRating(video.postedAgo)} size="sm" />
           </div>
         )}
-        {brand !== 'amazon' && (
+        {brand !== 'amazon' && brand !== 'generic' && (
           <p
             className="mt-1 truncate text-xs text-[color:var(--muted-fg)]"
             style={{ fontWeight: cardDefaults.channelNameWeight }}
