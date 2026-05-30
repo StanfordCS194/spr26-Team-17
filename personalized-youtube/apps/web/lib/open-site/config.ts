@@ -20,7 +20,7 @@ import { ingestPublicPage, type ContentKind } from '../ingest/public-page';
 
 const TARGET_GRID = 36;
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const cache = new Map<string, { config: PageConfig; ts: number }>();
+const cache = new Map<string, { plan: OpenSitePlan; ts: number }>();
 
 // Stable, pleasant accent derived from the hostname when the site exposes no
 // theme-color. Keeps each opened site visually consistent across reloads.
@@ -137,6 +137,8 @@ interface SiteIdentity {
   radius: 'none' | 'sm' | 'md' | 'lg' | 'xl';
   /** Column count read from the site's CSS, or null to use the kind default. */
   columns: 2 | 3 | 4 | 5 | null;
+  /** Honest message shown when there's no public content to render. */
+  note?: string;
 }
 
 function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
@@ -155,9 +157,9 @@ function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
     },
   };
 
-  // Many large sites (DoorDash, etc.) sit behind bot protection and can't be
-  // previewed server-side. Rather than a broken-looking empty grid, show just
-  // the site identity + a clear note so the tab still reads as that site.
+  // No public content to mirror (login wall, bot protection, sparse page).
+  // Show just the site identity + an honest note rather than a fake grid.
+  // Opened tabs never render the YouTube-style CategoryChips.
   const sections =
     videos.length === 0
       ? [
@@ -167,17 +169,14 @@ function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
             type: 'CustomNote' as const,
             props: {
               visible: true,
-              text: `${identity.siteName} blocks automated preview, so we couldn't load its public content. You can still personalize this tab's look, or ask the assistant to open a different link.`,
+              text:
+                identity.note ??
+                `We couldn't load public content for ${identity.siteName}. You can still personalize this tab's look, or ask the assistant to open a different link.`,
             },
           },
         ]
       : [
           topBar,
-          {
-            id: 'categoryChips',
-            type: 'CategoryChips' as const,
-            props: { active: l.chips[0] ?? 'All', chips: l.chips },
-          },
           {
             id: 'videoGrid',
             type: 'VideoGrid' as const,
@@ -215,10 +214,25 @@ function buildConfig(identity: SiteIdentity, videos: Video[]): PageConfig {
   });
 }
 
-/** Build (or return cached) PageConfig for a dynamically-opened URL + its slug. */
-export async function getOpenSiteConfig(url: string, slug: string): Promise<PageConfig> {
+// Everything a renderer needs to decide HOW to show an opened URL: the
+// personalizable reconstruction (config) plus whether the live site can be
+// embedded and whether it's behind a login wall.
+export interface OpenSitePlan {
+  url: string;
+  slug: string;
+  config: PageConfig;
+  embeddable: boolean;
+  finalUrl: string;
+  loginWalled: boolean;
+  siteName: string;
+  favicon: string;
+  accent: string;
+}
+
+/** Build (or return cached) plan for a dynamically-opened URL + its slug. */
+export async function getOpenSitePlan(url: string, slug: string): Promise<OpenSitePlan> {
   const cached = cache.get(slug);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.config;
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.plan;
 
   const host = (() => {
     try {
@@ -229,12 +243,17 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
   })();
 
   const ingest = await ingestPublicPage(url);
+  let embeddable = false;
+  let finalUrl = url;
+  let loginWalled = false;
   // Render the site's OWN content only — no cross-site mock padding, so the tab
   // looks like the real site rather than a YouTube clone.
   let identity: SiteIdentity;
   let videos: Video[] = [];
   if (ingest.kind === 'ok') {
     const fe = ingest.frontend;
+    embeddable = ingest.embeddable;
+    finalUrl = ingest.finalUrl;
     identity = {
       slug,
       siteName: ingest.siteName || openSiteLabel(url),
@@ -250,10 +269,17 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
     videos = cardsToVideos(identity.siteName, ingest.favicon, ingest.cards).slice(0, TARGET_GRID);
   } else {
     console.warn(`[open-site] ingest unavailable for ${slug}: ${ingest.reason}`);
+    loginWalled = /sign-in/i.test(ingest.reason);
+    const label = openSiteLabel(url);
+    const note = ingest.reason.includes('sign-in')
+      ? `${label} requires signing in, so there's no public page to preview here. The personalization layer only works on public content — try a public site, or use ${label} directly.`
+      : ingest.reason.includes('disallowed')
+        ? `${label} can't be previewed for security reasons.`
+        : `We couldn't load public content for ${label} (${ingest.reason}). Try a different link, or open ${label} directly.`;
     identity = {
       slug,
-      siteName: openSiteLabel(url),
-      logoText: openSiteLabel(url),
+      siteName: label,
+      logoText: label,
       // Google's favicon service resolves even when the origin blocks our fetch,
       // so the tab still shows the real site mark.
       favicon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`,
@@ -263,10 +289,27 @@ export async function getOpenSiteConfig(url: string, slug: string): Promise<Page
       fontKey: 'inter',
       radius: 'lg',
       columns: null,
+      note,
     };
   }
 
   const config = buildConfig(identity, videos);
-  cache.set(slug, { config, ts: Date.now() });
-  return config;
+  const plan: OpenSitePlan = {
+    url,
+    slug,
+    config,
+    embeddable,
+    finalUrl,
+    loginWalled,
+    siteName: identity.siteName,
+    favicon: identity.favicon,
+    accent: identity.accent,
+  };
+  cache.set(slug, { plan, ts: Date.now() });
+  return plan;
+}
+
+/** Convenience for callers that only need the personalizable config (chat route). */
+export async function getOpenSiteConfig(url: string, slug: string): Promise<PageConfig> {
+  return (await getOpenSitePlan(url, slug)).config;
 }

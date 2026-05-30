@@ -2,12 +2,22 @@ import Link from 'next/link';
 import { decodeOpenSiteSegment, segmentToSlug } from '@showcase/shared';
 import { PageStoreProvider } from '@/lib/store';
 import { PageRoot } from '@/components/site/PageRoot';
-import { getOpenSiteConfig } from '@/lib/open-site/config';
+import { LiveEmbed } from '@/components/open/LiveEmbed';
+import { getOpenSitePlan } from '@/lib/open-site/config';
+
+type RenderMode = 'hybrid' | 'iframe' | 'archetype';
+
+function parseMode(raw: string | string[] | undefined): RenderMode {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === 'iframe' || v === 'archetype' ? v : 'hybrid';
+}
 
 export default async function OpenSitePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ site: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { site } = await params;
   const url = decodeOpenSiteSegment(site);
@@ -30,10 +40,30 @@ export default async function OpenSitePage({
   }
 
   const slug = segmentToSlug(site);
-  const config = await getOpenSiteConfig(url, slug);
+  const mode = parseMode((await searchParams)?.['mode']);
+  const plan = await getOpenSitePlan(url, slug);
+
+  // Hybrid (default): embed the live site when it allows framing and isn't a
+  // login wall; otherwise fall back to the personalizable reconstruction (which
+  // also renders the honest "no public content" state).
+  const useIframe =
+    mode === 'iframe' || (mode === 'hybrid' && plan.embeddable && !plan.loginWalled);
+
+  if (useIframe) {
+    return (
+      <LiveEmbed
+        url={plan.finalUrl}
+        slug={slug}
+        siteName={plan.siteName}
+        favicon={plan.favicon}
+        accent={plan.accent}
+        config={plan.config}
+      />
+    );
+  }
 
   return (
-    <PageStoreProvider initialConfig={config} initialLiveFeedMode={false} pageSlug={slug}>
+    <PageStoreProvider initialConfig={plan.config} initialLiveFeedMode={false} pageSlug={slug}>
       <PageRoot pageSlug={slug} />
     </PageStoreProvider>
   );

@@ -40,6 +40,11 @@ export interface FrontendProfile {
   columns: 2 | 3 | 4 | 5 | null;
 }
 
+export interface NavLink {
+  label: string;
+  href: string;
+}
+
 export interface IngestResult {
   kind: 'ok';
   siteName: string;
@@ -52,6 +57,12 @@ export interface IngestResult {
   contentKind: ContentKind;
   /** Inferred frontend look (colors, mode, font, radius, grid). */
   frontend: FrontendProfile;
+  /** True when the page allows being embedded in an <iframe> (no XFO/CSP block). */
+  embeddable: boolean;
+  /** URL after following redirects (what an iframe would actually load). */
+  finalUrl: string;
+  /** Primary navigation labels lifted from the page's <nav>/header. */
+  nav: NavLink[];
   cards: IngestedCard[];
 }
 
@@ -389,6 +400,65 @@ function analyzeFrontend(
   return { mode, accent, fontKey, radius, columns };
 }
 
+// True when the (possibly redirected) page is a login/auth wall rather than
+// real public content — e.g. docs.google.com → accounts.google.com sign-in.
+// There's nothing public to mirror in that case, so we surface it honestly.
+function isAuthWall(finalUrl: string, html: string, title: string): boolean {
+  let host = '';
+  let path = '';
+  try {
+    const u = new URL(finalUrl);
+    host = u.hostname.toLowerCase();
+    path = u.pathname.toLowerCase();
+  } catch {
+    /* ignore */
+  }
+  if (/(^|\.)accounts\.google\.com$|(^|\.)login\.|(^|\.)signin\.|(^|\.)auth\./.test(host)) return true;
+  if (/\/(login|signin|sign-in|sso|oauth|session\/new)(\/|$)/.test(path)) return true;
+  const t = title.toLowerCase();
+  const hasPassword = /<input[^>]+type=["']password["']/i.test(html);
+  if (hasPassword && /\bsign in\b|\blog ?in\b/.test(t)) return true;
+  return false;
+}
+
+// Can the page be shown inside our <iframe>? False when it sends a blocking
+// X-Frame-Options or a restrictive CSP frame-ancestors directive.
+function isEmbeddable(xfo: string | null, csp: string | null): boolean {
+  if (xfo) {
+    const v = xfo.toLowerCase();
+    if (v.includes('deny') || v.includes('sameorigin')) return false;
+  }
+  if (csp) {
+    const m = /frame-ancestors([^;]*)/i.exec(csp);
+    if (m) {
+      const val = (m[1] ?? '').trim().toLowerCase();
+      if (val.includes("'none'")) return false;
+      if (!val.includes('*')) return false; // explicit allow-list → assume not us
+    }
+  }
+  return true;
+}
+
+function collectNav(html: string, base: URL): NavLink[] {
+  const block =
+    /<nav\b[^>]*>([\s\S]*?)<\/nav>/i.exec(html)?.[1] ??
+    /<header\b[^>]*>([\s\S]*?)<\/header>/i.exec(html)?.[1] ??
+    '';
+  const out: NavLink[] = [];
+  const seen = new Set<string>();
+  for (const m of block.matchAll(/<a[^>]+href=["']([^"'#]*)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const text = decodeEntities((m[2] ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+    if (text.length < 2 || text.length > 22) continue;
+    const href = absolute(base, m[1] ?? '');
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ label: text, href: /^https?:\/\//.test(href) ? href : base.toString() });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 function classifyContent(html: string, ogType: string, imageCount: number): ContentKind {
   const t = ogType.toLowerCase();
   if (t.includes('article') || t.includes('news')) return 'article';
@@ -443,6 +513,8 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
   if (!target) return { kind: 'unavailable', reason: 'invalid or disallowed URL' };
 
   let html: string;
+  let finalUrl = target.toString();
+  let embeddable = true;
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -456,14 +528,17 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
       },
     });
     clearTimeout(timer);
+    finalUrl = res.url || target.toString();
 
     // Re-validate the post-redirect URL against the SSRF allowlist.
-    if (!safeUrl(res.url || target.toString())) {
+    if (!safeUrl(finalUrl)) {
       return { kind: 'unavailable', reason: 'redirected to a disallowed host' };
     }
     const ct = (res.headers.get('content-type') ?? '').toLowerCase();
     if (!res.ok) return { kind: 'unavailable', reason: `fetch failed (HTTP ${res.status})` };
     if (!ct.includes('html')) return { kind: 'unavailable', reason: 'target is not an HTML page' };
+
+    embeddable = isEmbeddable(res.headers.get('x-frame-options'), res.headers.get('content-security-policy'));
 
     const buf = await res.arrayBuffer();
     if (buf.byteLength > MAX_BYTES) {
@@ -484,9 +559,17 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
   const favicon = pickIcon(html, base);
   const themeColor = normalizeColor(metaContent(html, 'theme-color'));
 
+  // A login wall has no public content to mirror — say so rather than dressing
+  // up sign-in links as a content grid.
+  if (isAuthWall(finalUrl, html, title)) {
+    return { kind: 'unavailable', reason: 'requires sign-in' };
+  }
+
   const images = collectImages(html, base);
   const links = collectLinks(html, base);
   const contentKind = classifyContent(html, metaContent(html, 'og:type'), images.length);
+
+  const nav = collectNav(html, base);
 
   // Read the site's own CSS to follow its real frontend (colors/mode/font/grid).
   const externalCss = await fetchStylesheets(html, base);
@@ -510,5 +593,18 @@ export async function ingestPublicPage(rawUrl: string): Promise<IngestResult | I
     if (cards.length >= MAX_CARDS) break;
   }
 
-  return { kind: 'ok', siteName, title, description, favicon, themeColor, contentKind, frontend, cards };
+  return {
+    kind: 'ok',
+    siteName,
+    title,
+    description,
+    favicon,
+    themeColor,
+    contentKind,
+    frontend,
+    embeddable,
+    finalUrl,
+    nav,
+    cards,
+  };
 }
