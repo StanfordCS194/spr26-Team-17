@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { SHOWCASE_SITES, isOpenSiteSlug, type PageConfig, type Patch, type ShowcaseSiteId, type Video } from '@showcase/shared';
 import { getPageBridge } from '@/lib/page-bridge';
 import { addOpenTab } from '@/lib/open-tabs';
+import type { ChangeReceipt } from '@/lib/change-history';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -21,6 +22,7 @@ export interface ChatMessage {
   siteLabel?: string;
   toolUses?: Array<{ name: string; rationale?: string }>;
   askOptions?: string[];
+  changeReceipt?: ChangeReceipt;
 }
 
 interface ChatStoreValue {
@@ -115,12 +117,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setMessages(next);
       setIsStreaming(true);
 
-      const bridge = getPageBridge();
+      const transactionBridge = getPageBridge();
+      const changeId =
+        transactionBridge?.pageSlug === pageSlug
+          ? transactionBridge.beginChangeSet(text.trim())
+          : null;
       let watchingThumbnail: string | null = null;
       let watchingChannel: string | null = null;
-      const watchingId = bridge?.watchingId ?? null;
-      const watchingTitle = bridge?.watchingTitle ?? null;
-      const config = bridge?.config;
+      const watchingId = transactionBridge?.watchingId ?? null;
+      const watchingTitle = transactionBridge?.watchingTitle ?? null;
+      const config = transactionBridge?.config;
 
       if (watchingId && config) {
         for (const s of config.sections) {
@@ -184,7 +190,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               if (ev.kind === 'patch') {
                 const bridge = getPageBridge();
                 if (bridge) {
-                  bridge.dispatch(ev.patch as Patch, { persist: true, trace: true });
+                  bridge.dispatch(ev.patch as Patch, { trace: true });
                 } else {
                   console.warn('[chat] patch dropped — no page bridge registered', ev.patch);
                 }
@@ -211,30 +217,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        setMessages([
-          ...next,
-          { role: 'assistant', content: assistantContent, toolUses, askOptions, ...meta },
-        ]);
-
         // Reconcile with server-rendered config (preferences applied in DB).
         // Dynamically-opened URL tabs have no DB row — their optimistic patches
         // are authoritative for the session, so skip the reconcile fetch.
-        const bridge = getPageBridge();
-        if (bridge && bridge.pageSlug === pageSlug && !isOpenSiteSlug(pageSlug)) {
+        const activeBridge = getPageBridge();
+        if (activeBridge && activeBridge.pageSlug === pageSlug && !isOpenSiteSlug(pageSlug)) {
           try {
             const pageRes = await fetch(`/api/page?slug=${encodeURIComponent(pageSlug)}`);
             if (pageRes.ok) {
               const data = (await pageRes.json()) as { config?: PageConfig };
-              if (data.config) bridge.replace(data.config);
+              if (data.config) activeBridge.replace(data.config);
             }
           } catch {
             /* optimistic patches already applied */
           }
         }
-      } catch (err) {
+
+        const changeReceipt =
+          changeId ? transactionBridge?.endChangeSet(changeId) ?? undefined : undefined;
         setMessages([
           ...next,
-          { role: 'assistant', content: `Error: ${(err as Error).message}`, ...meta },
+          { role: 'assistant', content: assistantContent, toolUses, askOptions, changeReceipt, ...meta },
+        ]);
+      } catch (err) {
+        const changeReceipt =
+          changeId ? transactionBridge?.endChangeSet(changeId) ?? undefined : undefined;
+        setMessages([
+          ...next,
+          {
+            role: 'assistant',
+            content: `Error: ${(err as Error).message}`,
+            changeReceipt,
+            ...meta,
+          },
         ]);
       } finally {
         setIsStreaming(false);
@@ -251,7 +266,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       await fetch(`/api/reset?slug=${encodeURIComponent(pageSlug)}`, { method: 'POST' });
       const res = await fetch(`/api/page?slug=${encodeURIComponent(pageSlug)}`);
       const data = await res.json();
-      if (data.config) bridge.replace(data.config);
+      if (data.config) bridge.replace(data.config, { clearHistory: true });
     } finally {
       setIsStreaming(false);
     }

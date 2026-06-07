@@ -116,7 +116,14 @@ export function ChatPanel() {
   const openTabs = useOpenTabs();
   const { messages, isStreaming, generatingCategory, send, resetSitePreferences, goToSite } =
     useChatStore();
-  const { magicPointerActive, setMagicPointerActive } = usePageStore();
+  const {
+    magicPointerActive,
+    setMagicPointerActive,
+    undoChange,
+    redoChange,
+    latestUndoId,
+    latestRedoId,
+  } = usePageStore();
 
 
   const [open, setOpen] = useState(true);
@@ -170,6 +177,12 @@ export function ChatPanel() {
       const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
       const inField =
         tag === 'input' || tag === 'textarea' || (e.target as HTMLElement | null)?.isContentEditable;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !inField) {
+        e.preventDefault();
+        if (e.shiftKey) redoChange();
+        else undoChange();
+        return;
+      }
       if (e.key === '/' && !inField && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         setOpen(true);
@@ -182,7 +195,7 @@ export function ChatPanel() {
     }
     window.addEventListener('keydown', onKeydown);
     return () => window.removeEventListener('keydown', onKeydown);
-  }, [open, minimized]);
+  }, [open, minimized, redoChange, undoChange]);
 
   function toggleMinimize() {
     if (!windowState) return;
@@ -326,6 +339,36 @@ export function ChatPanel() {
           </div>
           <div className="flex items-center gap-1">
             {!minimized && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => undoChange()}
+                  disabled={!latestUndoId || isStreaming}
+                  aria-label="Undo last personalization"
+                  title="Undo last personalization (Cmd/Ctrl+Z)"
+                  className="rounded p-1 hover:bg-[color:var(--muted)] disabled:opacity-30"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                    <path d="M9 7L4 12l5 5M5 12h8a6 6 0 0 1 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => redoChange()}
+                  disabled={!latestRedoId || isStreaming}
+                  aria-label="Redo personalization"
+                  title="Redo personalization (Cmd/Ctrl+Shift+Z)"
+                  className="rounded p-1 hover:bg-[color:var(--muted)] disabled:opacity-30"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+                    <path d="M15 7l5 5-5 5M19 12h-8a6 6 0 0 0-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </>
+            )}
+            {!minimized && (
               <div className="mr-2 flex items-center gap-1 rounded-full bg-[color:var(--muted)] p-0.5 text-[10px] font-medium text-[color:var(--muted-fg)]" onMouseDown={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setProvider('gemini')}
@@ -457,6 +500,15 @@ export function ChatPanel() {
                       message={m}
                       isLast={i === messages.length - 1}
                       isStreaming={isStreaming}
+                      receiptState={
+                        m.changeReceipt?.id === latestUndoId
+                          ? 'applied'
+                          : m.changeReceipt?.id === latestRedoId
+                            ? 'undone'
+                            : 'unavailable'
+                      }
+                      onUndo={(id) => undoChange(id)}
+                      onRedo={(id) => redoChange(id)}
                       onPickOption={(opt) => void send(opt, pageSlug)}
                     />
                   ))}
@@ -555,11 +607,17 @@ function MessageBubble({
   message: m,
   isLast,
   isStreaming,
+  receiptState,
+  onUndo,
+  onRedo,
   onPickOption,
 }: {
   message: ChatMessage;
   isLast: boolean;
   isStreaming: boolean;
+  receiptState: 'applied' | 'undone' | 'unavailable';
+  onUndo: (id: string) => boolean;
+  onRedo: (id: string) => boolean;
   onPickOption: (opt: string) => void;
 }) {
   const showFallback =
@@ -597,6 +655,39 @@ function MessageBubble({
                 {TOOL_VERBS[t.name] ?? t.name}
               </span>
             ))}
+          </div>
+        )}
+        {m.role === 'assistant' && m.changeReceipt && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2.5 py-2">
+            <div className="min-w-0 text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">
+                Change receipt
+              </p>
+              <p className="truncate text-xs" title={m.changeReceipt.label}>
+                {m.changeReceipt.patchCount} {m.changeReceipt.patchCount === 1 ? 'update' : 'updates'} grouped
+              </p>
+            </div>
+            {receiptState === 'applied' && (
+              <button
+                type="button"
+                onClick={() => onUndo(m.changeReceipt!.id)}
+                className="shrink-0 rounded-full border border-[color:var(--border)] px-2.5 py-1 text-[11px] font-medium hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+              >
+                Undo
+              </button>
+            )}
+            {receiptState === 'undone' && (
+              <button
+                type="button"
+                onClick={() => onRedo(m.changeReceipt!.id)}
+                className="shrink-0 rounded-full border border-[color:var(--border)] px-2.5 py-1 text-[11px] font-medium hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+              >
+                Redo
+              </button>
+            )}
+            {receiptState === 'unavailable' && (
+              <span className="shrink-0 text-[10px] text-[color:var(--muted-fg)]">Earlier change</span>
+            )}
           </div>
         )}
         {m.role === 'assistant' && m.askOptions && m.askOptions.length > 0 && isLast && !isStreaming && (

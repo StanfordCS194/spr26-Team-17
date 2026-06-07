@@ -1,8 +1,24 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { applyPatch, type PageConfig, type Patch } from '@showcase/shared';
 import { registerPageBridge, unregisterPageBridge } from '@/lib/page-bridge';
+import {
+  EMPTY_CHANGE_HISTORY,
+  commitHistory,
+  redoHistory,
+  undoHistory,
+  type ChangeReceipt,
+  type ChangeHistoryState,
+} from '@/lib/change-history';
 
 export interface YtChipEntry {
   text: string;
@@ -33,13 +49,47 @@ export interface HomeSnapshot {
   ytContinuation: string | null;
 }
 
+interface PendingChange {
+  id: string;
+  label: string;
+  patchCount: number;
+  before: PageConfig;
+}
+
 import type { SlackBootstrapMeta } from '@/lib/slack/client';
+
+function compactSnapshot(config: PageConfig): PageConfig {
+  return {
+    ...config,
+    sections: config.sections.map((section) => {
+      if (section.type === 'VideoGrid') {
+        return { ...section, props: { ...section.props, videos: [] } };
+      }
+      if (section.type === 'RecommendedRow') {
+        return { ...section, props: { ...section.props, videos: [] } };
+      }
+      if (section.type === 'ContinueWatchingRow') {
+        return { ...section, props: { ...section.props, videos: [] } };
+      }
+      if (section.type === 'ShortsRow') {
+        return { ...section, props: { ...section.props, shorts: [] } };
+      }
+      return section;
+    }),
+  };
+}
 
 interface PageStoreValue {
   config: PageConfig;
   pageSlug: string;
   dispatch: (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => void;
-  replace: (config: PageConfig) => void;
+  replace: (config: PageConfig, options?: { clearHistory?: boolean }) => void;
+  beginChangeSet: (label: string) => string;
+  endChangeSet: (id: string) => ChangeReceipt | null;
+  undoChange: (id?: string) => boolean;
+  redoChange: (id?: string) => boolean;
+  latestUndoId: string | null;
+  latestRedoId: string | null;
   magicPointerActive: boolean;
   setMagicPointerActive: (active: boolean) => void;
   // YouTube-source extras: continuation token for infinite scroll, mutable
@@ -101,6 +151,10 @@ export function PageStoreProvider({
   children: ReactNode;
 }) {
   const [config, setConfig] = useState<PageConfig>(initialConfig);
+  const configRef = useRef<PageConfig>(initialConfig);
+  const pendingChangeRef = useRef<PendingChange | null>(null);
+  const historyRef = useRef<ChangeHistoryState>(EMPTY_CHANGE_HISTORY);
+  const [, setHistoryVersion] = useState(0);
   const [magicPointerActive, setMagicPointerActive] = useState(false);
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
@@ -120,6 +174,7 @@ export function PageStoreProvider({
   const exitSearch = useCallback(() => {
     setHomeSnapshot((snap) => {
       if (snap) {
+        configRef.current = snap.config;
         setConfig(snap.config);
         setYtContinuation(snap.ytContinuation);
       }
@@ -147,22 +202,50 @@ export function PageStoreProvider({
   );
   const youtubeMode = initialYoutubeMode;
   const liveFeedMode = initialLiveFeedMode;
+  const setCurrentConfig = useCallback((next: PageConfig) => {
+    configRef.current = next;
+    setConfig(next);
+  }, []);
+
+  const persistSnapshot = useCallback(
+    (next: PageConfig, rationale: string) => {
+      fetch('/api/patch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: pageSlug,
+          patch: { op: 'replace_config', config: compactSnapshot(next) } satisfies Patch,
+          rationale,
+        }),
+      }).catch(() => {
+        // Undo remains useful in-session when persistence is unavailable.
+      });
+    },
+    [pageSlug],
+  );
+
+  const updateHistory = useCallback((next: ChangeHistoryState) => {
+    historyRef.current = next;
+    setHistoryVersion((version) => version + 1);
+  }, []);
+
   const dispatch = useCallback(
     (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => {
-      setConfig((current) => {
-        const next = applyPatch(current, patch);
-        if (options?.trace) {
-          console.groupCollapsed(
-            `%c[store] applyPatch · ${patch.op}`,
-            'color:#a855f7;font-weight:bold',
-          );
-          console.log('patch:', patch);
-          console.log('config before:', current);
-          console.log('config after:', next);
-          console.groupEnd();
-        }
-        return next;
-      });
+      const current = configRef.current;
+      const next = applyPatch(current, patch);
+      configRef.current = next;
+      setConfig(next);
+      if (pendingChangeRef.current) pendingChangeRef.current.patchCount += 1;
+      if (options?.trace) {
+        console.groupCollapsed(
+          `%c[store] applyPatch · ${patch.op}`,
+          'color:#a855f7;font-weight:bold',
+        );
+        console.log('patch:', patch);
+        console.log('config before:', current);
+        console.log('config after:', next);
+        console.groupEnd();
+      }
       if (options?.persist) {
         if (options?.trace) {
           console.log(
@@ -184,7 +267,72 @@ export function PageStoreProvider({
     },
     [pageSlug],
   );
-  const replace = useCallback((next: PageConfig) => setConfig(next), []);
+  const replace = useCallback(
+    (next: PageConfig, options?: { clearHistory?: boolean }) => {
+      setCurrentConfig(next);
+      if (options?.clearHistory) {
+        pendingChangeRef.current = null;
+        updateHistory(EMPTY_CHANGE_HISTORY);
+      }
+    },
+    [setCurrentConfig, updateHistory],
+  );
+
+  const beginChangeSet = useCallback((label: string): string => {
+    if (pendingChangeRef.current) return pendingChangeRef.current.id;
+    const id = `change_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    pendingChangeRef.current = {
+      id,
+      label,
+      patchCount: 0,
+      before: configRef.current,
+    };
+    return id;
+  }, []);
+
+  const endChangeSet = useCallback(
+    (id: string): ChangeReceipt | null => {
+      const pending = pendingChangeRef.current;
+      if (!pending || pending.id !== id) return null;
+      pendingChangeRef.current = null;
+      if (pending.patchCount === 0) return null;
+      updateHistory(
+        commitHistory(historyRef.current, {
+          ...pending,
+          after: configRef.current,
+        }),
+      );
+      return { id: pending.id, label: pending.label, patchCount: pending.patchCount };
+    },
+    [updateHistory],
+  );
+
+  const undoChange = useCallback(
+    (id?: string): boolean => {
+      const result = undoHistory(historyRef.current, id);
+      if (!result.config) return false;
+      updateHistory(result.history);
+      setCurrentConfig(result.config);
+      persistSnapshot(result.config, 'Undo personalization change');
+      return true;
+    },
+    [persistSnapshot, setCurrentConfig, updateHistory],
+  );
+
+  const redoChange = useCallback(
+    (id?: string): boolean => {
+      const result = redoHistory(historyRef.current, id);
+      if (!result.config) return false;
+      updateHistory(result.history);
+      setCurrentConfig(result.config);
+      persistSnapshot(result.config, 'Redo personalization change');
+      return true;
+    },
+    [persistSnapshot, setCurrentConfig, updateHistory],
+  );
+
+  const latestUndoId = historyRef.current.past.at(-1)?.id ?? null;
+  const latestRedoId = historyRef.current.future.at(-1)?.id ?? null;
 
   // Keep the global chat bridge in sync every render (not only in useEffect).
   // Chat lives outside PageStoreProvider; registering here ensures patches
@@ -194,6 +342,8 @@ export function PageStoreProvider({
     config,
     dispatch,
     replace,
+    beginChangeSet,
+    endChangeSet,
     watchingId,
     watchingTitle,
     watchingThumbnail,
@@ -210,6 +360,12 @@ export function PageStoreProvider({
         pageSlug,
         dispatch,
         replace,
+        beginChangeSet,
+        endChangeSet,
+        undoChange,
+        redoChange,
+        latestUndoId,
+        latestRedoId,
         magicPointerActive,
         setMagicPointerActive,
         ytContinuation,

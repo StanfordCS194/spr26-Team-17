@@ -85,6 +85,7 @@ export type Patch =
   | { op: 'update_theme'; patch: Partial<z.infer<typeof ThemeSchema>> }
   | { op: 'set_filter'; filter: Partial<FilterState> }
   | { op: 'set_sort'; sort: Partial<SortState> }
+  | { op: 'replace_config'; config: PageConfig }
   | {
       op: 'add_section';
       sectionType: string;
@@ -115,6 +116,38 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial
   return out as T;
 }
 
+function preserveDynamicFeedData(current: PageConfig, snapshot: PageConfig): PageConfig {
+  const currentById = new Map(current.sections.map((section) => [section.id, section] as const));
+  const sections = snapshot.sections.map((section) => {
+    const live = currentById.get(section.id);
+    if (!live || live.type !== section.type) return section;
+
+    if (
+      section.type === 'VideoGrid' &&
+      live.type === 'VideoGrid'
+    ) {
+      return { ...section, props: { ...section.props, videos: live.props.videos } };
+    }
+    if (
+      section.type === 'RecommendedRow' &&
+      live.type === 'RecommendedRow'
+    ) {
+      return { ...section, props: { ...section.props, videos: live.props.videos } };
+    }
+    if (
+      section.type === 'ContinueWatchingRow' &&
+      live.type === 'ContinueWatchingRow'
+    ) {
+      return { ...section, props: { ...section.props, videos: live.props.videos } };
+    }
+    if (section.type === 'ShortsRow' && live.type === 'ShortsRow') {
+      return { ...section, props: { ...section.props, shorts: live.props.shorts } };
+    }
+    return section;
+  });
+  return { ...snapshot, sections };
+}
+
 export function applyPatch(config: PageConfig, patch: Patch): PageConfig {
   switch (patch.op) {
     case 'update_section': {
@@ -136,6 +169,10 @@ export function applyPatch(config: PageConfig, patch: Patch): PageConfig {
     }
     case 'set_sort': {
       return { ...config, sort: deepMerge(config.sort as Record<string, unknown>, patch.sort as Record<string, unknown>) as SortState };
+    }
+    case 'replace_config': {
+      const snapshot = PageConfigSchema.parse(patch.config) as PageConfig;
+      return preserveDynamicFeedData(config, snapshot);
     }
     case 'remove_section': {
       return { ...config, sections: config.sections.filter((s) => s.id !== patch.sectionId) };

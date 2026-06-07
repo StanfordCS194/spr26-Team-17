@@ -8,6 +8,13 @@ Append-only. Every domain agent (schema-keeper, api-keeper, db-keeper, etc.) app
   Why: <why>.
 ```
 
+## 2026-06-07 — main session — grouped personalization undo/redo
+
+- Decision: group every streamed patch from one chat request into a single in-tab history entry, surface it as a change receipt in chat, and provide receipt-level plus global undo/redo controls.
+  Why: users need to trust broad AI edits without manually reversing each theme, filter, and layout patch.
+- Decision: persist undo/redo as an internal `replace_config` patch while preserving fresh feed video and Shorts payloads during replay.
+  Why: an undone change must stay undone after reload, but restoring a page snapshot must not freeze stale live-feed content. The internal operation is not exposed in the LLM tool definitions.
+
 ## 2026-04-29 — youtube-adapter — swap Electron+CDP for youtubei.js + Chrome cookies
 
 - Decision: replace the Electron sidecar (apps/desktop) with a server-side path: `apps/web/lib/innertube/chrome-cookies.ts` reads YouTube cookies from the user's local Chrome cookie SQLite, and `apps/web/lib/innertube/client.ts` drives `youtubei.js@17.0.1` against that cookie header. The adapter (`apps/web/lib/adapters/youtube.ts`) is a thin wrapper preserving the existing `FeedResult` discriminated union.

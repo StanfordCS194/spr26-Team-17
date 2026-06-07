@@ -1,11 +1,14 @@
 import type { PageConfig, Patch } from '@showcase/shared';
+import type { ChangeReceipt } from '@/lib/change-history';
 
 /** Live handle to whichever showcase page is mounted (YouTube / Amazon / IG). */
 export interface PageBridgeContext {
   pageSlug: string;
   config: PageConfig;
   dispatch: (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => void;
-  replace: (config: PageConfig) => void;
+  replace: (config: PageConfig, options?: { clearHistory?: boolean }) => void;
+  beginChangeSet: (label: string) => string;
+  endChangeSet: (id: string) => ChangeReceipt | null;
   watchingId: string | null;
   watchingTitle: string | null;
   watchingThumbnail: string | null;
