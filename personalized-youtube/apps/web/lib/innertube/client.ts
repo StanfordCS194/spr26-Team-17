@@ -13,6 +13,7 @@
 
 import { Innertube } from 'youtubei.js';
 import type { Video, Short } from '@showcase/shared';
+import { translateCues, type CaptionCue, type CaptionTrack } from '@showcase/sdk/core';
 import {
   composeCookieHeader,
   readYoutubeCookies,
@@ -21,11 +22,23 @@ import {
 
 interface InnertubeCacheEntry {
   instance: Innertube;
+  authenticated: boolean;
   createdAt: number;
 }
 
 const INNERTUBE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-let innertubeCache: InnertubeCacheEntry | null = null;
+// Back the session cache with globalThis so it survives Next.js dev module
+// re-evaluation (a plain module-level `let` resets between requests in dev,
+// which silently defeats the cache) and is shared across route bundles in one
+// process. `.entry` is reassignable; the holder object stays stable.
+const innertubeStore = ((globalThis as typeof globalThis & {
+  __ytInnertubeStore?: { entry: InnertubeCacheEntry | null };
+}).__ytInnertubeStore ??= { entry: null });
+
+export interface InnertubeSession {
+  instance: Innertube;
+  authenticated: boolean;
+}
 
 export interface HomeFeedOk {
   kind: 'ok';
@@ -44,40 +57,37 @@ export type HomeFeedResult = HomeFeedOk | HomeFeedUnavailable;
 
 // ---------- Innertube instance management ----------
 
-export async function createInnertube(): Promise<Innertube | null> {
+export async function createInnertube(): Promise<InnertubeSession | null> {
   const now = Date.now();
-  if (innertubeCache !== null && now - innertubeCache.createdAt < INNERTUBE_TTL_MS) {
-    return innertubeCache.instance;
+  if (innertubeStore.entry !== null && now - innertubeStore.entry.createdAt < INNERTUBE_TTL_MS) {
+    return { instance: innertubeStore.entry.instance, authenticated: innertubeStore.entry.authenticated };
   }
 
-  const result = await readYoutubeCookies();
-  if (result.kind !== 'ok') {
-    console.warn(`[innertube] cookies unavailable: ${result.reason}`);
-    return null;
+  // Try authenticated mode first (local Chrome cookies). If unavailable
+  // (no Chrome / no cookies / on Vercel / cookies expired), fall back to
+  // anonymous mode — works for search, video info, comments, browse, and
+  // sidebar suggestions. Only personalized endpoints (home feed, subs)
+  // require authentication.
+  let cookieHeader = '';
+  const cookieResult = await readYoutubeCookies();
+  if (cookieResult.kind === 'ok') {
+    cookieHeader = composeCookieHeader(cookieResult.cookies);
+  } else {
+    console.warn(`[innertube] cookies unavailable: ${cookieResult.reason} — falling back to anonymous`);
   }
 
-  const cookieHeader = composeCookieHeader(result.cookies);
-  if (cookieHeader.length === 0) {
-    console.warn('[innertube] cookie header empty after compose');
-    return null;
-  }
+  const authenticated = cookieHeader.length > 0;
 
   try {
     const instance = await Innertube.create({
-      cookie: cookieHeader,
-      // Don't fetch the JS player — we don't decipher streams in the
-      // showcase, and skipping it makes session creation noticeably faster.
+      ...(authenticated ? { cookie: cookieHeader } : {}),
       retrieve_player: false,
       generate_session_locally: true,
-      // Locale + region. Drives source-side language filtering: with
-      // lang='en'/location='US' YouTube biases the home feed / search /
-      // chips toward English content for US viewers. The set_filter
-      // requireLanguage is the client-side backstop for stragglers.
       lang: 'en',
       location: 'US',
     });
-    innertubeCache = { instance, createdAt: now };
-    return instance;
+    innertubeStore.entry = { instance, authenticated, createdAt: now };
+    return { instance, authenticated };
   } catch (err) {
     console.warn(`[innertube] Innertube.create failed: ${(err as Error).message}`);
     return null;
@@ -85,7 +95,11 @@ export async function createInnertube(): Promise<Innertube | null> {
 }
 
 export function clearInnertubeCache(): void {
-  innertubeCache = null;
+  innertubeStore.entry = null;
+  // Resetting the session means the cookies/account may have changed — drop the
+  // home-feed and all keyed data caches so we never serve another account's data.
+  clearHomeFeedCache();
+  clearCache();
 }
 
 // ---------- youtubei.js -> Video shape mapping ----------
@@ -202,7 +216,8 @@ function mapNodeToVideo(node: unknown): Video | null {
     type === 'PlaylistVideo' ||
     type === 'PlaylistPanelVideo'
   ) {
-    id = asString(n.video_id);
+    // PlaylistVideo carries the video id on `.id`, not `.video_id`.
+    id = asString(n.video_id) || asString((n as Record<string, unknown>).id);
   } else {
     // Unknown node type — try video_id as a generic last resort, otherwise skip.
     id = asString(n.video_id);
@@ -702,7 +717,7 @@ function extractLockupVideos(json: unknown): {
   return { videos: out, shorts: shortsOut, continuation: nextToken, chips: chipsOut };
 }
 
-import { getCachedHomeFeed, setCachedHomeFeed } from './cache';
+import { getCachedHomeFeed, setCachedHomeFeed, withCache, CACHE_TTL, clearHomeFeedCache, clearCache } from './cache';
 
 export async function getHomeFeed(): Promise<HomeFeedResult> {
   // Server-side 10-min cache. All visitors share the same entry (the underlying
@@ -716,14 +731,15 @@ export async function getHomeFeed(): Promise<HomeFeedResult> {
 }
 
 async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  // Anonymous mode still works for /browse FEwhat_to_watch — YouTube serves
+  // a generic trending/popular feed to logged-out clients. Not personalized,
+  // but real YouTube videos with real IDs, which is what the demo needs.
+  const innertube = session.instance;
 
-  // Bypass the library's high-level parser entirely (it crashes on YouTube's
-  // newer node types like FlowStep / TalkToRecsView / ChipsShelfView). Use
-  // the raw actions.execute API and run our own lockupViewModel walker.
   let raw: unknown;
   try {
     const resp = await innertube.actions.execute('/browse', {
@@ -760,6 +776,103 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
     }
   }
 
+  // Anonymous /browse FEwhat_to_watch returns 0 videos — YouTube only serves
+  // the personalized home feed to authenticated clients. Synthesize a home
+  // feed from a handful of popular searches so the deployed (no-cookie) demo
+  // shows real YouTube videos instead of falling back to the mock catalog.
+  // Each search query becomes a chip; the chip label is sent back as the
+  // search query when the visitor clicks it (`params` carries the literal
+  // query string, prefixed with 'q:' to disambiguate from real chip tokens).
+  const anonChips: YtChip[] = [];
+  if (videos.length === 0 && !session.authenticated) {
+    const queries: Array<{ label: string; query: string }> = [
+      { label: 'Popular',   query: 'popular this week' },
+      { label: 'Music',     query: 'music' },
+      { label: 'Tutorials', query: 'tutorial' },
+      { label: 'Gaming',    query: 'gaming highlights' },
+      { label: 'News',      query: 'news today' },
+      { label: 'Comedy',    query: 'comedy sketch' },
+      { label: 'Science',   query: 'science explained' },
+    ];
+    const seen = new Set<string>();
+    const PER_CATEGORY = 18;
+    let lastSearchContinuation: string | null = null;
+    for (const { label, query } of queries) {
+      try {
+        const resp = await innertube.actions.execute('/search', { query });
+        const raw2 = (resp as { data?: unknown })?.data ?? resp;
+        const more = extractLockupVideos(raw2);
+        let added = 0;
+        for (const v of more.videos) {
+          if (added >= PER_CATEGORY) break;
+          if (!seen.has(v.id)) {
+            seen.add(v.id);
+            videos.push(v);
+            added++;
+          }
+        }
+        if (added > 0) {
+          anonChips.push({ text: label, params: `q:${query}`, isSelected: false });
+          if (more.continuation) lastSearchContinuation = more.continuation;
+        }
+      } catch (err) {
+        console.warn(`[innertube] anon-feed search "${query}" failed: ${(err as Error).message}`);
+      }
+    }
+    // Carry the last search's continuation as the synthetic feed's pagination
+    // anchor. The scroll handler hits getMoreVideos(token); for anon synthetic
+    // feeds we tag it with `anon:<token>` so getMoreVideos knows to keep
+    // pulling search pages instead of calling /browse.
+    if (lastSearchContinuation !== null) {
+      token = `anon:${lastSearchContinuation}`;
+    } else {
+      token = 'anon:';
+    }
+
+    // Synthesize a shorts row by searching short-form content. Search results
+    // include shorts (videos with sub-60s durations); we keep the short ones
+    // and reshape them as `Short` entries.
+    try {
+      const resp = await innertube.actions.execute('/search', {
+        query: 'viral shorts',
+      });
+      const raw2 = (resp as { data?: unknown })?.data ?? resp;
+      const more = extractLockupVideos(raw2);
+      const shortsSeen = new Set<string>();
+      // Prefer items extracted as shorts (shortsLockupViewModel) first; fall
+      // back to short-duration regular videos.
+      for (const s of more.shorts) {
+        if (shorts.length >= 10) break;
+        if (!shortsSeen.has(s.id)) {
+          shortsSeen.add(s.id);
+          shorts.push(s);
+        }
+      }
+      if (shorts.length < 10) {
+        for (const v of more.videos) {
+          if (shorts.length >= 10) break;
+          if (shortsSeen.has(v.id)) continue;
+          // Duration string like "0:42" → seconds; keep <= 60s.
+          const m = /^(\d+):(\d{2})$/.exec(v.duration);
+          if (!m) continue;
+          const secs = parseInt(m[1]!, 10) * 60 + parseInt(m[2]!, 10);
+          if (secs > 0 && secs <= 60) {
+            shortsSeen.add(v.id);
+            shorts.push({
+              id: v.id,
+              title: v.title,
+              thumbnail: v.thumbnail,
+              views: v.views,
+              channel: v.channel,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[innertube] anon-shorts search failed: ${(err as Error).message}`);
+    }
+  }
+
   if (videos.length === 0) {
     return {
       kind: 'unavailable',
@@ -767,8 +880,9 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
     };
   }
 
-  console.log(`[innertube] home feed: ${videos.length} videos, ${shorts.length} shorts, ${initial.chips.length} chips`);
-  return { kind: 'ok', videos, shorts, continuation: token ?? null, chips: initial.chips };
+  const chips = initial.chips.length > 0 ? initial.chips : anonChips;
+  console.log(`[innertube] home feed: ${videos.length} videos, ${shorts.length} shorts, ${chips.length} chips (auth=${session.authenticated})`);
+  return { kind: 'ok', videos, shorts, continuation: token ?? null, chips };
 }
 
 // ---------- Dynamic API: continuation, browse-by-id, search ----------
@@ -782,12 +896,49 @@ export interface DynamicResult {
   reason?: string;
 }
 
+// Rotating pool of secondary queries used to paginate the synthetic anon feed.
+// Each scroll page picks a fresh slice so the feed feels "endless" without
+// repeating the home-feed seeds.
+const ANON_MORE_QUERIES = [
+  'documentary', 'review', 'cooking recipe', 'fitness workout',
+  'travel vlog', 'live performance', 'history explained', 'tech deep dive',
+  'art tutorial', 'animation short', 'podcast clip', 'standup comedy',
+  'space exploration', 'nature footage', 'sports highlights', 'film analysis',
+];
+let anonMoreCursor = 0;
+
 // Fetches the next page of videos given a continuation token. Used by the
 // VideoGrid's IntersectionObserver for infinite scroll.
 export async function getMoreVideos(token: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
+  }
+  const innertube = session.instance;
+  // Anon synthetic-feed pagination: run two queries from the rotating pool
+  // and return their combined videos. Always returns a fresh `anon:` token
+  // so the scroll handler keeps requesting more.
+  if (token.startsWith('anon:')) {
+    const out: Video[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < 2; i++) {
+      const q = ANON_MORE_QUERIES[anonMoreCursor % ANON_MORE_QUERIES.length] ?? 'popular';
+      anonMoreCursor++;
+      try {
+        const resp = await innertube.actions.execute('/search', { query: q });
+        const raw = (resp as { data?: unknown })?.data ?? resp;
+        const parsed = extractLockupVideos(raw);
+        for (const v of parsed.videos) {
+          if (!seen.has(v.id) && out.length < 24) {
+            seen.add(v.id);
+            out.push(v);
+          }
+        }
+      } catch (err) {
+        console.warn(`[innertube] anon-more search "${q}" failed: ${(err as Error).message}`);
+      }
+    }
+    return { kind: 'ok', videos: out, shorts: [], continuation: 'anon:' };
   }
   try {
     const resp = await innertube.actions.execute('/browse', { token });
@@ -809,9 +960,38 @@ export async function getMoreVideos(token: string): Promise<DynamicResult> {
 //   - Legacy browse params get sent as `params` (kept for safety; legacy is
 //     defensive — YouTube may resurrect this path).
 export async function getBrowse(browseId: string, params?: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  // Cache only the STABLE chip/category browses (and chip-as-search 'q:'
+  // lookups). Continuation/pagination calls carry a one-shot token per page —
+  // caching those would risk stale or duplicated infinite-scroll, so they
+  // bypass the cache entirely.
+  const isContinuation =
+    typeof params === 'string' && (params.startsWith('4qmFs') || params.length > 200);
+  if (isContinuation) return fetchBrowseUncached(browseId, params);
+  return withCache(
+    `browse:${browseId}|${params ?? ''}`,
+    CACHE_TTL.browse,
+    () => fetchBrowseUncached(browseId, params),
+    (r) => r.kind === 'ok',
+  );
+}
+async function fetchBrowseUncached(browseId: string, params?: string): Promise<DynamicResult> {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
+  }
+  const innertube = session.instance;
+  // Synthetic anon chips carry their query as `q:<query>`. Route them to
+  // search instead of /browse so the chip click refetches that category.
+  if (typeof params === 'string' && params.startsWith('q:')) {
+    const query = params.slice(2);
+    try {
+      const resp = await innertube.actions.execute('/search', { query });
+      const raw = (resp as { data?: unknown })?.data ?? resp;
+      const out = extractLockupVideos(raw);
+      return { kind: 'ok', videos: out.videos, shorts: out.shorts, continuation: out.continuation };
+    } catch (err) {
+      return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: (err as Error).message };
+    }
   }
   try {
     const body: Record<string, unknown> = {};
@@ -848,10 +1028,14 @@ export async function getBrowse(browseId: string, params?: string): Promise<Dyna
 // Search runs against the user's logged-in account so personalized suggestions
 // surface. Same lockup walker handles the response shape.
 export async function searchVideos(query: string): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  return withCache(`search:${query}`, CACHE_TTL.search, () => fetchSearchVideosUncached(query), (r) => r.kind === 'ok');
+}
+async function fetchSearchVideosUncached(query: string): Promise<DynamicResult> {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const resp = await innertube.actions.execute('/search', { query });
     const raw = (resp as { data?: unknown })?.data ?? resp;
@@ -866,10 +1050,17 @@ export async function searchVideos(query: string): Promise<DynamicResult> {
 // stable browseId 'FEsubscriptions'. Falls through to unavailable when the
 // Innertube session is anonymous (no cookies).
 export async function getSubscriptionsFeed(): Promise<DynamicResult> {
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  return withCache('subs', CACHE_TTL.subscriptions, fetchSubscriptionsFeedUncached, (r) => r.kind === 'ok');
+}
+async function fetchSubscriptionsFeedUncached(): Promise<DynamicResult> {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'innertube session unavailable' };
   }
+  if (!session.authenticated) {
+    return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: 'subscriptions require authentication' };
+  }
+  const innertube = session.instance;
   try {
     const resp = await innertube.actions.execute('/browse', { browseId: 'FEsubscriptions' });
     const raw = (resp as { data?: unknown })?.data ?? resp;
@@ -878,6 +1069,455 @@ export async function getSubscriptionsFeed(): Promise<DynamicResult> {
   } catch (err) {
     return { kind: 'unavailable', videos: [], shorts: [], continuation: null, reason: (err as Error).message };
   }
+}
+
+// ---------- Library (saved playlists + history) ----------
+
+// Module-scoped loose-object alias for walking youtubei.js nodes (the other
+// AnyObj in this file is local to extractLockupVideos).
+type AnyObj = Record<string, unknown>;
+type ThumbList = { url: string; width?: number }[];
+
+// Keep the Library light: a handful of playlist cards, and a short preview of
+// each playlist's videos — enough to look real without large/slow fetches.
+const MAX_PLAYLISTS = 5;
+const MAX_PLAYLIST_VIDEOS = 5;
+
+export interface YtPlaylist {
+  // Playlist id. Saved playlists are PL...; the specials are 'WL' (Watch
+  // Later) and 'LL' (Liked videos) — getPlaylist() accepts all of them.
+  id: string;
+  title: string;
+  thumbnail: string;
+  // Best-effort count; 0 when YouTube doesn't surface it on the card.
+  videoCount: number;
+  kind: 'watch_later' | 'liked' | 'saved';
+}
+
+export interface LibraryOk {
+  kind: 'ok';
+  playlists: YtPlaylist[];
+  history: Video[];
+}
+export interface LibraryUnavailable {
+  kind: 'unavailable';
+  playlists: [];
+  history: [];
+  reason: string;
+}
+export type LibraryResult = LibraryOk | LibraryUnavailable;
+
+// Pull a count like "12 videos" / "1,204 videos" out of any text field.
+function parseVideoCount(...candidates: Array<string | undefined>): number {
+  for (const c of candidates) {
+    if (typeof c !== 'string') continue;
+    const m = c.replace(/,/g, '').match(/(\d+)/);
+    if (m) return parseInt(m[1]!, 10);
+  }
+  return 0;
+}
+
+// Map a youtubei.js playlist card node (LockupView | GridPlaylist | Playlist)
+// into our flat YtPlaylist. Defensive across the three shapes YouTube ships.
+function mapPlaylistNode(node: unknown, kind: YtPlaylist['kind']): YtPlaylist | null {
+  if (typeof node !== 'object' || node === null) return null;
+  const n = node as AnyObj;
+
+  // id: LockupView uses content_id; GridPlaylist/Playlist use id. Strip a
+  // leading 'VL' if the id arrived as a browse id.
+  let id =
+    (typeof n.content_id === 'string' && n.content_id) ||
+    (typeof n.id === 'string' && n.id) ||
+    '';
+  if (id.startsWith('VL')) id = id.slice(2);
+  if (id.length === 0) return null;
+
+  // title: Text nodes expose `.text`; LockupView nests it under metadata.
+  const meta = n.metadata as AnyObj | undefined;
+  const title =
+    tryToString(n.title) ||
+    (typeof meta?.title === 'object' ? tryToString((meta.title as AnyObj)) : '') ||
+    tryToString(meta?.title) ||
+    '';
+  if (title.length === 0) return null;
+
+  // thumbnail: GridPlaylist/Playlist expose thumbnails[]; LockupView wraps it
+  // in content_image (ThumbnailView.image or CollectionThumbnailView).
+  const ci = n.content_image as AnyObj | undefined;
+  const thumbCandidates = (
+    (Array.isArray(n.thumbnails) && n.thumbnails) ||
+    (Array.isArray(ci?.image) && ci!.image) ||
+    (Array.isArray((ci?.primary_thumbnail as AnyObj | undefined)?.image) &&
+      ((ci!.primary_thumbnail as AnyObj).image as unknown[])) ||
+    []
+  ) as ThumbList;
+  const thumbnail = pickBestThumbnail(thumbCandidates);
+
+  const videoCount = parseVideoCount(
+    tryToString(n.video_count),
+    tryToString(n.video_count_short),
+  );
+
+  return { id, title, thumbnail, videoCount, kind };
+}
+
+// Fetch the signed-in user's Library: saved playlists (+ Watch Later and
+// Liked Videos as the first two cards, matching YouTube's page) and a slice
+// of watch History. Uses youtubei.js's typed getLibrary() so YouTube shape
+// drift is absorbed by the library, not us.
+export async function getLibrary(): Promise<LibraryResult> {
+  return withCache('library', CACHE_TTL.library, fetchLibraryUncached, (r) => r.kind === 'ok');
+}
+async function fetchLibraryUncached(): Promise<LibraryResult> {
+  const session = await createInnertube();
+  if (session === null) {
+    return { kind: 'unavailable', playlists: [], history: [], reason: 'innertube session unavailable' };
+  }
+  if (!session.authenticated) {
+    return { kind: 'unavailable', playlists: [], history: [], reason: 'library requires authentication' };
+  }
+  try {
+    const lib = (await session.instance.getLibrary()) as unknown as AnyObj;
+
+    const playlists: YtPlaylist[] = [];
+
+    // Watch Later + Liked Videos as pinned cards (ids 'WL'/'LL'). Pull a
+    // representative thumbnail from the section's preview contents.
+    const special: Array<{ section: string; id: string; title: string; kind: YtPlaylist['kind'] }> = [
+      { section: 'watch_later', id: 'WL', title: 'Watch later', kind: 'watch_later' },
+      { section: 'liked_videos', id: 'LL', title: 'Liked videos', kind: 'liked' },
+    ];
+    for (const s of special) {
+      const sec = lib[s.section] as AnyObj | undefined;
+      const contents = Array.isArray(sec?.contents) ? (sec!.contents as unknown[]) : [];
+      const first = contents[0] as AnyObj | undefined;
+      const firstThumbs = (
+        (Array.isArray(first?.thumbnails) && (first!.thumbnails as unknown[])) ||
+        (Array.isArray(first?.thumbnail) && (first!.thumbnail as unknown[])) ||
+        []
+      ) as ThumbList;
+      playlists.push({
+        id: s.id,
+        title: s.title,
+        thumbnail: pickBestThumbnail(firstThumbs),
+        // The library section only carries a few PREVIEW items, not the real
+        // total — leave the count unknown (0 → no badge number) rather than
+        // showing a misleadingly small number.
+        videoCount: 0,
+        kind: s.kind,
+      });
+    }
+
+    // Saved/created playlists.
+    const plSection = lib.playlists_section as AnyObj | undefined;
+    const plContents = Array.isArray(plSection?.contents) ? (plSection!.contents as unknown[]) : [];
+    for (const node of plContents) {
+      if (playlists.length >= MAX_PLAYLISTS) break; // cap total cards (incl. WL/LL)
+      const mapped = mapPlaylistNode(node, 'saved');
+      if (mapped) playlists.push(mapped);
+    }
+
+    // Recent history (first ~12 watched videos) for the top row.
+    const hist = lib.history as AnyObj | undefined;
+    const histContents = Array.isArray(hist?.contents) ? (hist!.contents as unknown[]) : [];
+    const history: Video[] = [];
+    for (const node of histContents) {
+      const v = mapNodeToVideo(node);
+      if (v) history.push(v);
+      if (history.length >= 12) break;
+    }
+
+    return { kind: 'ok', playlists, history };
+  } catch (err) {
+    return { kind: 'unavailable', playlists: [], history: [], reason: (err as Error).message };
+  }
+}
+
+// Walk a raw /browse playlist response for playlistVideoRenderer entries.
+// Fallback for when youtubei.js's typed Playlist.items is empty (it chokes on
+// the auto-playlists' sort-header node and drops the items).
+function extractPlaylistVideos(json: unknown, limit = MAX_PLAYLIST_VIDEOS): Video[] {
+  const out: Video[] = [];
+  const seen = new Set<string>();
+
+  function textOf(t: unknown): string {
+    if (typeof t !== 'object' || t === null) return '';
+    const o = t as AnyObj;
+    if (typeof o.simpleText === 'string') return o.simpleText;
+    if (Array.isArray(o.runs)) {
+      return (o.runs as unknown[])
+        .map((r) => (typeof (r as AnyObj)?.text === 'string' ? ((r as AnyObj).text as string) : ''))
+        .join('');
+    }
+    return '';
+  }
+
+  function visit(node: unknown): void {
+    if (out.length >= limit) return; // stop walking once we have enough
+    if (Array.isArray(node)) {
+      for (const x of node) visit(x);
+      return;
+    }
+    if (typeof node !== 'object' || node === null) return;
+    const obj = node as AnyObj;
+
+    const pv = obj.playlistVideoRenderer as AnyObj | undefined;
+    if (pv && typeof pv === 'object') {
+      const id = typeof pv.videoId === 'string' ? pv.videoId : '';
+      const title = textOf(pv.title);
+      if (id.length > 0 && title.length > 0 && !seen.has(id)) {
+        seen.add(id);
+        const thumbs = (pv.thumbnail as AnyObj | undefined)?.thumbnails;
+        out.push({
+          id,
+          title,
+          channel: { name: textOf(pv.shortBylineText), avatar: '', verified: false, subscriberCount: 0 },
+          thumbnail: pickBestThumbnail(Array.isArray(thumbs) ? (thumbs as ThumbList) : []),
+          duration: textOf(pv.lengthText) || '0:00',
+          views: 0,
+          postedAgo: '',
+          tags: [],
+          description: '',
+          category: '',
+        });
+      }
+    }
+
+    for (const k in obj) visit(obj[k]);
+  }
+
+  visit(json);
+  return out;
+}
+
+export interface YtPlaylistInfo {
+  title: string;
+  author: string;
+  authorAvatar: string;
+  totalItems: number;
+  views: string;
+  thumbnail: string;
+}
+export interface PlaylistDetailOk {
+  kind: 'ok';
+  info: YtPlaylistInfo;
+  videos: Video[];
+}
+export interface PlaylistDetailUnavailable {
+  kind: 'unavailable';
+  reason: string;
+}
+export type PlaylistDetailResult = PlaylistDetailOk | PlaylistDetailUnavailable;
+
+// Fetch one playlist's metadata + videos (also handles 'WL' / 'LL'). Used by
+// the Library detail view (left info panel + numbered video rows).
+export async function getPlaylistVideos(id: string): Promise<PlaylistDetailResult> {
+  return withCache(`playlist:${id}`, CACHE_TTL.playlist, () => fetchPlaylistVideosUncached(id), (r) => r.kind === 'ok');
+}
+async function fetchPlaylistVideosUncached(id: string): Promise<PlaylistDetailResult> {
+  const session = await createInnertube();
+  if (session === null) {
+    return { kind: 'unavailable', reason: 'innertube session unavailable' };
+  }
+  try {
+    const innertube = session.instance;
+    const pl = (await innertube.getPlaylist(id)) as unknown as AnyObj;
+    // youtubei.js's Playlist exposes its entries as `.items` (PlaylistVideo[]);
+    // the generic Feed `.videos` getter comes back EMPTY for playlists. Prefer
+    // items, fall back to videos for any other shape.
+    const typedNodes = (
+      (Array.isArray(pl.items) && pl.items.length > 0 && pl.items) ||
+      (Array.isArray(pl.videos) && pl.videos) ||
+      []
+    ) as unknown[];
+    let videos: Video[] = [];
+    for (const node of typedNodes) {
+      if (videos.length >= MAX_PLAYLIST_VIDEOS) break;
+      const v = mapNodeToVideo(node);
+      if (v) videos.push(v);
+    }
+
+    // RAW FALLBACK: the typed parser yields 0 items for the auto-playlists
+    // (Liked 'LL' / Watch Later 'WL') because it can't parse their sort-header
+    // node. Re-fetch the raw /browse and walk for playlistVideoRenderer.
+    if (videos.length === 0) {
+      try {
+        const browseId = id.startsWith('VL') ? id : `VL${id}`;
+        const resp = await innertube.actions.execute('/browse', { browseId });
+        const raw = (resp as { data?: unknown })?.data ?? resp;
+        videos = extractPlaylistVideos(raw, MAX_PLAYLIST_VIDEOS);
+      } catch {
+        /* keep videos empty; the UI shows the empty state */
+      }
+    }
+
+    const pi = (pl.info ?? {}) as AnyObj;
+    const author = pi.author as AnyObj | undefined;
+    const info: YtPlaylistInfo = {
+      title: tryToString(pi.title) || '',
+      author:
+        (typeof author?.name === 'string' && author.name) ||
+        tryToString(author) ||
+        '',
+      authorAvatar: pickBestThumbnail((author?.thumbnails as ThumbList | undefined) ?? []),
+      totalItems: parseVideoCount(tryToString(pi.total_items)) || videos.length,
+      views: tryToString(pi.views),
+      thumbnail: pickBestThumbnail((pi.thumbnails as ThumbList | undefined) ?? []) || videos[0]?.thumbnail || '',
+    };
+
+    return { kind: 'ok', info, videos };
+  } catch (err) {
+    return { kind: 'unavailable', reason: (err as Error).message };
+  }
+}
+
+// ---------- Captions / transcript ----------
+//
+// We deliberately avoid getInfo().getTranscript() — getInfo() parses the whole
+// watch page (description, shopping shelves, etc.) and youtubei.js 17.0.1
+// throws on YouTube's newer description nodes (ShoppingTimelyShelfView,
+// VideoDescriptionYouchatSectionView). Instead we use getBasicInfo() (player
+// response only) → `captions.caption_tracks` → fetch each track's timedtext
+// `base_url` as JSON3. Bonus: YouTube auto-translates any track via `&tlang=`,
+// so most second languages need no LLM at all.
+
+interface RawCaptionTrack {
+  baseUrl: string;
+  lang: string;          // language_code, already a code ('en', 'ko', …)
+  kind?: string;         // 'asr' for auto-generated
+  isTranslatable: boolean;
+}
+interface CaptionTracksData {
+  tracks: RawCaptionTrack[];
+  translationLangs: string[];   // language codes YouTube can auto-translate into
+}
+
+async function getCaptionTracksUncached(videoId: string): Promise<CaptionTracksData | null> {
+  const session = await createInnertube();
+  if (session === null) return null;
+  try {
+    // getBasicInfo = player endpoint only → no fragile watch-page parse.
+    const info = (await session.instance.getBasicInfo(videoId)) as unknown as AnyObj;
+    const caps = info.captions as AnyObj | undefined;
+    const rawTracks = Array.isArray(caps?.caption_tracks) ? (caps!.caption_tracks as AnyObj[]) : [];
+    const tracks: RawCaptionTrack[] = rawTracks
+      .map((t) => ({
+        baseUrl: typeof t.base_url === 'string' ? t.base_url : '',
+        lang: typeof t.language_code === 'string' ? t.language_code : '',
+        kind: typeof t.kind === 'string' ? t.kind : undefined,
+        isTranslatable: t.is_translatable === true,
+      }))
+      .filter((t) => t.baseUrl.length > 0 && t.lang.length > 0);
+    const rawTl = Array.isArray(caps?.translation_languages) ? (caps!.translation_languages as AnyObj[]) : [];
+    const translationLangs = rawTl
+      .map((l) => (typeof l.language_code === 'string' ? l.language_code : ''))
+      .filter((c) => c.length > 0);
+    return { tracks, translationLangs };
+  } catch {
+    return null;
+  }
+}
+function getCaptionTracks(videoId: string): Promise<CaptionTracksData | null> {
+  return withCache(`captrk:${videoId}`, CACHE_TTL.captions, () => getCaptionTracksUncached(videoId), (d) => d !== null && d.tracks.length > 0);
+}
+
+// Prefer a manually-authored track over auto-captions (asr) for the anchor.
+function pickAnchorTrack(tracks: RawCaptionTrack[]): RawCaptionTrack | null {
+  return tracks.find((t) => t.kind !== 'asr') ?? tracks[0] ?? null;
+}
+
+// Fetch + parse a timedtext track (JSON3). `tlang` requests YouTube's own
+// translation into that language code. Returns [] on any failure.
+async function fetchTimedTextCues(baseUrl: string, tlang?: string): Promise<CaptionCue[]> {
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  let url = `${baseUrl}${sep}fmt=json3`;
+  if (tlang) url += `&tlang=${encodeURIComponent(tlang)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = (await res.json()) as AnyObj;
+    const events = Array.isArray(json.events) ? (json.events as AnyObj[]) : [];
+    const cues: CaptionCue[] = [];
+    for (const ev of events) {
+      const segs = Array.isArray(ev.segs) ? (ev.segs as AnyObj[]) : [];
+      const text = segs
+        .map((s) => (typeof s.utf8 === 'string' ? s.utf8 : ''))
+        .join('')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text.length === 0) continue;
+      const start = typeof ev.tStartMs === 'number' ? ev.tStartMs / 1000 : 0;
+      const dur = typeof ev.dDurationMs === 'number' ? ev.dDurationMs / 1000 : undefined;
+      cues.push({ start, end: dur !== undefined ? start + dur : undefined, text });
+    }
+    return cues;
+  } catch {
+    return [];
+  }
+}
+
+export interface CaptionsOk {
+  kind: 'ok';
+  tracks: CaptionTrack[];   // one per requested lang
+  anchorLang: string;
+}
+export type CaptionsResult = CaptionsOk | { kind: 'unavailable'; reason: string };
+
+// Build caption tracks for the requested languages, preferring YouTube's own
+// data in order: native track for that language → YouTube auto-translation
+// (tlang) → LLM translation of the anchor (Claude) as a last resort.
+export async function getCaptions(videoId: string, langs: string[], apiKey: string): Promise<CaptionsResult> {
+  const data = await getCaptionTracks(videoId);
+  if (!data || data.tracks.length === 0) return { kind: 'unavailable', reason: 'no caption tracks' };
+
+  const anchor = pickAnchorTrack(data.tracks)!;
+  const anchorCues = await withCache(
+    `cap:${videoId}:${anchor.lang}`,
+    CACHE_TTL.captions,
+    () => fetchTimedTextCues(anchor.baseUrl),
+    (c) => c.length > 0,
+  );
+  if (anchorCues.length === 0) return { kind: 'unavailable', reason: 'empty caption track' };
+
+  // Per-language lookup that PREFERS manually-authored tracks over
+  // auto-generated (asr) ones when a language has both.
+  const byLang = new Map<string, RawCaptionTrack>();
+  for (const t of data.tracks) {
+    const existing = byLang.get(t.lang);
+    if (!existing || (existing.kind === 'asr' && t.kind !== 'asr')) {
+      byLang.set(t.lang, t);
+    }
+  }
+  const canTlang = new Set(data.translationLangs);
+  const tracks: CaptionTrack[] = [];
+
+  for (const lang of langs) {
+    // 1. anchor's own language.
+    if (lang === anchor.lang) {
+      tracks.push({ lang, source: 'native', cues: anchorCues });
+      continue;
+    }
+    // 2. YouTube has a dedicated track for this language.
+    const nativeTrack = byLang.get(lang);
+    if (nativeTrack) {
+      const cues = await withCache(`cap:${videoId}:${lang}`, CACHE_TTL.captions, () => fetchTimedTextCues(nativeTrack.baseUrl), (c) => c.length > 0);
+      if (cues.length > 0) { tracks.push({ lang, source: 'native', cues }); continue; }
+    }
+    // 3. YouTube can auto-translate the anchor into this language.
+    if (anchor.isTranslatable && canTlang.has(lang)) {
+      const cues = await withCache(`captl:${videoId}:${lang}`, CACHE_TTL.captions, () => fetchTimedTextCues(anchor.baseUrl, lang), (c) => c.length > 0);
+      if (cues.length > 0) { tracks.push({ lang, source: 'native', cues }); continue; }
+    }
+    // 4. Fallback → cached LLM translation of the anchor.
+    const cues = await withCache(
+      `caption:${videoId}:${lang}`,
+      CACHE_TTL.captions,
+      () => translateCues(anchorCues, lang, { apiKey, sourceLang: anchor.lang }),
+      (c) => c.length > 0,
+    );
+    tracks.push({ lang, source: 'translated', cues });
+  }
+  return { kind: 'ok', tracks, anchorLang: anchor.lang };
 }
 
 // ---------- Comments ----------
@@ -922,13 +1562,17 @@ function pickThumbnailUrl(thumbs: { url?: string; width?: number }[] | undefined
 // getComments() helper. Returns a flat array — replies are not expanded
 // in v1 (the WatchPage UI only shows top-level threads for now).
 export async function getVideoComments(videoId: string): Promise<CommentsResult> {
+  return withCache(`comments:${videoId}`, CACHE_TTL.comments, () => fetchVideoCommentsUncached(videoId), (r) => r.kind === 'ok');
+}
+async function fetchVideoCommentsUncached(videoId: string): Promise<CommentsResult> {
   if (typeof videoId !== 'string' || videoId.length === 0) {
     return { kind: 'unavailable', reason: 'invalid videoId' };
   }
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const result = await innertube.getComments(videoId, 'TOP_COMMENTS');
     const total = typeof (result as { header?: { comments_count?: { text?: string } } }).header?.comments_count?.text === 'string'
@@ -995,13 +1639,17 @@ function parseSubscriberCount(text: string | undefined): number {
 }
 
 export async function getVideoInfo(videoId: string): Promise<VideoInfoResult> {
+  return withCache(`info:${videoId}`, CACHE_TTL.videoInfo, () => fetchVideoInfoUncached(videoId), (r) => r.kind === 'ok');
+}
+async function fetchVideoInfoUncached(videoId: string): Promise<VideoInfoResult> {
   if (typeof videoId !== 'string' || videoId.length === 0) {
     return { kind: 'unavailable', reason: 'invalid videoId' };
   }
-  const innertube = await createInnertube();
-  if (innertube === null) {
+  const session = await createInnertube();
+  if (session === null) {
     return { kind: 'unavailable', reason: 'innertube session unavailable' };
   }
+  const innertube = session.instance;
   try {
     const info = await innertube.getInfo(videoId);
     const basic = info.basic_info;
