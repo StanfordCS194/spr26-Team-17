@@ -7,6 +7,8 @@ import { SlackThreadView } from '@/components/slack/SlackThreadView';
 import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from '@/components/templates/Avatar';
+import { TranscriptPanel } from './TranscriptPanel';
+import { WatchPlayer } from './WatchPlayer';
 
 function formatViews(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -370,22 +372,13 @@ function YoutubeWatchView({
 
   if (!watchingId) return null;
 
-  const embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(watchingId)}?autoplay=1&rel=0`;
-
   return (
     <div className="px-6 py-4">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         {/* Left column: player + metadata */}
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-            <iframe
-              src={embedSrc}
-              title={watchingTitle ?? 'YouTube video'}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              className="h-full w-full"
-            />
-          </div>
+          {/* IFrame-API-backed player → reports playback time for live captions. */}
+          <WatchPlayer videoId={watchingId} title={watchingTitle} />
 
           {(() => {
             // Prefer real watch-page info; fall back to whatever the lockup
@@ -485,6 +478,10 @@ function YoutubeWatchView({
               </div>
             );
           })()}
+
+          {/* Dual/multi-language transcript — shows when a SubtitleTrack
+              section is active (e.g. "dual subtitles korean + english"). */}
+          <TranscriptPanel videoId={watchingId} />
 
           <section className="mt-2">
             <h2 className="mb-4 flex items-baseline gap-3 text-base font-semibold">

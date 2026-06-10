@@ -12,28 +12,12 @@ import {
 import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
-const CHIP_FILTER: Record<string, { tags?: string[]; sortRecent?: boolean }> = {
-  All: {},
-  Music: { tags: ['music'] },
-  Gaming: { tags: ['gaming'] },
-  Live: { tags: ['live'] },
-  News: { tags: ['news'] },
-  Cooking: { tags: ['cooking'] },
-  Comedy: { tags: ['comedy'] },
-  'Recently uploaded': { sortRecent: true },
-};
+// Section types we hide when entering category / search mode (so the grid
+// of fresh results is the only thing on screen, like real YouTube).
+const ROW_SECTIONS_TO_HIDE: ReadonlyArray<string> = ['ContinueWatchingRow', 'RecommendedRow', 'ShortsRow'];
 
 export function CategoryChips({ section, config }: { section: Section; config: PageConfig }) {
-  const {
-    dispatch,
-    setYtContinuation,
-    youtubeMode,
-    liveFeedMode,
-    ytChips,
-    ytContinuation,
-    enterSearch,
-    exitSearch,
-  } = usePageStore();
+  const { dispatch, setYtContinuation, ytChips } = usePageStore();
   if (section.type !== 'CategoryChips') return null;
   const brand = getSiteBrand(config.slug);
   if (brand === 'slack') return null;
@@ -49,113 +33,51 @@ export function CategoryChips({ section, config }: { section: Section; config: P
   }
 
   const onClick = (chip: string) => {
+    // Update which chip looks active
     dispatch(
       { op: 'update_section', sectionId: section.id, patch: { active: chip } },
       { persist: true, rationale: `chip ${chip} clicked` },
     );
 
-    // YouTube live: browse API with chip params token.
-    if (brand === 'youtube' && youtubeMode) {
-      const params = chipParamsByText.get(chip) ?? null;
-      const qs = new URLSearchParams({ id: 'FEwhat_to_watch' });
-      if (chip !== 'All' && typeof params === 'string' && params.length > 0) {
-        qs.set('params', params);
-      }
-      void fetch(`/api/yt/browse?${qs.toString()}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { ok?: boolean; videos?: Video[]; continuation?: string | null } | null) => {
-          if (!data?.ok || !Array.isArray(data.videos) || data.videos.length === 0) return;
-          applyVideosToGrid(dispatch, config, data.videos, 4);
-          setYtContinuation(
-            typeof data.continuation === 'string' && data.continuation.length > 0 ? data.continuation : null,
-          );
-          dispatch({ op: 'set_filter', filter: { requireTags: [] } });
-          setRowsVisible(chip === 'All');
-        })
-        .catch(() => {});
-      return;
+    // Hit /api/yt/browse with the chip's real `params` token (extracted from
+    // the live home response). All chips share the same browseId=FEwhat_to_watch
+    // — only `params` differs per chip. "All" sends no params (resets to the
+    // unfiltered home feed).
+    const params = chipParamsByText.get(chip) ?? null;
+    const qs = new URLSearchParams({ id: 'FEwhat_to_watch' });
+    if (chip !== 'All' && typeof params === 'string' && params.length > 0) {
+      qs.set('params', params);
     }
-
-    // Amazon live: each chip runs an Amazon search query.
-    if (brand === 'amazon' && liveFeedMode) {
-      const query = AMAZON_CHIP_QUERIES[chip] ?? chip;
-      if (chip === 'All') {
-        exitSearch();
-      }
-      void applyBrandSearch({
-        brand: 'amazon',
-        query,
-        config,
-        ytContinuation,
-        dispatch,
-        enterSearch,
-        setYtContinuation,
-        hideRows: chip !== 'All',
-      }).then((ok) => {
-        if (chip === 'All' && ok) showRowSections(dispatch, config);
-      });
-      return;
-    }
-
-    // Instagram live: All refreshes timeline; Reels/Photos filter client-side after fetch.
-    if (brand === 'instagram' && liveFeedMode) {
-      if (chip === 'All' || chip === 'Following') {
-        exitSearch();
-        void applyBrandSearch({
-          brand: 'instagram',
-          query: '',
-          config,
-          ytContinuation,
-          dispatch,
-          enterSearch,
-          setYtContinuation,
-        }).then(() => showRowSections(dispatch, config));
-        return;
-      }
-      void applyBrandSearch({
-        brand: 'instagram',
-        query: chip === 'Reels' ? 'reels' : chip.toLowerCase(),
-        config,
-        ytContinuation,
-        dispatch,
-        enterSearch,
-        setYtContinuation,
-      }).then((ok) => {
-        if (!ok) return;
+    void fetch(`/api/yt/browse?${qs.toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { ok?: boolean; videos?: Video[]; continuation?: string | null } | null) => {
+        if (!data?.ok || !Array.isArray(data.videos) || data.videos.length === 0) return;
         const grid = config.sections.find((s) => s.type === 'VideoGrid');
-        if (!grid || grid.type !== 'VideoGrid') return;
-        const filtered = filterVideosForInstagramChip(grid.props.videos, chip);
-        if (filtered.length > 0) {
-          dispatch({ op: 'update_section', sectionId: grid.id, patch: { videos: filtered } });
+        if (grid) {
+          dispatch({ op: 'update_section', sectionId: grid.id, patch: { videos: data.videos } });
+        } else {
+          // Resilience: if the visitor was in MoodBoard mode and there's
+          // no VideoGrid, restore one so chip results have somewhere to land.
+          const replacements = config.sections.filter((s) => s.type === 'MoodBoard');
+          for (const r of replacements) {
+            dispatch({ op: 'remove_section', sectionId: r.id });
+          }
+          dispatch({
+            op: 'add_section',
+            sectionType: 'VideoGrid',
+            props: { videos: data.videos, columns: 4, density: 'cozy' },
+            position: { after: 'categoryChips' },
+          });
         }
+        setYtContinuation(
+          typeof data.continuation === 'string' && data.continuation.length > 0 ? data.continuation : null,
+        );
+        dispatch({ op: 'set_filter', filter: { requireTags: [] } });
+        setRowsVisible(chip === 'All');
+      })
+      .catch(() => {
+        // best-effort; user can retry
       });
-      return;
-    }
-
-    // Mock mode: tag-filter the local catalog.
-    if (chip === 'All') {
-      dispatch({ op: 'set_filter', filter: { requireTags: [] } }, { persist: true });
-      dispatch({ op: 'set_sort', sort: { by: 'recommended', order: 'desc' } }, { persist: true });
-      return;
-    }
-    const def = CHIP_FILTER[chip] ?? {};
-    if (brand === 'instagram') {
-      const grid = config.sections.find((s) => s.type === 'VideoGrid');
-      if (grid && grid.type === 'VideoGrid') {
-        const filtered = filterVideosForInstagramChip(grid.props.videos, chip);
-        dispatch({ op: 'update_section', sectionId: grid.id, patch: { videos: filtered } });
-      }
-      return;
-    }
-    if (def.tags) {
-      dispatch({ op: 'set_filter', filter: { requireTags: def.tags } }, { persist: true });
-    }
-    if (def.sortRecent) {
-      dispatch(
-        { op: 'set_sort', sort: { by: 'recent', order: 'desc' } },
-        { persist: true, rationale: 'recently uploaded chip' },
-      );
-    }
   };
 
   return (

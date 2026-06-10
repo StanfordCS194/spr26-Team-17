@@ -1,65 +1,48 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { SHOWCASE_SITES } from '@showcase/shared';
+import { supabasePersistence } from '@showcase/sdk/supabase';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SLUG_TO_LABEL = Object.fromEntries(SHOWCASE_SITES.map((s) => [s.slug, s.label]));
+// Reuse one server-side persistence instance across requests — the Supabase
+// client is connection-pooled and this avoids reconstructing on every call.
+const persistence = supabasePersistence(supabaseAdmin());
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const slug = url.searchParams.get('slug');
-  const scope = url.searchParams.get('scope') ?? (slug ? 'site' : 'session');
-  const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10) || 50, 200);
+  const slug = url.searchParams.get('slug') ?? 'streaming-platform';
+  const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '30', 10) || 30, 100);
 
   const cookieStore = await cookies();
   const visitorId = cookieStore.get('visitor_id')?.value;
   if (!visitorId) return NextResponse.json({ messages: [] });
 
-  const db = supabaseAdmin();
-
-  let query = db
-    .from('chat_turns')
-    .select('user_message, assistant_message, tool_uses, created_at, site_id, sites!inner(slug)')
-    .eq('visitor_id', visitorId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (scope === 'site' && slug) {
-    const { data: site } = await db.from('sites').select('id').eq('slug', slug).single();
-    if (!site) return NextResponse.json({ messages: [] });
-    query = query.eq('site_id', site.id);
+  // modeId required by the new SDK contract. If the chat panel didn't pass
+  // one yet (during the transitional period), fall back to the visitor's
+  // first/oldest mode for this slug — that's the row the migration created.
+  let modeId = url.searchParams.get('modeId');
+  if (!modeId) {
+    const modes = await persistence.listModes(visitorId, slug);
+    modeId = modes[0]?.id ?? null;
+    if (!modeId) return NextResponse.json({ messages: [] });
   }
 
-  const { data: turns } = await query;
+  const turns = await persistence.readTurns(visitorId, slug, modeId, limit);
 
-  const ordered = (turns ?? []).slice().reverse();
-  const messages: Array<{
-    role: 'user' | 'assistant';
-    content: string;
-    siteSlug?: string;
-    siteLabel?: string;
-    toolUses?: Array<{ name: string }>;
-  }> = [];
-
-  for (const t of ordered) {
-    const siteRow = t.sites as { slug?: string } | { slug?: string }[] | null;
-    const siteSlug = Array.isArray(siteRow) ? siteRow[0]?.slug : siteRow?.slug;
-    const siteLabel = siteSlug ? SLUG_TO_LABEL[siteSlug] : undefined;
-    const meta = siteSlug ? { siteSlug, siteLabel } : {};
-
-    messages.push({ role: 'user', content: t.user_message, ...meta });
-    const toolUses = Array.isArray(t.tool_uses)
-      ? (t.tool_uses as Array<{ name: string }>).map((u) => ({ name: u.name }))
-      : undefined;
-    if (t.assistant_message || (toolUses && toolUses.length > 0)) {
+  // Flatten turns into the message stream the chat panel renders.
+  const messages: Array<{ role: 'user' | 'assistant'; content: string; toolUses?: Array<{ name: string }> }> = [];
+  for (const t of turns) {
+    // Skip empty user messages — these come from synthetic turns the server
+    // records (e.g. resets) that have no visitor utterance. Rendering them
+    // as a blank user bubble shows up as a wide accent-coloured strip.
+    if (t.userMessage) messages.push({ role: 'user', content: t.userMessage });
+    if (t.assistantMessage || t.toolUses.length > 0) {
       messages.push({
         role: 'assistant',
-        content: t.assistant_message ?? '',
-        ...meta,
-        ...(toolUses && toolUses.length > 0 ? { toolUses } : {}),
+        content: t.assistantMessage,
+        ...(t.toolUses.length > 0 ? { toolUses: t.toolUses } : {}),
       });
     }
   }

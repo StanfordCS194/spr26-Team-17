@@ -1,5 +1,4 @@
 import type { Video, Short } from '@showcase/shared';
-import { createMockAdapter, mockAdapter } from './mock';
 import { getFeed as getYoutubeFeed } from './youtube';
 import { amazonAdapter } from './amazon';
 import { instagramAdapter } from './instagram';
@@ -12,72 +11,23 @@ export type { FeedSource } from './feed-source';
 export { resolveFeedSource, isLiveFeedSource } from './feed-source';
 
 export interface FeedAdapter {
-  getFeed(): Promise<{
-    videos: Video[];
-    categories: string[];
-    shorts?: Short[];
-    chips?: YtChip[];
-    continuation?: string | null;
-    slackMeta?: SlackBootstrapMeta;
-  }>;
-  requestMoreContent?(category: string, count: number, style?: string): Promise<Video[]>;
+  getFeed(): Promise<{ videos: Video[]; categories: string[]; shorts?: Short[]; chips?: YtChip[]; continuation?: string | null }>;
 }
 
-function mockAdapterForSite(siteSlug: string): FeedAdapter {
-  return createMockAdapter(siteSlug);
-}
-
-export function getAdapter(source: FeedSource, siteSlug = 'youtube-clone'): FeedAdapter {
-  const fallback = mockAdapterForSite(siteSlug);
-
-  if (source === 'mock') return fallback;
-
-  if (source === 'amazon') {
-    return {
-      async getFeed() {
-        try {
-          return await amazonAdapter.getFeed();
-        } catch (err) {
-          console.warn(`[adapters] amazon fell back to mock: ${(err as Error).message}`);
-          return fallback.getFeed();
-        }
-      },
-    };
-  }
-
-  if (source === 'instagram') {
-    return {
-      async getFeed() {
-        try {
-          return await instagramAdapter.getFeed();
-        } catch (err) {
-          console.warn(`[adapters] instagram fell back to mock: ${(err as Error).message}`);
-          return fallback.getFeed();
-        }
-      },
-    };
-  }
-
-  if (source === 'slack') {
-    return slackAdapter;
-  }
-
-  // youtube
+// The mock catalog has been removed. Real YouTube data (cookie-authenticated
+// when available, anonymous synthetic feed otherwise — see innertube/client.ts)
+// is the only feed source. If even the anonymous path fails (network blocked,
+// parser breakage) the adapter returns an empty feed rather than falling back
+// to fabricated videos; the page shell still renders.
+export function getAdapter(): FeedAdapter {
   return {
     async getFeed() {
       const result = await getYoutubeFeed();
       if (result.kind !== 'ok') {
-        console.warn(`[adapters] youtube fell back to mock: ${result.reason}`);
-        return fallback.getFeed();
+        console.warn(`[adapters] youtube feed unavailable (${result.reason}); serving empty feed`);
+        return { videos: [], categories: [] };
       }
-      return {
-        videos: result.videos,
-        categories: [],
-        shorts: result.shorts,
-        chips: result.chips,
-        continuation: result.continuation,
-      };
+      return { videos: result.videos, categories: [], shorts: result.shorts, chips: result.chips, continuation: result.continuation };
     },
-    requestMoreContent: mockAdapter.requestMoreContent?.bind(mockAdapter),
   };
 }

@@ -1,25 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import type { PageConfig, Video } from '@showcase/shared';
-import { getSiteBrand } from '@/lib/site-brand';
-import { amazonProductHref } from '@/lib/amazon/href';
-import { AmazonStars, parseAmazonRating } from '@/components/amazon/AmazonStars';
+import { cardPresetCatalog } from '@showcase/shared';
+import { MediaCard, mentionInChat, type MediaItem } from '@showcase/sdk';
+import { resolveCardPreset } from '@showcase/sdk/core';
 import { usePageStore } from '@/lib/store';
 import { Avatar } from './Avatar';
-
-const ASPECT_RATIO = {
-  '16:9': 'aspect-video',
-  '4:3': 'aspect-[4/3]',
-  '1:1': 'aspect-square',
-  '3:4': 'aspect-[3/4]',
-} as const;
-
-const HOVER = {
-  none: '',
-  lift: 'transition-transform duration-200 hover:-translate-y-0.5',
-  zoom: 'transition-transform duration-200 hover:scale-[1.02]',
-} as const;
 
 function formatViews(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -31,116 +17,76 @@ export function VideoCard({
   video,
   config,
   watchedFraction,
+  cardPresetOverride,
 }: {
   video: Video;
   config: PageConfig;
   watchedFraction?: number;
+  /** Per-section override of theme.cardPreset (RecommendedRow / VideoGrid). */
+  cardPresetOverride?: string;
 }) {
-  const cardDefaults = config.theme.videoCardDefaults;
-  const brand = getSiteBrand(config.slug);
-  const aspectClass = ASPECT_RATIO[cardDefaults.aspectRatio];
-  const hoverClass = HOVER[cardDefaults.hoverEffect];
-  const horizontal = cardDefaults.cardLayout === 'horizontal';
-  const saturate = cardDefaults.thumbnailSaturate ?? 1;
-  const hideMeta = cardDefaults.hideMeta ?? false;
+  const themeAny = config.theme as any;
+  const preset = resolveCardPreset(
+    cardPresetCatalog,
+    themeAny.cardPreset ?? 'video_card',
+    themeAny.cardOverrides ?? {},
+    cardPresetOverride,
+  );
+  // Effective slot-tree layout. Agent-emitted `theme.cardLayout` wins; if
+  // absent, fall back to the chosen preset's own default layout (e.g.
+  // picking `square_card` paints SQUARE_CARD_LAYOUT — avatar on top, cover,
+  // title below) so the catalog's archetype is meaningfully complete. If
+  // even that's missing, MediaCard uses the legacy fixed render.
+  const cardLayout = themeAny.cardLayout ?? preset.layout;
+
   const isWatched = video.watched === true;
   const watchedMode = config.filter.showWatchedOverlay && isWatched;
-  const [hidden, setHidden] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
 
-  useEffect(() => {
-    const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth === 0) setHidden(true);
-  }, []);
+  // Map domain shape → MediaItem. When the agent sets a custom cardLayout,
+  // its slot tree references string fields like 'avatar' / 'channelAvatar'
+  // by source name — pass URL strings AS WELL AS the rich Avatar component
+  // so both legacy (ReactNode) and layout (URL) paths work.
+  const item: MediaItem = {
+    cover: video.thumbnail,
+    alt: video.title,
+    title: video.title,
+    subtitle: video.channel.name,
+    subtitleVerified: video.channel.verified,
+    avatar: cardLayout
+      ? video.channel.avatar          // layout path uses URL string
+      : <Avatar name={video.channel.name} src={video.channel.avatar} size="md" />,
+    badge: video.duration,
+    stats: `${formatViews(video.views)} views`,
+    timestamp: video.postedAgo,
+    description: video.description,
+  };
+  // Extra fields that the agent's slot tree may reference by source name
+  // (channelAvatar / channel / duration). Index signature accepts these
+  // without needing to widen the typed MediaItem.
+  item.channelAvatar = video.channel.avatar;
+  item.channel = video.channel.name;
+  item.duration = video.duration;
 
-  if (hidden) return null;
-
-  const watchHref =
-    brand === 'amazon'
-      ? amazonProductHref(video)
-      : brand === 'instagram'
-        ? `https://www.instagram.com/p/${encodeURIComponent(video.id)}/`
-        : brand === 'generic'
-          ? video.href || '#'
-          : `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
-
-  const scale = cardDefaults.thumbnailScale ?? 1;
-  const thumbRadius =
-    brand === 'instagram' ? 'rounded-none' : brand === 'amazon' ? 'rounded-sm' : 'rounded-xl';
-
-  const { setWatching, youtubeMode } = usePageStore();
-
-  function onCardClick(e: React.MouseEvent): void {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-    // Opened-site tabs are real web links — let the anchor open the source page
-    // in a new tab rather than hijacking into the internal watch view.
-    if (brand === 'generic') return;
-    if (brand === 'youtube' && !youtubeMode) return;
-    e.preventDefault();
-    setWatching(video.id, video.title, {
-      thumbnail: video.thumbnail,
-      price: video.duration?.startsWith('$') ? video.duration : undefined,
-    });
-  }
-
-  // Instagram explore: tight square tiles, image only.
-  if (brand === 'instagram' && hideMeta) {
-    return (
-      <a
-        href={watchHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onCardClick}
-        className="group relative block aspect-square overflow-hidden bg-[#efefef]"
+  const overlay = (
+    <>
+      {/* Hover affordance: @-mention this video into the chat (→ pin, etc.). */}
+      <button
+        type="button"
+        aria-label={`Mention "${video.title}" in chat`}
+        title="Mention in chat"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          mentionInChat(video.title, {
+            id: video.id,
+            title: video.title,
+            channel: video.channel.name,
+          });
+        }}
+        className="absolute right-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/70 text-sm font-semibold text-white opacity-0 transition-opacity hover:bg-black/90 group-hover:opacity-100"
       >
-        <img
-          ref={imgRef}
-          src={video.thumbnail}
-          alt={video.title}
-          loading="lazy"
-          onError={() => setHidden(true)}
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-        />
-        {video.duration && video.duration !== 'Post' && (
-          <span className="absolute bottom-2 right-2 text-white drop-shadow-md" aria-hidden>
-            <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
-        )}
-      </a>
-    );
-  }
-
-  const thumb = (
-    <div
-      className={`relative overflow-hidden bg-[color:var(--muted)] ${aspectClass} ${horizontal ? 'w-1/2 shrink-0' : ''} ${thumbRadius} ${brand === 'amazon' ? 'bg-white' : ''}`}
-      style={
-        scale !== 1 && !horizontal
-          ? { transform: `scale(${scale})`, transformOrigin: 'top center' }
-          : undefined
-      }
-    >
-      <img
-        ref={imgRef}
-        src={video.thumbnail}
-        alt={video.title}
-        loading="lazy"
-        onError={() => setHidden(true)}
-        className={`h-full w-full ${brand === 'amazon' ? 'object-contain p-2' : 'object-cover'}`}
-        style={saturate !== 1 ? { filter: `saturate(${saturate})` } : undefined}
-      />
-      {cardDefaults.showDuration && brand !== 'amazon' && (
-        <span
-          className={`absolute bottom-2 right-2 rounded px-1.5 py-0.5 text-xs ${
-            brand === 'instagram'
-              ? 'hidden'
-              : 'bg-black/80 text-white'
-          }`}
-        >
-          {video.duration}
-        </span>
-      )}
+        @
+      </button>
       {watchedMode && (
         <span className="absolute left-2 top-2 rounded bg-black/85 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/80">
           Watched
@@ -152,99 +98,29 @@ export function VideoCard({
           style={{ width: `${Math.min(100, Math.max(0, watchedFraction * 100))}%` }}
         />
       )}
-    </div>
+    </>
   );
 
-  const meta = hideMeta ? null : (
-    <div className={`flex gap-3 ${horizontal ? 'min-w-0 flex-1 items-start' : brand === 'amazon' ? 'gap-0' : ''}`}>
-      {!horizontal && brand === 'youtube' && (
-        <Avatar name={video.channel.name} src={video.channel.avatar} size="md" />
-      )}
-      <div className="min-w-0">
-        <h3
-          className={`line-clamp-2 leading-snug ${
-            horizontal
-              ? 'text-base'
-              : brand === 'amazon'
-                ? 'text-sm font-normal text-[#0f1111] group-hover:text-[#c7511f]'
-                : brand === 'instagram'
-                  ? 'text-sm font-normal'
-                  : 'text-sm'
-          }`}
-          style={{ fontWeight: brand === 'instagram' ? 400 : cardDefaults.titleWeight }}
-        >
-          {video.title}
-        </h3>
-        {brand === 'amazon' && cardDefaults.showDuration && (
-          <p className={`mt-1 text-lg font-normal ${video.duration.startsWith('$') ? 'text-[#0f1111]' : 'text-[color:var(--muted-fg)] text-sm'}`}>
-            {video.duration.startsWith('$') ? (
-              <>
-                <span className="text-[13px] align-top">$</span>
-                <span className="text-[21px]">{video.duration.replace('$', '').split('.')[0]}</span>
-                <span className="text-[13px] align-top">{video.duration.includes('.') ? video.duration.split('.')[1] : '00'}</span>
-              </>
-            ) : (
-              video.duration
-            )}
-          </p>
-        )}
-        {brand === 'amazon' && cardDefaults.showPostedAgo && video.postedAgo && (
-          <div className="mt-0.5">
-            <AmazonStars rating={parseAmazonRating(video.postedAgo)} size="sm" />
-          </div>
-        )}
-        {brand !== 'amazon' && brand !== 'generic' && (
-          <p
-            className="mt-1 truncate text-xs text-[color:var(--muted-fg)]"
-            style={{ fontWeight: cardDefaults.channelNameWeight }}
-          >
-            {video.channel.name}
-            {video.channel.verified && <span className="ml-1">✓</span>}
-          </p>
-        )}
-        {!hideMeta && brand === 'youtube' && (cardDefaults.showViewCount || cardDefaults.showPostedAgo) && (
-          <p className="mt-0.5 text-xs text-[color:var(--muted-fg)]">
-            {cardDefaults.showViewCount && `${formatViews(video.views)} views`}
-            {cardDefaults.showViewCount && cardDefaults.showPostedAgo && ' · '}
-            {cardDefaults.showPostedAgo && video.postedAgo}
-          </p>
-        )}
-        {(cardDefaults.showDescription || horizontal) && video.description && (
-          <p className="mt-1 line-clamp-2 text-xs text-[color:var(--muted-fg)]">
-            {video.description}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-
+  const { setWatching } = usePageStore();
+  const watchHref = `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
   const watchedDim = watchedMode ? 'opacity-40' : '';
 
-  if (horizontal) {
-    return (
-      <a
-        href={watchHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onCardClick}
-        className={`group flex gap-4 cursor-pointer ${hoverClass} ${watchedDim}`}
-      >
-        {thumb}
-        {meta}
-      </a>
-    );
+  function onCardClick(e: React.MouseEvent): void {
+    // Cmd/Ctrl/Shift-click or middle-click → native open-in-new-tab.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    setWatching(video.id, video.title);
   }
 
   return (
-    <a
+    <MediaCard
+      item={item}
+      preset={preset}
+      layout={cardLayout}
+      overlay={overlay}
       href={watchHref}
-      target="_blank"
-      rel="noopener noreferrer"
       onClick={onCardClick}
-      className={`group flex flex-col cursor-pointer ${hoverClass} ${watchedDim} ${hideMeta ? 'gap-0' : brand === 'amazon' ? 'gap-2' : 'gap-3'}`}
-    >
-      {thumb}
-      {meta}
-    </a>
+      outerClassName={watchedDim}
+    />
   );
 }

@@ -1,8 +1,15 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { applyPatch, type PageConfig, type Patch } from '@showcase/shared';
-import { registerPageBridge, unregisterPageBridge } from '@/lib/page-bridge';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import type { Patch } from '@showcase/sdk';
+// YT-shared PageConfig is strict (typed sort/filter); SDK's is loose
+// (Record<string, unknown>). YT consumers (PageRoot, Sidebar, templates)
+// were written against the strict shape, so we use it for the public surface.
+import type { PageConfig } from '@showcase/shared';
+
+import { PersonalizationRoot, usePersonalization } from '@showcase/sdk';
+import { host } from './personalization';
+
 
 export interface YtChipEntry {
   text: string;
@@ -48,11 +55,6 @@ interface PageStoreValue {
   setYtContinuation: (token: string | null) => void;
   // Real chip metadata extracted from the home browse response. Map text → params token.
   ytChips: YtChipEntry[];
-  // Whether the YouTube data adapter is active (legacy name; prefer liveFeedMode).
-  youtubeMode: boolean;
-  // Live intercept feed for the current site (YouTube, Amazon, Instagram, or Slack).
-  liveFeedMode: boolean;
-  slackMeta: SlackBootstrapMeta | null;
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
@@ -77,31 +79,45 @@ interface PageStoreValue {
   exitSearch: () => void;
 }
 
-const PageStoreContext = createContext<PageStoreValue | null>(null);
+// ─── YT-specific state provider ──────────────────────────────────────────
+// Holds everything that's NOT generic personalization state (watching ctx,
+// nav, search, infinite-scroll continuation, YT-only mode flag).
+// Sits inside <PersonalizationRoot> so consumers via usePageStore() can
+// read both worlds together.
 
-export function PageStoreProvider({
-  initialConfig,
+interface YtStateValue {
+  pageSlug: string;
+  ytContinuation: string | null;
+  setYtContinuation: (token: string | null) => void;
+  ytChips: YtChipEntry[];
+  watchingId: string | null;
+  watchingTitle: string | null;
+  setWatching: (id: string | null, title?: string | null) => void;
+  activeNav: NavKey;
+  selectedChannel: string | null;
+  setActiveNav: (key: NavKey, channel?: string | null) => void;
+  searchQuery: string | null;
+  enterSearch: (query: string, snapshot: HomeSnapshot) => void;
+  exitSearch: () => void;
+}
+
+const YtStateContext = createContext<YtStateValue | null>(null);
+
+function YtStateProvider({
   initialYtContinuation = null,
   initialYtChips = [],
-  initialYoutubeMode = false,
-  initialLiveFeedMode = false,
-  initialSlackMeta = null,
   initialWatchingId = null,
   pageSlug,
   children,
 }: {
-  initialConfig: PageConfig;
   initialYtContinuation?: string | null;
   initialYtChips?: YtChipEntry[];
-  initialYoutubeMode?: boolean;
-  initialLiveFeedMode?: boolean;
-  initialSlackMeta?: SlackBootstrapMeta | null;
   initialWatchingId?: string | null;
   pageSlug: string;
   children: ReactNode;
 }) {
-  const [config, setConfig] = useState<PageConfig>(initialConfig);
-  const [magicPointerActive, setMagicPointerActive] = useState(false);
+  const { replace } = usePersonalization(); // borrow SDK's replace for exitSearch
+
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
   const [watchingTitle, setWatchingTitle] = useState<string | null>(null);
@@ -111,113 +127,40 @@ export function PageStoreProvider({
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [homeSnapshot, setHomeSnapshot] = useState<HomeSnapshot | null>(null);
+
   const enterSearch = useCallback((query: string, snapshot: HomeSnapshot) => {
     setSearchQuery(query);
-    // Only snapshot on first entry; back-to-back searches preserve the
-    // original home state so logo-click always lands on the real home.
     setHomeSnapshot((prev) => prev ?? snapshot);
   }, []);
+
   const exitSearch = useCallback(() => {
     setHomeSnapshot((snap) => {
       if (snap) {
-        setConfig(snap.config);
+        replace(snap.config);                  // ← SDK provider holds config now
         setYtContinuation(snap.ytContinuation);
       }
       return null;
     });
     setSearchQuery(null);
-  }, []);
+  }, [replace]);
+
   const setActiveNav = useCallback((key: NavKey, channel?: string | null) => {
     setActiveNavState(key);
     setSelectedChannel(typeof channel === 'string' ? channel : null);
   }, []);
-  const setWatching = useCallback(
-    (id: string | null, title?: string | null, meta?: { thumbnail?: string; price?: string }) => {
-      setWatchingId(id);
-      setWatchingTitle(typeof title === 'string' ? title : null);
-      if (!id) {
-        setWatchingThumbnail(null);
-        setWatchingPrice(null);
-        return;
-      }
-      setWatchingThumbnail(meta?.thumbnail?.trim() || null);
-      setWatchingPrice(meta?.price?.trim() || null);
-    },
-    [],
-  );
-  const youtubeMode = initialYoutubeMode;
-  const liveFeedMode = initialLiveFeedMode;
-  const dispatch = useCallback(
-    (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => {
-      setConfig((current) => {
-        const next = applyPatch(current, patch);
-        if (options?.trace) {
-          console.groupCollapsed(
-            `%c[store] applyPatch · ${patch.op}`,
-            'color:#a855f7;font-weight:bold',
-          );
-          console.log('patch:', patch);
-          console.log('config before:', current);
-          console.log('config after:', next);
-          console.groupEnd();
-        }
-        return next;
-      });
-      if (options?.persist) {
-        if (options?.trace) {
-          console.log(
-            '%c[store] persist →',
-            'color:#f59e0b;font-weight:bold',
-            '/api/patch',
-            { slug: pageSlug, patch, rationale: options.rationale },
-          );
-        }
-        // fire-and-forget; UI already updated optimistically
-        fetch('/api/patch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: pageSlug, patch, rationale: options.rationale }),
-        }).catch(() => {
-          // best-effort persistence
-        });
-      }
-    },
-    [pageSlug],
-  );
-  const replace = useCallback((next: PageConfig) => setConfig(next), []);
 
-  // Keep the global chat bridge in sync every render (not only in useEffect).
-  // Chat lives outside PageStoreProvider; registering here ensures patches
-  // from SSE always reach the mounted page's dispatch.
-  registerPageBridge({
-    pageSlug,
-    config,
-    dispatch,
-    replace,
-    watchingId,
-    watchingTitle,
-    watchingThumbnail,
-    watchingPrice,
-    youtubeMode,
-    liveFeedMode,
-  });
-  useEffect(() => () => unregisterPageBridge(pageSlug), [pageSlug]);
+  const setWatching = useCallback((id: string | null, title?: string | null) => {
+    setWatchingId(id);
+    setWatchingTitle(typeof title === 'string' ? title : null);
+  }, []);
 
   return (
-    <PageStoreContext.Provider
+    <YtStateContext.Provider
       value={{
-        config,
         pageSlug,
-        dispatch,
-        replace,
-        magicPointerActive,
-        setMagicPointerActive,
         ytContinuation,
         setYtContinuation,
         ytChips: initialYtChips,
-        youtubeMode,
-        liveFeedMode,
-        slackMeta: initialSlackMeta,
         watchingId,
         watchingTitle,
         watchingThumbnail,
@@ -232,14 +175,72 @@ export function PageStoreProvider({
       }}
     >
       {children}
-    </PageStoreContext.Provider>
+    </YtStateContext.Provider>
   );
 }
 
-export function usePageStore(): PageStoreValue {
-  const value = useContext(PageStoreContext);
+// ─── Outer provider — composes SDK + YT state ────────────────────────────
+// The old PageStoreProvider held config locally and threaded YT state through
+// the same context. Now it's a thin composition: PersonalizationRoot owns
+// config + dispatch + replace; YtStateProvider owns YT-specific UI state.
+// usePageStore() (below) merges both for backwards-compatible consumers.
+
+export function PageStoreProvider({
+  initialConfig,
+  initialYtContinuation = null,
+  initialYtChips = [],
+  initialWatchingId = null,
+  pageSlug,
+  children,
+}: {
+  initialConfig: PageConfig;
+  initialYtContinuation?: string | null;
+  initialYtChips?: YtChipEntry[];
+  initialWatchingId?: string | null;
+  pageSlug: string;
+  children: ReactNode;
+}) {
+  return (
+    <PersonalizationRoot host={host} initialConfig={initialConfig}>
+      <YtStateProvider
+        pageSlug={pageSlug}
+        initialYtContinuation={initialYtContinuation}
+        initialYtChips={initialYtChips}
+        initialWatchingId={initialWatchingId}
+      >
+        {children}
+      </YtStateProvider>
+    </PersonalizationRoot>
+  );
+}
+
+// ─── Hook for YT-specific state ──────────────────────────────────────────
+function useYtState(): YtStateValue {
+  const value = useContext(YtStateContext);
   if (!value) {
-    throw new Error('usePageStore must be used within a PageStoreProvider');
+    throw new Error('useYtState must be used within <PageStoreProvider>');
   }
   return value;
+}
+
+// ─── Public hook — merges SDK config/dispatch with YT-specific state ─────
+// Backwards-compatible: every consumer that did `usePageStore()` keeps
+// working. Now config/dispatch/replace come from <PersonalizationRoot>
+// instead of being held locally.
+export function usePageStore(): PageStoreValue {
+  const sdk = usePersonalization();   // { config, dispatch, replace }
+  const yt = useYtState();            // { ytContinuation, watchingId, ... }
+
+  return {
+    // SDK's PageConfig has Record<string, unknown> for sort/filter; YT
+    // consumers expect the typed shape from @showcase/shared. Structurally
+    // compatible — patches always produce the strict shape — so we assert.
+    config: sdk.config as unknown as PageConfig,
+    replace: sdk.replace,
+    // SDK dispatch is (patch) => void; YT consumers may pass an options arg
+    // (persist/rationale/trace). For v0 we discard those — Stage 9 will
+    // re-introduce persistence via the SDK's PersistenceAdapter interface.
+    dispatch: (patch, _options) => sdk.dispatch(patch),
+    ...yt,
+  };
 }

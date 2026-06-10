@@ -16,19 +16,12 @@
     "test:visual": "turbo run test:visual",
     "migrate": "node --env-file=.env --import tsx scripts/migrate.ts",
     "seed": "node --env-file=.env --import tsx scripts/seed.ts",
-    "seed:sites": "node --env-file=.env --import tsx scripts/seed-extra-sites.ts",
-    "seed:install": "node --env-file=.env --import tsx scripts/seed-install-sites.ts",
-    "check:feeds": "node --env-file=.env --import tsx scripts/check-intercept-feeds.ts",
-    "slack:setup": "node --env-file=.env --import tsx scripts/setup-slack-intercept.ts",
-    "slack:configure": "node --env-file=.env --import tsx scripts/configure-slack-env.ts",
-    "launch:slack": "node --env-file=.env --import tsx scripts/launch-slack.ts",
-    "patch-config": "node --env-file=.env --import tsx scripts/patch-base-config.ts",
-    "clean-thumbs": "node --env-file=.env --import tsx scripts/clean-thumbs.ts",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@showcase/sdk": "workspace:*",
     "@showcase/shared": "workspace:*",
     "zod": "^3.23.0"
   },
@@ -37,5 +30,11 @@
     "typescript": "^5.5.0",
     "tsx": "^4.16.0",
     "@types/node": "^20.14.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.7",
+      "react-dom": "19.2.7"
+    }
   }
 }

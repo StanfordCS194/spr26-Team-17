@@ -10,6 +10,7 @@ import { AmazonCartView } from '@/components/amazon/AmazonCartView';
 import { AmazonCheckoutView } from '@/components/amazon/AmazonCheckoutView';
 import { AmazonOrderConfirmation } from '@/components/amazon/AmazonOrderConfirmation';
 import { WatchPage } from './WatchPage';
+import { LibraryView } from './LibraryView';
 
 function sectionStyleVars(section: Section): React.CSSProperties | undefined {
   const style = section.props.style;
@@ -34,20 +35,7 @@ const SIDEBAR_TYPES = new Set(['Sidebar']);
 const ROOT_OVERLAY_TYPES = new Set(['AmbientBackground']);
 
 export function Site() {
-  const { config, watchingId } = usePageStore();
-  const brand = getSiteBrand(config.slug);
-  const amazonCart = useAmazonCartOptional();
-  const amazonScreen = brand === 'amazon' ? amazonCart?.screen ?? 'browse' : 'browse';
-  const onAmazonCheckoutFlow = brand === 'amazon' && amazonScreen !== 'browse';
-  const hideSidebar = brand === 'amazon' && (Boolean(watchingId) || onAmazonCheckoutFlow);
-
-  if (brand === 'slack') {
-    return (
-      <div className="slack-app-shell flex min-h-0 flex-1 flex-col">
-        <SlackWorkspaceShell config={config} />
-      </div>
-    );
-  }
+  const { config, watchingId, activeNav } = usePageStore();
 
   const header = config.sections.filter((s) => HEADER_TYPES.has(s.type));
   const sidebar = config.sections.filter((s) => SIDEBAR_TYPES.has(s.type));
@@ -87,6 +75,9 @@ export function Site() {
             <AmazonOrderConfirmation />
           ) : watchingId ? (
             <WatchPage />
+          ) : activeNav === 'You' ? (
+            // YouTube's "You"/Library page — real saved playlists + history.
+            <LibraryView />
           ) : (
             main.map((section) => (
               <div
