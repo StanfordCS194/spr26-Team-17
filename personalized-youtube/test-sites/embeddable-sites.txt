@@ -1,0 +1,27 @@
+# Embeddable sites — render as the LIVE site inside an opened tab
+#
+# Big, reputable orgs only (gov, public broadcasters, foundations, references).
+# Each was verified to send NO blocking X-Frame-Options and NO restrictive CSP
+# frame-ancestors, so the hybrid renderer shows the real live site with the
+# chat overlaid + an "Open original" header.
+#
+# To test: open the chat and say e.g. "open wikipedia.org".
+# Verified May 2026 against the ingestion embeddability check.
+
+# --- References / knowledge ---
+https://en.wikipedia.org             # Wikipedia
+https://en.wiktionary.org            # Wiktionary
+https://www.wikimedia.org            # Wikimedia Foundation
+https://www.britannica.com           # Encyclopaedia Britannica
+https://archive.org                  # Internet Archive
+https://openlibrary.org              # Open Library (Internet Archive)
+
+# --- Public broadcasters / news ---
+https://www.npr.org                  # NPR
+https://www.pbs.org                  # PBS
+
+# --- U.S. government (.gov) ---
+https://www.weather.gov              # National Weather Service
+https://www.noaa.gov                 # NOAA
+https://www.cdc.gov                  # CDC
+https://www.nps.gov                  # National Park Service

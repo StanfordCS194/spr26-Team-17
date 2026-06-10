@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { getRenderedPage } from '@/lib/queries/page';
 import { PageStoreProvider } from '@/lib/store';
 import { PageRoot } from '@/components/site/PageRoot';
+import { isLiveFeedSource, resolveFeedSource } from '@/lib/adapters/feed-source';
 
 export default async function Home({
   searchParams,

@@ -874,6 +874,25 @@ async function fetchHomeFeedUncached(): Promise<HomeFeedResult> {
   }
 
   if (videos.length === 0) {
+    console.warn(`[innertube] home feed empty (guest mode). Falling back to search "popular right now"...`);
+    try {
+      const searchResp = await innertube.actions.execute('/search', { query: 'popular right now' });
+      const searchRaw = (searchResp as { data?: unknown })?.data ?? searchResp;
+      const searchExtracted = extractLockupVideos(searchRaw);
+      
+      if (searchExtracted.videos.length > 0) {
+        return { 
+          kind: 'ok', 
+          videos: searchExtracted.videos, 
+          shorts: searchExtracted.shorts, 
+          continuation: searchExtracted.continuation, 
+          chips: initial.chips 
+        };
+      }
+    } catch(err) {
+      console.warn(`[innertube] fallback search failed: ${(err as Error).message}`);
+    }
+
     return {
       kind: 'unavailable',
       reason: 'home feed parsed empty (cookie expired?)',

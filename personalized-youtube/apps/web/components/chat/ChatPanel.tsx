@@ -79,3 +79,69 @@ export function ChatPanel({ pageSlug }: { pageSlug: string }) {
     />
   );
 }
+
+function MessageBubble({
+  message: m,
+  isLast,
+  isStreaming,
+  onPickOption,
+}: {
+  message: ChatMessage;
+  isLast: boolean;
+  isStreaming: boolean;
+  onPickOption: (opt: string) => void;
+}) {
+  const showFallback =
+    m.role === 'assistant' && (!m.content || !m.content.trim()) && (m.toolUses?.length ?? 0) > 0;
+  const display = showFallback ? fallbackAcknowledgment(m.toolUses ?? []) : m.content;
+
+  return (
+    <li className={m.role === 'user' ? 'text-right' : ''}>
+      {m.siteLabel && (
+        <p
+          className={`mb-1 text-[10px] uppercase tracking-wide text-[color:var(--muted-fg)] ${
+            m.role === 'user' ? 'text-right' : 'text-left'
+          }`}
+        >
+          {m.siteLabel}
+        </p>
+      )}
+      <div
+        className={`inline-block max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+          m.role === 'user'
+            ? 'bg-[color:var(--accent)] text-[color:var(--accent-fg)]'
+            : 'bg-[color:var(--muted)] text-[color:var(--fg)]'
+        }`}
+      >
+        <p className="whitespace-pre-wrap">{display}</p>
+        {m.role === 'assistant' && m.toolUses && m.toolUses.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {m.toolUses.map((t, j) => (
+              <span
+                key={j}
+                className="inline-flex items-center gap-1 rounded-full bg-[color:var(--bg)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[color:var(--muted-fg)] border border-[color:var(--border)]"
+                title={t.rationale ?? t.name}
+              >
+                <span className="h-1 w-1 rounded-full bg-[color:var(--accent)]" />
+                {TOOL_VERBS[t.name] ?? t.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {m.role === 'assistant' && m.askOptions && m.askOptions.length > 0 && isLast && !isStreaming && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {m.askOptions.map((opt, j) => (
+              <button
+                key={j}
+                onClick={() => onPickOption(opt)}
+                className="rounded-full bg-[color:var(--bg)] px-3 py-1 text-xs text-[color:var(--fg)] border border-[color:var(--border)] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-fg)] hover:border-[color:var(--accent)] transition-colors"
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}

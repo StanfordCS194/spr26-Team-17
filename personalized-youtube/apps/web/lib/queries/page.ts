@@ -28,9 +28,16 @@ function replaceFeedVideos(
   //   VideoGrid        = remainder (or full feed if too few for the rows)
   // ShortsRow gets real shorts when available; otherwise left untouched so
   // the original mock shorts remain visible (so the "hide shorts" demo still works).
-  const continueSlice = videos.slice(0, 6);
-  const recommendedSlice = videos.slice(6, 12);
-  const gridSlice = videos.length > 12 ? videos.slice(12) : videos;
+  const hasContinue = config.sections.some((s) => s.type === 'ContinueWatchingRow');
+  const hasRecommended = config.sections.some((s) => s.type === 'RecommendedRow');
+  const continueSlice = hasContinue ? videos.slice(0, 6) : [];
+  const recommendedSlice = hasRecommended ? videos.slice(6, 12) : [];
+  const gridSlice =
+    hasContinue || hasRecommended
+      ? videos.length > 12
+        ? videos.slice(12)
+        : videos
+      : videos;
   // Build the active chip list: prefer the real YouTube labels (which are
   // personalized to the account) when available; always include "All" first.
   const realChipList = Array.isArray(chips) && chips.length > 0
@@ -69,12 +76,25 @@ export async function getRenderedPage(
 ): Promise<{ config: PageConfig; ytContinuation: string | null; ytChips: YtChipMeta[] }> {
   const db = supabaseAdmin();
 
-  const { data: site, error: siteErr } = await db
-    .from('sites')
-    .select('id, base_config')
-    .eq('slug', slug)
-    .single();
-  if (siteErr || !site) throw new Error(`Site not found: ${slug} — run \`pnpm seed\` first.`);
+  // Load the site's base config. The DB is the source of truth, but when it's
+  // unreachable (e.g. paused Supabase project) or unseeded we degrade to a
+  // local mock-catalog config so every route still renders. site stays null in
+  // that case, which also disables per-visitor persistence below.
+  let site: { id: string; base_config: unknown } | null = null;
+  try {
+    const { data, error } = await db
+      .from('sites')
+      .select('id, base_config')
+      .eq('slug', slug)
+      .single();
+    if (!error && data) site = data;
+  } catch {
+    // connection failure — handled by the fallback below
+  }
+
+  if (!site && !hasFallbackConfig(slug)) {
+    throw new Error(`Site not found: ${slug} — run \`pnpm seed\` first.`);
+  }
 
   // Re-parse through the schema so newer fields with .default() get filled in
   // for rows seeded before the schema grew.
@@ -99,6 +119,7 @@ export async function getRenderedPage(
 
   let ytContinuation: string | null = null;
   let ytChips: YtChipMeta[] = [];
+  let slackMeta: SlackBootstrapMeta | null = null;
 
   // Pull live videos from the youtubei.js adapter and substitute them into the
   // row sections + grid. If the adapter can't reach YouTube it returns an
@@ -117,12 +138,15 @@ export async function getRenderedPage(
     console.warn('[page] youtube adapter threw; serving seeded base config', err);
   }
 
-  if (!visitorId) return { config, ytContinuation, ytChips };
+  // Without a DB-backed site row (fallback mode) or visitor, there are no
+  // per-visitor preferences to apply.
+  if (!visitorId || !site) return { config, ytContinuation, ytChips, slackMeta };
 
-  await db.from('visitors').upsert(
-    { id: visitorId, last_seen: new Date().toISOString() },
-    { onConflict: 'id' },
-  );
+  try {
+    await db.from('visitors').upsert(
+      { id: visitorId, last_seen: new Date().toISOString() },
+      { onConflict: 'id' },
+    );
 
   // Scope preferences to the visitor's ACTIVE mode (save-slot). Without the
   // mode_id filter this would fold patches from every mode together.
@@ -136,8 +160,12 @@ export async function getRenderedPage(
     .eq('mode_id', activeModeId)
     .order('created_at', { ascending: true });
 
-  const patches = (prefs ?? []).map((p) => p.patch as Patch);
-  return { config: applyPatches(config, patches), ytContinuation, ytChips };
+    const patches = (prefs ?? []).map((p) => p.patch as Patch);
+    return { config: applyPatches(config, patches), ytContinuation, ytChips, slackMeta };
+  } catch {
+    // DB unavailable — return the un-personalized config rather than crashing.
+    return { config, ytContinuation, ytChips, slackMeta };
+  }
 }
 
 // Backward-compat shim: existing callers (api/page, api/chat) only need the

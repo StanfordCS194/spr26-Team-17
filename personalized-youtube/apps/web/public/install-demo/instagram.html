@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Instagram — Your Feed (Showcase Demo)</title>
+    <style>
+      :root {
+        --ig-pink:      #E1306C;
+        --ig-pink-dark: #b01050;
+        --ig-purple:    #833AB4;
+        --ig-orange:    #F77737;
+        --ig-story:     linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        --ig-border:    #DBDBDB;
+        --ig-bg:        #FAFAFA;
+        --ig-card:      #FFFFFF;
+        --ig-text:      #262626;
+        --ig-muted:     #8E8E8E;
+        --ig-link:      #00376B;
+        --ig-blue:      #0095F6;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: var(--ig-bg);
+        color: var(--ig-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* ──────────────────────────────────────────
+         Topbar
+      ────────────────────────────────────────── */
+      .topbar {
+        align-items: center;
+        background: var(--ig-card);
+        border-bottom: 1px solid var(--ig-border);
+        display: flex;
+        gap: 16px;
+        height: 60px;
+        justify-content: space-between;
+        padding: 0 20px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .topbar-inner {
+        align-items: center;
+        display: flex;
+        gap: 16px;
+        margin: 0 auto;
+        max-width: 975px;
+        width: 100%;
+      }
+
+      .brand {
+        color: var(--ig-text);
+        font-family: "Billabong", cursive, Georgia, serif;
+        font-size: 28px;
+        font-weight: 400;
+        letter-spacing: -0.5px;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .brand:hover { opacity: 0.7; }
+
+      .topbar-search-wrap {
+        flex: 1;
+        max-width: 268px;
+        position: relative;
+      }
+      .topbar-search {
+        background: #EFEFEF;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: var(--ig-text);
+        font-size: 14px;
+        outline: none;
+        padding: 8px 36px 8px 12px;
+        width: 100%;
+        transition: border-color 120ms;
+      }
+      .topbar-search:focus { background: #fff; border-color: var(--ig-border); }
+      .search-icon {
+        color: var(--ig-muted);
+        font-size: 16px;
+        pointer-events: none;
+        position: absolute;
+        right: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .topbar-spacer { flex: 1; }
+
+      .topbar-icons {
+        align-items: center;
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .topbar-icon {
+        align-items: center;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        color: var(--ig-text);
+        cursor: pointer;
+        display: flex;
+        font-size: 20px;
+        height: 40px;
+        justify-content: center;
+        position: relative;
+        text-decoration: none;
+        width: 40px;
+        transition: background 120ms;
+      }
+      .topbar-icon:hover { background: #F2F2F2; }
+      .notif-dot {
+        background: var(--ig-pink);
+        border: 2px solid #fff;
+        border-radius: 50%;
+        height: 10px;
+        position: absolute;
+        right: 6px;
+        top: 5px;
+        width: 10px;
+      }
+      .avatar-sm {
+        border-radius: 50%;
+        height: 28px;
+        object-fit: cover;
+        width: 28px;
+        background: linear-gradient(135deg, #e9d5ff, #fce7f3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+
+      .demo-links {
+        align-items: center;
+        background: #fff8f9;
+        border: 1px solid #fce7f3;
+        border-radius: 8px;
+        color: var(--ig-muted);
+        display: flex;
+        font-size: 11px;
+        gap: 8px;
+        padding: 4px 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .demo-links a {
+        color: var(--ig-pink);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .demo-links a:hover { text-decoration: underline; }
+      .demo-links .sep { color: var(--ig-border); }
+
+      /* ──────────────────────────────────────────
+         Page layout
+      ────────────────────────────────────────── */
+      .page-layout {
+        display: flex;
+        gap: 28px;
+        justify-content: center;
+        margin: 0 auto;
+        max-width: 975px;
+        padding: 24px 20px 80px;
+      }
+
+      /* ──────────────────────────────────────────
+         Feed column
+      ────────────────────────────────────────── */
+      .feed-column {
+        flex: 0 0 470px;
+        min-width: 0;
+      }
+
+      /* ──────────────────────────────────────────
+         Stories row
+      ────────────────────────────────────────── */
+      .stories-row {
+        background: var(--ig-card);
+        border: 1px solid var(--ig-border);
+        border-radius: 12px;
+        display: flex;
+        gap: 0;
+        margin-bottom: 24px;
+        overflow-x: auto;
+        padding: 14px 16px;
+        scrollbar-width: none;
+      }
+      .stories-row::-webkit-scrollbar { display: none; }
+
+      .story-item {
+        align-items: center;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        gap: 5px;
+        padding: 2px 10px;
+        width: 72px;
+      }
+      .story-ring {
+        background: var(--ig-story);
+        border-radius: 50%;
+        flex-shrink: 0;
+        height: 62px;
+        padding: 2.5px;
+        width: 62px;
+      }
+      .story-ring-inner {
+        align-items: center;
+        background: var(--ig-card);
+        border-radius: 50%;
+        display: flex;
+        font-size: 26px;
+        height: 100%;
+        justify-content: center;
+        padding: 2px;
+        width: 100%;
+      }
+      .story-ring-inner.seen { background: var(--ig-bg); }
+      .story-ring.seen {
+        background: var(--ig-border);
+      }
+      .story-add .story-ring {
+        background: none;
+        border: 2px solid var(--ig-border);
+      }
+      .story-add .story-ring-inner { background: var(--ig-bg); font-size: 28px; color: var(--ig-pink); }
+      .story-label {
+        color: var(--ig-text);
+        font-size: 11px;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 100%;
+      }
+
+      /* ──────────────────────────────────────────
+         Tab chips
+      ────────────────────────────────────────── */
+      .chips {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .chip {
+        background: var(--ig-card);
+        border: 1px solid var(--ig-border);
+        border-radius: 8px;
+        color: var(--ig-text);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 18px;
+        transition: background 120ms, border-color 120ms, color 120ms;
+        white-space: nowrap;
+      }
+      .chip:hover { background: #F2F2F2; border-color: #aaa; }
+      .chip.active {
+        background: var(--ig-text);
+        border-color: var(--ig-text);
+        color: #fff;
+      }
+
+      /* ──────────────────────────────────────────
+         Post card
+      ────────────────────────────────────────── */
+      .post-card {
+        background: var(--ig-card);
+        border: 1px solid var(--ig-border);
+        border-radius: 12px;
+        margin-bottom: 20px;
+        overflow: hidden;
+      }
+
+      /* Post header */
+      .post-header {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        padding: 12px 14px;
+      }
+      .post-avatar {
+        align-items: center;
+        background: var(--ig-story);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        flex-shrink: 0;
+        font-size: 22px;
+        height: 42px;
+        justify-content: center;
+        padding: 2px;
+        width: 42px;
+      }
+      .post-avatar-inner {
+        align-items: center;
+        background: var(--ig-card);
+        border-radius: 50%;
+        display: flex;
+        font-size: 22px;
+        height: 100%;
+        justify-content: center;
+        padding: 2px;
+        width: 100%;
+      }
+      .post-header-info { flex: 1; min-width: 0; }
+      .post-username {
+        color: var(--ig-text);
+        cursor: pointer;
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .post-username:hover { text-decoration: underline; }
+      .post-location {
+        color: var(--ig-text);
+        font-size: 12px;
+      }
+      .post-more {
+        background: transparent;
+        border: none;
+        color: var(--ig-text);
+        cursor: pointer;
+        font-size: 22px;
+        line-height: 1;
+        padding: 4px 8px;
+      }
+      .post-more:hover { opacity: 0.6; }
+      .post-follow {
+        background: transparent;
+        border: none;
+        color: var(--ig-blue);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 4px;
+        white-space: nowrap;
+      }
+      .post-follow:hover { opacity: 0.7; }
+
+      /* Post image */
+      .post-image-wrap {
+        aspect-ratio: 1;
+        background: #f3f3f3;
+        cursor: pointer;
+        display: flex;
+        font-size: 100px;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+      }
+      .post-image-wrap img {
+        display: block;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+        width: 100%;
+      }
+      .post-image-wrap.landscape { aspect-ratio: 4/3; }
+      .post-image-wrap.portrait { aspect-ratio: 4/5; }
+
+      /* Post image tints by category */
+      .post-image-wrap.nature    { background: linear-gradient(135deg, #bbf7d0, #6ee7b7); }
+      .post-image-wrap.food      { background: linear-gradient(135deg, #fef08a, #fde68a); }
+      .post-image-wrap.travel    { background: linear-gradient(135deg, #bae6fd, #93c5fd); }
+      .post-image-wrap.fashion   { background: linear-gradient(135deg, #fce7f3, #f9a8d4); }
+      .post-image-wrap.tech      { background: linear-gradient(135deg, #ddd6fe, #c4b5fd); }
+      .post-image-wrap.fitness   { background: linear-gradient(135deg, #fecdd3, #fda4af); }
+      .post-image-wrap.art       { background: linear-gradient(135deg, #e9d5ff, #d8b4fe); }
+      .post-image-wrap.space     { background: linear-gradient(135deg, #1e1b4b, #312e81); color: #fff; }
+      .post-image-wrap.arch      { background: linear-gradient(135deg, #f1f5f9, #cbd5e1); }
+      .post-image-wrap.sport     { background: linear-gradient(135deg, #dcfce7, #86efac); }
+
+      /* Post actions */
+      .post-actions {
+        align-items: center;
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px 4px;
+      }
+      .action-btn {
+        align-items: center;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        font-size: 22px;
+        height: 36px;
+        justify-content: center;
+        transition: transform 120ms;
+        width: 36px;
+      }
+      .action-btn:hover { transform: scale(1.12); }
+      .action-btn.liked { color: var(--ig-pink); }
+      .action-spacer { flex: 1; }
+
+      /* Post meta */
+      .post-likes {
+        color: var(--ig-text);
+        font-size: 14px;
+        font-weight: 600;
+        padding: 2px 14px 6px;
+      }
+      .post-caption {
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 0 14px 6px;
+      }
+      .post-caption .post-user-tag {
+        color: var(--ig-text);
+        font-weight: 600;
+        margin-right: 4px;
+      }
+      .post-caption .post-hashtag { color: var(--ig-link); cursor: pointer; }
+      .post-caption .post-hashtag:hover { text-decoration: underline; }
+      .post-comments {
+        color: var(--ig-muted);
+        cursor: pointer;
+        display: block;
+        font-size: 14px;
+        padding: 0 14px 6px;
+      }
+      .post-comments:hover { color: var(--ig-text); }
+      .post-time {
+        color: var(--ig-muted);
+        cursor: pointer;
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.2px;
+        padding: 2px 14px 12px;
+        text-transform: uppercase;
+      }
+      .post-add-comment {
+        align-items: center;
+        border-top: 1px solid var(--ig-border);
+        display: flex;
+        gap: 10px;
+        padding: 10px 14px;
+      }
+      .comment-emoji { font-size: 18px; cursor: pointer; }
+      .comment-input {
+        border: none;
+        color: var(--ig-text);
+        flex: 1;
+        font-size: 14px;
+        outline: none;
+        background: transparent;
+      }
+      .comment-input::placeholder { color: var(--ig-muted); }
+      .post-btn {
+        background: transparent;
+        border: none;
+        color: var(--ig-blue);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 120ms;
+      }
+
+      /* ──────────────────────────────────────────
+         Right sidebar
+      ────────────────────────────────────────── */
+      .sidebar {
+        align-self: flex-start;
+        flex: 0 0 293px;
+        padding-top: 8px;
+        position: sticky;
+        top: 80px;
+      }
+
+      .sidebar-profile {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        margin-bottom: 22px;
+        padding-bottom: 20px;
+      }
+      .sidebar-avatar {
+        align-items: center;
+        background: var(--ig-story);
+        border-radius: 50%;
+        display: flex;
+        flex-shrink: 0;
+        font-size: 24px;
+        height: 56px;
+        justify-content: center;
+        padding: 2.5px;
+        width: 56px;
+      }
+      .sidebar-avatar-inner {
+        align-items: center;
+        background: var(--ig-card);
+        border-radius: 50%;
+        display: flex;
+        font-size: 24px;
+        height: 100%;
+        justify-content: center;
+        width: 100%;
+      }
+      .sidebar-user-info { flex: 1; min-width: 0; }
+      .sidebar-username {
+        color: var(--ig-text);
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sidebar-name {
+        color: var(--ig-muted);
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sidebar-switch {
+        color: var(--ig-blue);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .sidebar-switch:hover { color: var(--ig-text); }
+
+      .sidebar-section-title {
+        color: var(--ig-muted);
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 14px;
+      }
+      .suggested-item {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .suggested-avatar {
+        align-items: center;
+        border-radius: 50%;
+        display: flex;
+        flex-shrink: 0;
+        font-size: 18px;
+        height: 40px;
+        justify-content: center;
+        overflow: hidden;
+        width: 40px;
+      }
+      .suggested-info { flex: 1; min-width: 0; }
+      .suggested-username {
+        color: var(--ig-text);
+        cursor: pointer;
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .suggested-username:hover { text-decoration: underline; }
+      .suggested-reason {
+        color: var(--ig-muted);
+        font-size: 12px;
+      }
+      .follow-btn {
+        background: transparent;
+        border: none;
+        color: var(--ig-blue);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .follow-btn:hover { color: var(--ig-text); }
+
+      .sidebar-footer {
+        color: var(--ig-muted);
+        font-size: 11px;
+        line-height: 1.8;
+        margin-top: 20px;
+      }
+      .sidebar-footer a { color: var(--ig-muted); text-decoration: none; }
+      .sidebar-footer a:hover { text-decoration: underline; }
+      .sidebar-footer-links { display: flex; flex-wrap: wrap; gap: 0 6px; margin-bottom: 6px; }
+
+      /* ──────────────────────────────────────────
+         Responsive
+      ────────────────────────────────────────── */
+      @media (max-width: 900px) {
+        .sidebar { display: none; }
+        .page-layout { justify-content: center; }
+      }
+      @media (max-width: 560px) {
+        .topbar-search-wrap { display: none; }
+        .demo-links { display: none; }
+        .page-layout { padding: 16px 0 60px; }
+        .feed-column { flex: 0 0 100%; }
+        .post-card { border-left: 0; border-right: 0; border-radius: 0; margin-bottom: 8px; }
+        .stories-row { border-left: 0; border-right: 0; border-radius: 0; }
+        .chips { padding: 0 14px; overflow-x: auto; flex-wrap: nowrap; }
+      }
+    </style>
+  </head>
+
+  <!--
+    data-showcase-root: marks the area the install script is allowed to scan.
+    archetype="instagram" in init() configures item-level selectors automatically.
+  -->
+  <body data-showcase-root>
+
+    <!-- ── Topbar ──────────────────────────────── -->
+    <header class="topbar" data-showcase-section="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#" data-showcase-logo>Instagram</a>
+
+        <div class="topbar-search-wrap" data-showcase-search>
+          <input class="topbar-search" type="search" placeholder="Search" aria-label="Search Instagram" />
+          <span class="search-icon" aria-hidden="true">🔍</span>
+        </div>
+
+        <div class="topbar-spacer"></div>
+
+        <div class="topbar-icons">
+          <a class="topbar-icon" href="#" aria-label="Home">🏠</a>
+          <a class="topbar-icon" href="#" aria-label="Reels">🎬</a>
+          <a class="topbar-icon" href="#" aria-label="Explore">🔭</a>
+          <a class="topbar-icon" href="#" aria-label="Messages">✉️</a>
+          <a class="topbar-icon" href="#" aria-label="Notifications" style="position:relative">
+            ❤️
+            <span class="notif-dot"></span>
+          </a>
+          <a class="topbar-icon" href="#" aria-label="New post">➕</a>
+          <a class="topbar-icon" href="#" aria-label="Profile">
+            <span class="avatar-sm" style="background:linear-gradient(135deg,#fce7f3,#e9d5ff)">👤</span>
+          </a>
+        </div>
+
+        <div class="demo-links">
+          Also: <a href="./index.html">YouTube</a>
+          <span class="sep">·</span>
+          <a href="./amazon.html">Amazon →</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-layout">
+
+      <!-- ── Feed column ─────────────────────── -->
+      <div class="feed-column">
+
+        <!-- ── Stories row ─────────────────────── -->
+        <div class="stories-row" data-showcase-section="stories">
+
+          <!-- Your Story -->
+          <div class="story-item story-add">
+            <div class="story-ring">
+              <div class="story-ring-inner">➕</div>
+            </div>
+            <span class="story-label">Your story</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring"><div class="story-ring-inner">🌿</div></div>
+            <span class="story-label">natgeo</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring"><div class="story-ring-inner">🚀</div></div>
+            <span class="story-label">nasa</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring"><div class="story-ring-inner">🍜</div></div>
+            <span class="story-label">chefsteps</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring"><div class="story-ring-inner">🎨</div></div>
+            <span class="story-label">design_drops</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring"><div class="story-ring-inner">🔭</div></div>
+            <span class="story-label">physicsgirl</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring seen"><div class="story-ring-inner seen">🌅</div></div>
+            <span class="story-label">wanderlust</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring seen"><div class="story-ring-inner seen">📸</div></div>
+            <span class="story-label">streetshots</span>
+          </div>
+
+          <div class="story-item">
+            <div class="story-ring seen"><div class="story-ring-inner seen">🏄</div></div>
+            <span class="story-label">surfinglife</span>
+          </div>
+
+        </div><!-- /.stories-row -->
+
+        <!-- ── Tab chips ───────────────────────── -->
+        <nav class="chips" data-showcase-section="chips">
+          <button class="chip active" data-showcase-chip>For You</button>
+          <button class="chip" data-showcase-chip>Following</button>
+          <button class="chip" data-showcase-chip>Reels</button>
+          <button class="chip" data-showcase-chip>Explore</button>
+        </nav>
+
+        <!-- ── Post feed ────────────────────────── -->
+        <!--
+          data-showcase-section="post-feed" is the stable patch target.
+          The archetype: "instagram" preset scans [data-showcase-item-card] children.
+          Pass videoGrid: "[data-showcase-section='post-feed']" as a selector override.
+        -->
+        <section data-showcase-section="post-feed">
+
+          <!-- ── Post 1: natgeo ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="nature wildlife photography animals conservation outdoor"
+            data-showcase-views="147820"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="2h ago"
+            data-showcase-category="nature">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🌿</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>natgeo</a>
+                <span class="post-location">Serengeti, Tanzania</span>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap nature">🦁</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>147,820 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">natgeo</a>
+              A lion pride resting at golden hour in the Serengeti. These majestic animals continue to face habitat pressure—follow our conservation effort link in bio.
+              <a class="post-hashtag" href="#">#wildlife</a>
+              <a class="post-hashtag" href="#">#conservation</a>
+              <a class="post-hashtag" href="#">#natgeo</a>
+            </p>
+            <span class="post-comments">View all 2,341 comments</span>
+            <span class="post-time">2 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 2: NASA ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="space science astronomy nasa universe nebula cosmos"
+            data-showcase-views="892410"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="4h ago"
+            data-showcase-category="space">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🚀</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>nasa</a>
+                <span class="post-location">Hubble Space Telescope</span>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap space">🌌</div>
+            <div class="post-actions">
+              <button class="action-btn liked" aria-label="Unlike">❤️</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>892,410 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">nasa</a>
+              The Crab Nebula—remnant of a supernova explosion observed by astronomers in 1054 AD. At its center lies a neutron star spinning 30 times per second. ✨
+              <a class="post-hashtag" href="#">#space</a>
+              <a class="post-hashtag" href="#">#hubble</a>
+              <a class="post-hashtag" href="#">#nebula</a>
+            </p>
+            <span class="post-comments">View all 14,203 comments</span>
+            <span class="post-time">4 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 3: chefsteps ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="food cooking recipe kitchen pasta dinner italian gourmet"
+            data-showcase-views="34210"
+            data-showcase-duration="Carousel"
+            data-showcase-posted-ago="6h ago"
+            data-showcase-category="food">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🍜</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>chefsteps</a>
+                <span class="post-location">Seattle, WA</span>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap food">🍝</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>34,210 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">chefsteps</a>
+              Hand-rolled cacio e pepe — the Roman classic that only needs 3 ingredients but demands your full attention. Full recipe in bio 🍴
+              <a class="post-hashtag" href="#">#pasta</a>
+              <a class="post-hashtag" href="#">#cooking</a>
+              <a class="post-hashtag" href="#">#foodphotography</a>
+            </p>
+            <span class="post-comments">View all 891 comments</span>
+            <span class="post-time">6 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 4: design_drops ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="design art typography poster graphic branding creative visual"
+            data-showcase-views="18490"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="8h ago"
+            data-showcase-category="art">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🎨</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>design_drops</a>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap art">✏️</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>18,490 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">design_drops</a>
+              Brutalist grid meets Swiss typography — this month's favorite poster drops from studios around the globe. Tag us in your work 👇
+              <a class="post-hashtag" href="#">#graphicdesign</a>
+              <a class="post-hashtag" href="#">#typography</a>
+              <a class="post-hashtag" href="#">#posterdesign</a>
+            </p>
+            <span class="post-comments">View all 445 comments</span>
+            <span class="post-time">8 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 5: physicsgirl ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="science physics education stem learning experiment curious"
+            data-showcase-views="62300"
+            data-showcase-duration="Video"
+            data-showcase-posted-ago="10h ago"
+            data-showcase-category="tech">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🔭</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>physicsgirl</a>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap tech">⚛️</div>
+            <div class="post-actions">
+              <button class="action-btn liked" aria-label="Unlike">❤️</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>62,300 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">physicsgirl</a>
+              Why does ice float? Hydrogen bonding in H₂O is one of the strangest and most life-enabling quirks in chemistry. A short reel explaining the science 🧊
+              <a class="post-hashtag" href="#">#physics</a>
+              <a class="post-hashtag" href="#">#science</a>
+              <a class="post-hashtag" href="#">#learnontiktok</a>
+            </p>
+            <span class="post-comments">View all 1,872 comments</span>
+            <span class="post-time">10 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 6: mindful.morning ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="wellness mindfulness lifestyle meditation morning routine selfcare"
+            data-showcase-views="9870"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="12h ago"
+            data-showcase-category="fashion">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🌅</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>mindful.morning</a>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap fashion">☕</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>9,870 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">mindful.morning</a>
+              Slow mornings are a form of resistance. Linen, light, oat milk latte — 5 minutes of stillness before the day begins. You deserve it 🌿
+              <a class="post-hashtag" href="#">#mindfulness</a>
+              <a class="post-hashtag" href="#">#slowliving</a>
+              <a class="post-hashtag" href="#">#morningroutine</a>
+            </p>
+            <span class="post-comments">View all 312 comments</span>
+            <span class="post-time">12 hours ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 7: streetphotography ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="photography street urban candid city documentary blackandwhite"
+            data-showcase-views="27650"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="1d ago"
+            data-showcase-category="art">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">📸</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>streetphotography</a>
+                <span class="post-location">Tokyo, Japan</span>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap arch portrait">🌃</div>
+            <div class="post-actions">
+              <button class="action-btn liked" aria-label="Unlike">❤️</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>27,650 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">streetphotography</a>
+              Shinjuku at 2am — rain on neon, salarymen and wanderers sharing the same sidewalk. The city never really sleeps, it just changes its costume.
+              <a class="post-hashtag" href="#">#streetphotography</a>
+              <a class="post-hashtag" href="#">#tokyo</a>
+              <a class="post-hashtag" href="#">#urbanlife</a>
+            </p>
+            <span class="post-comments">View all 734 comments</span>
+            <span class="post-time">1 day ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 8: surfinglife ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="surfing ocean sport beach waves adventure outdoor lifestyle"
+            data-showcase-views="41230"
+            data-showcase-duration="Reel"
+            data-showcase-posted-ago="1d ago"
+            data-showcase-category="sport">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🏄</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>surfinglife</a>
+                <span class="post-location">Pipeline, Hawaii</span>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap sport landscape">🌊</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>41,230 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">surfinglife</a>
+              Pipeline barrel — you don't catch this wave, the wave catches you. One of the most powerful tubes on the planet is calling 🤙
+              <a class="post-hashtag" href="#">#surfing</a>
+              <a class="post-hashtag" href="#">#pipeline</a>
+              <a class="post-hashtag" href="#">#ocean</a>
+            </p>
+            <span class="post-comments">View all 1,109 comments</span>
+            <span class="post-time">1 day ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 9: architecturaldaily ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="architecture design building structure interior modern minimal"
+            data-showcase-views="22180"
+            data-showcase-duration="Carousel"
+            data-showcase-posted-ago="2d ago"
+            data-showcase-category="arch">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🏛️</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>architecturaldaily</a>
+                <span class="post-location">Oslo, Norway</span>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap arch">🏗️</div>
+            <div class="post-actions">
+              <button class="action-btn liked" aria-label="Unlike">❤️</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>22,180 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">architecturaldaily</a>
+              The Oslo Opera House by Snøhetta — where the building and the landscape become one. That sloped white marble roof you can literally walk on is inspired by Norwegian fjords. 🇳🇴
+              <a class="post-hashtag" href="#">#architecture</a>
+              <a class="post-hashtag" href="#">#oslo</a>
+              <a class="post-hashtag" href="#">#modernarchitecture</a>
+            </p>
+            <span class="post-comments">View all 603 comments</span>
+            <span class="post-time">2 days ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 10: plantbasedcooking ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="food vegan plantbased recipe healthy bowl meal nutrition"
+            data-showcase-views="15670"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="2d ago"
+            data-showcase-category="food">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🥗</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>plantbasedcooking</a>
+              </div>
+              <button class="post-follow">Follow</button>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap food">🥑</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>15,670 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">plantbasedcooking</a>
+              Mango-avocado buddha bowl with pickled red onion, crispy chickpeas, and tahini dressing. Proof that eating plants can be endlessly satisfying 🌱
+              <a class="post-hashtag" href="#">#vegan</a>
+              <a class="post-hashtag" href="#">#plantbased</a>
+              <a class="post-hashtag" href="#">#healthyeating</a>
+            </p>
+            <span class="post-comments">View all 287 comments</span>
+            <span class="post-time">2 days ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 11: wanderlust_diaries ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="travel adventure explore landscape golden hour italy europe"
+            data-showcase-views="53910"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="3d ago"
+            data-showcase-category="travel">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">🗺️</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>wanderlust_diaries</a>
+                <span class="post-location">Cinque Terre, Italy</span>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap travel landscape">🌄</div>
+            <div class="post-actions">
+              <button class="action-btn liked" aria-label="Unlike">❤️</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>53,910 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">wanderlust_diaries</a>
+              Golden hour in Rome — some moments you just can't plan ✨ Chasing light through cobblestone alleys is the only itinerary I follow.
+              <a class="post-hashtag" href="#">#travel</a>
+              <a class="post-hashtag" href="#">#italy</a>
+              <a class="post-hashtag" href="#">#goldenhour</a>
+            </p>
+            <span class="post-comments">View all 2,108 comments</span>
+            <span class="post-time">3 days ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+          <!-- ── Post 12: techcrunch ── -->
+          <article class="post-card"
+            data-showcase-item-card
+            data-showcase-tags="tech news startup ai ml funding product launch innovation"
+            data-showcase-views="78500"
+            data-showcase-duration="Photo"
+            data-showcase-posted-ago="3d ago"
+            data-showcase-category="tech">
+            <div class="post-header">
+              <div class="post-avatar"><div class="post-avatar-inner">💻</div></div>
+              <div class="post-header-info">
+                <a class="post-username" href="#" data-showcase-item-subtitle>techcrunch</a>
+              </div>
+              <button class="post-more">···</button>
+            </div>
+            <div class="post-image-wrap tech">🤖</div>
+            <div class="post-actions">
+              <button class="action-btn" aria-label="Like">🤍</button>
+              <button class="action-btn" aria-label="Comment">💬</button>
+              <button class="action-btn" aria-label="Share">📤</button>
+              <div class="action-spacer"></div>
+              <button class="action-btn" aria-label="Save">🔖</button>
+            </div>
+            <div class="post-likes" data-showcase-item-meta>78,500 likes</div>
+            <p class="post-caption" data-showcase-item-title>
+              <a class="post-user-tag" href="#">techcrunch</a>
+              AI is reshaping every layer of the stack — from chip design to UI. The 10 startups redefining how we build software in 2026. Full story at the link in bio 🔗
+              <a class="post-hashtag" href="#">#ai</a>
+              <a class="post-hashtag" href="#">#startup</a>
+              <a class="post-hashtag" href="#">#tech</a>
+            </p>
+            <span class="post-comments">View all 3,422 comments</span>
+            <span class="post-time">3 days ago</span>
+            <div class="post-add-comment">
+              <span class="comment-emoji">😊</span>
+              <input class="comment-input" type="text" placeholder="Add a comment…" />
+              <button class="post-btn">Post</button>
+            </div>
+          </article>
+
+        </section><!-- /.post-feed -->
+      </div><!-- /.feed-column -->
+
+      <!-- ── Right sidebar ───────────────────── -->
+      <aside class="sidebar" data-showcase-section="sidebar">
+
+        <div class="sidebar-profile">
+          <div class="sidebar-avatar"><div class="sidebar-avatar-inner">👤</div></div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-username">you</span>
+            <span class="sidebar-name">Your Name</span>
+          </div>
+          <span class="sidebar-switch">Switch</span>
+        </div>
+
+        <div class="sidebar-section-title">Suggested for you</div>
+
+        <div class="suggested-item">
+          <div class="suggested-avatar" style="background:linear-gradient(135deg,#bbf7d0,#6ee7b7)">🌿</div>
+          <div class="suggested-info">
+            <a class="suggested-username" href="#">natgeo</a>
+            <span class="suggested-reason">New to Instagram</span>
+          </div>
+          <button class="follow-btn">Follow</button>
+        </div>
+
+        <div class="suggested-item">
+          <div class="suggested-avatar" style="background:linear-gradient(135deg,#ddd6fe,#c4b5fd)">🎨</div>
+          <div class="suggested-info">
+            <a class="suggested-username" href="#">design_drops</a>
+            <span class="suggested-reason">Follows physicsgirl</span>
+          </div>
+          <button class="follow-btn">Follow</button>
+        </div>
+
+        <div class="suggested-item">
+          <div class="suggested-avatar" style="background:linear-gradient(135deg,#bae6fd,#93c5fd)">🌊</div>
+          <div class="suggested-info">
+            <a class="suggested-username" href="#">surfinglife</a>
+            <span class="suggested-reason">Followed by natgeo</span>
+          </div>
+          <button class="follow-btn">Follow</button>
+        </div>
+
+        <div class="suggested-item">
+          <div class="suggested-avatar" style="background:linear-gradient(135deg,#fef08a,#fde68a)">🥗</div>
+          <div class="suggested-info">
+            <a class="suggested-username" href="#">plantbasedcooking</a>
+            <span class="suggested-reason">Follows chefsteps</span>
+          </div>
+          <button class="follow-btn">Follow</button>
+        </div>
+
+        <div class="suggested-item">
+          <div class="suggested-avatar" style="background:linear-gradient(135deg,#f1f5f9,#cbd5e1)">🏛️</div>
+          <div class="suggested-info">
+            <a class="suggested-username" href="#">architecturaldaily</a>
+            <span class="suggested-reason">Suggested for you</span>
+          </div>
+          <button class="follow-btn">Follow</button>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-footer-links">
+            <a href="#">About</a><a href="#">Help</a><a href="#">Press</a>
+            <a href="#">API</a><a href="#">Jobs</a><a href="#">Privacy</a>
+            <a href="#">Terms</a><a href="#">Locations</a><a href="#">Language</a>
+          </div>
+          <div>© 2026 Instagram from Meta</div>
+        </div>
+
+      </aside>
+
+    </div><!-- /.page-layout -->
+
+    <!--
+      Browser bundle produced by packages/install/scripts/build.mjs.
+      Run `pnpm build` in packages/install to generate showcase-install.iife.js.
+    -->
+    <script src="./showcase-install.iife.js"></script>
+    <script>
+      // This is the exact shape a customer Instagram-like site would pass to our install SDK.
+      // archetype: "instagram" auto-configures item-level selectors via ARCHETYPE_PRESETS.instagram:
+      //   itemCard:     [data-showcase-item-card]
+      //   itemTitle:    [data-showcase-item-title]   (post caption)
+      //   itemSubtitle: [data-showcase-item-subtitle] (maps to channel.name = username)
+      //   itemImage:    [data-showcase-item-image]
+      //   itemMeta:     [data-showcase-item-meta]    (likes count)
+      window.showcaseInstallConfig = {
+        siteId: "instagram-demo",
+        apiBaseUrl: window.location.origin,
+        debug: true,
+        archetype: "instagram",
+        selectors: {
+          // Override only what differs from the youtube defaults.
+          // The post feed uses "post-feed" instead of the default "video-grid" id.
+          videoGrid: "[data-showcase-section='post-feed']",
+        },
+      };
+
+      window.ShowcasePersonalize.init(window.showcaseInstallConfig);
+
+      console.info("[Showcase demo] scanned Instagram elements", {
+        sections: document.querySelectorAll("[data-showcase-section]").length,
+        cards:    document.querySelectorAll("[data-showcase-item-card]").length,
+        chips:    document.querySelectorAll("[data-showcase-chip]").length,
+      });
+    </script>
+  </body>
+</html>

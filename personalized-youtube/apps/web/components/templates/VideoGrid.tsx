@@ -7,6 +7,8 @@ import { resolveCardPreset, resolveLayoutPreset } from '@showcase/sdk/core';
 import { MediaCollection, useSourceRules } from '@showcase/sdk';
 import { VideoCard } from './VideoCard';
 import { applyFeedFilter } from './_filter';
+import { feedMoreApiPath } from '@/lib/feed-interaction';
+import { getSiteBrand } from '@/lib/site-brand';
 import { usePageStore } from '@/lib/store';
 
 // provideContent for the SDK rule engine: one curated term (a query OR a
@@ -45,12 +47,19 @@ function applyNavFilter(
       return videos.filter(
         (v) => parseDurationSeconds(v.duration) <= 60 || v.tags.includes('shorts'),
       );
+    case 'Reels':
+      return videos.filter(
+        (v) => v.tags.includes('video') || (v.duration !== 'Post' && v.duration.endsWith('s')),
+      );
     case 'Subscriptions':
       if (!selectedChannel) return videos;
       return videos.filter((v) => v.channel.name === selectedChannel);
     case 'You':
     case 'History':
+    case 'Profile':
       return videos.filter((v) => v.watched === true);
+    case 'Lists':
+      return videos.filter((v) => v.tags.includes('list') || v.watched === true);
     default:
       return videos;
   }
@@ -90,7 +99,8 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
         if (!e?.isIntersecting || loadingMore) return;
         setLoadingMore(true);
         const tok = ytContinuation;
-        fetch(`/api/yt/more?token=${encodeURIComponent(tok)}`)
+        const moreBase = feedMoreApiPath(getSiteBrand(config.slug));
+        fetch(`${moreBase}?token=${encodeURIComponent(tok)}`)
           .then((r) => (r.ok ? r.json() : null))
           .then((data: { ok?: boolean; videos?: Video[]; continuation?: string | null } | null) => {
             if (!data || !data.ok || !Array.isArray(data.videos) || data.videos.length === 0) {
@@ -120,6 +130,7 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
   }, [ytContinuation, loadingMore, sectionId, sectionVideos, dispatch, setYtContinuation]);
 
   if (section.type !== 'VideoGrid') return null;
+  const brand = getSiteBrand(config.slug);
   const { columns, density, videos, layout } = section.props;
   // When the curated-feed path is active and we have results, those replace
   // the static `videos` prop. Existing nav + feed filters still apply on top.
@@ -285,6 +296,14 @@ export function VideoGrid({ section, config }: { section: Section; config: PageC
       </>
     );
   }
+
+  const gridPad =
+    brand === 'instagram'
+      ? 'gap-0.5 px-0 py-0'
+      : brand === 'amazon'
+        ? `${d.gap} px-4 sm:px-6 ${d.padY}`
+        : `${d.gap} px-6 ${d.padY}`;
+  const igCols = 'grid-cols-3 gap-0.5';
 
   return (
     <>

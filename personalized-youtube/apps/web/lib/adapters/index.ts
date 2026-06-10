@@ -1,6 +1,14 @@
 import type { Video, Short } from '@showcase/shared';
 import { getFeed as getYoutubeFeed } from './youtube';
+import { amazonAdapter } from './amazon';
+import { instagramAdapter } from './instagram';
+import { slackAdapter } from './slack';
+import type { FeedSource } from './feed-source';
 import type { YtChip } from '../innertube/client';
+import type { SlackBootstrapMeta } from '../slack/client';
+
+export type { FeedSource } from './feed-source';
+export { resolveFeedSource, isLiveFeedSource } from './feed-source';
 
 export interface FeedAdapter {
   getFeed(): Promise<{ videos: Video[]; categories: string[]; shorts?: Short[]; chips?: YtChip[]; continuation?: string | null }>;

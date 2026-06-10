@@ -16,7 +16,20 @@ export interface YtChipEntry {
   params: string | null;
 }
 
-export type NavKey = 'Home' | 'Shorts' | 'Subscriptions' | 'You' | 'Library' | 'History';
+export type NavKey =
+  | 'Home'
+  | 'Shorts'
+  | 'Subscriptions'
+  | 'You'
+  | 'Library'
+  | 'History'
+  | 'Deals'
+  | 'Lists'
+  | 'Account'
+  | 'Search'
+  | 'Reels'
+  | 'Shop'
+  | 'Profile';
 
 // Pre-search snapshot of the home page. We capture the whole config (not just
 // the videos) because search mutates several sections at once — grid videos,
@@ -27,11 +40,15 @@ export interface HomeSnapshot {
   ytContinuation: string | null;
 }
 
+import type { SlackBootstrapMeta } from '@/lib/slack/client';
+
 interface PageStoreValue {
   config: PageConfig;
   pageSlug: string;
   dispatch: (patch: Patch, options?: { persist?: boolean; rationale?: string; trace?: boolean }) => void;
   replace: (config: PageConfig) => void;
+  magicPointerActive: boolean;
+  setMagicPointerActive: (active: boolean) => void;
   // YouTube-source extras: continuation token for infinite scroll, mutable
   // so the grid can update it after each /api/yt/more page lands.
   ytContinuation: string | null;
@@ -41,7 +58,13 @@ interface PageStoreValue {
   // Currently-watched video for the in-app embed overlay; null when closed.
   watchingId: string | null;
   watchingTitle: string | null;
-  setWatching: (id: string | null, title?: string | null) => void;
+  watchingThumbnail: string | null;
+  watchingPrice: string | null;
+  setWatching: (
+    id: string | null,
+    title?: string | null,
+    meta?: { thumbnail?: string; price?: string },
+  ) => void;
   // Sidebar navigation: which top-level nav item is active and (when in
   // Subscriptions mode) which channel is selected. Local-only state, doesn't
   // round-trip through the patch system since it doesn't change PageConfig.
@@ -98,6 +121,8 @@ function YtStateProvider({
   const [ytContinuation, setYtContinuation] = useState<string | null>(initialYtContinuation);
   const [watchingId, setWatchingId] = useState<string | null>(initialWatchingId);
   const [watchingTitle, setWatchingTitle] = useState<string | null>(null);
+  const [watchingThumbnail, setWatchingThumbnail] = useState<string | null>(null);
+  const [watchingPrice, setWatchingPrice] = useState<string | null>(null);
   const [activeNav, setActiveNavState] = useState<NavKey>('Home');
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -138,6 +163,8 @@ function YtStateProvider({
         ytChips: initialYtChips,
         watchingId,
         watchingTitle,
+        watchingThumbnail,
+        watchingPrice,
         setWatching,
         activeNav,
         selectedChannel,

@@ -37,6 +37,9 @@ export const FilterStateSchema = z.object({
   excludeTitleMatches: z.array(z.string()).default([]),
   hideLive: z.boolean().default(false),
   onlyLive: z.boolean().default(false),
+  // Amazon / retail: prices are stored in Video.duration as "$12.99".
+  minPriceUsd: z.number().nonnegative().optional(),
+  maxPriceUsd: z.number().nonnegative().optional(),
 });
 export type FilterState = z.infer<typeof FilterStateSchema>;
 
